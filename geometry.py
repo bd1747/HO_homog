@@ -98,14 +98,6 @@ def geometry_kernel(script, choix=1): #! Obsolète. Travail directement que avec
     cmd_str = 'SetFactory("%s");\n' % GEOMETRY_KERNELS[choix]
     script.write(cmd_str)
 
-#? Nécessaire ? 
-#TODO : Si oui, voir comment ça se comporte avec l'API
-def reset_class_count():
-    """ Permet de réinitialiser tout les compteurs des classes et le set des physical tag déjà utilisés.
-    Permet d'écrire plusieurs scripts sans avoir à recharger le module tout en gardant une numérotation cohérente."""
-
-
-
 def init_geo_tools():
     """
     The Gmsh Python API must be initialized before using any functions. 
@@ -114,11 +106,7 @@ def init_geo_tools():
     gmsh.initialize()
     gmsh.option.setNumber("General.Terminal", 1)
     
-    Point.count = 1
     Point.all_pts_in_script = []
-    Line.count = 1
-    LineLoop.count = 1
-    PlaneSurface.count = 1
     PhysicalEntity.count = 1
     PhysicalEntity.tagDejaPris = set()
     
@@ -134,19 +122,15 @@ class Point(object):
     """
 # TODO faire docstring
 
-    #count = 1  # Le compteur vaut 1 au départ, 0 ne serait pas supporter par gmsh #! Inutile, tags gérés par l'API
-    all_pts_in_script = []  #TODO : Doit être gardé ? # Utile pour imposer une certaine longueur caractéristique d'éléments en fin de script 
+    all_pts_in_script = []  #TODO : Doit être gardé ? # Utile pour imposer une certaine longueur caractéristique d'éléments en fin de script
     # https://www.toptal.com/python/python-class-attributes-an-overly-thorough-guide 
     # "We could even use this design pattern to track all existing instances of a given class, rather than just some associated data."
 
-    geo_dim = 0 # Points are geometrical entities of dimension 0 in Gmsh. # This class attribute may be useful for boolean operations. #* NEW !
-    # Info : https://www.toptal.com/python/python-class-attributes-an-overly-thorough-guide
-
     def __init__(self, coord=np.array((0., 0.)), mesh_size=0):
         """Constructeur de notre classe. Coordonnées importéées sous forme d'un np.array"""
-        self.dim = coord.shape[0]
+        dim = coord.shape[0]
         self.coord = coord
-        if self.dim == 2:
+        if dim == 2:
            self.coord = np.append(self.coord, [0.])
         #? Choix : on utilise toujours des coordonnés en 3D. Les points définis en 2D sont mis dans le plan z=0. 
         self.tag = None
@@ -263,7 +247,6 @@ class Line(object):
     - son point d'arrivée
     """
     #TODO : Créer une méthode pour inverser le sens de la ligne ?
-    geo_dim = 1 # Lines are geometrical entities of dimension 1 in Gmsh. # This class attribute may be useful for boolean operations. #* NEW !
 
     def __init__(self, start_pt, end_pt):
         self.def_pts = [start_pt, end_pt]  #? Préférer cette écriture sous forme de List qui peut se généraliser aux arc, par exemple ?
@@ -329,8 +312,6 @@ class Arc(Line):
     - son rayon
     - son nom
     """
-
-    geo_dim = 1 # Lines are geometrical entities of dimension 1 in Gmsh. # This class attribute may be useful for boolean operations. #* NEW !
 
     def __init__(self, start_pt, center_pt, end_pt):
         """ Crée un arc de cercle, après avoir comparé les distances entre le centre et les deux extrémités indiquées.
@@ -566,7 +547,6 @@ class PlaneSurface(object):
     Calque de la fonction Plane Surface native de gmsh
     Créée à partir d'une LineLoop définissant le contour extérieur et, si nécessaire, de line loops définissant des trous internes
     """
-    geo_dim = 2 # Plane surfaces are geometrical entities of dimension 2 in Gmsh. # This class attribute may be useful for boolean operations. #* NEW !
 
     def __init__(self, ext_contour, holes=[]):
         self.ext_contour = ext_contour
