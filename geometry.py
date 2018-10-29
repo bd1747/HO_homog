@@ -69,17 +69,18 @@ def bissect(v1, v2):
         Seulement en 2D pour l'instant.
         """
 
-    uv = map(unit_vect, [v1, v2])
+    uv = list(map(unit_vect, [v1, v2]))
     e3 = np.array((0., 0., 1.))
 
-    if all(np.shape(x) == (2,) for x in uv):
+    # if all(np.shape(x) == (2,) for x in uv): #* travail directement avec vecteurs de dimension 3.
+    #TODO : voir si d'autres répercussions dans le code
         # if uv[0].shape == (2,) and uv[1].shape == (2,) :
         #        vu=[np.hstack((v,np.zeros((1,)))) for v in vu]
         # Complèter les vecteurs 2D par une troisième coordonnée nulle n'est pas nécessaire.
         # Fait automatiquement avec numpy.cross
-        biss = np.cross(uv[1] - uv[0], e3)
-        biss = np.delete(biss, 2, 0)  # retour à un vecteur 2D
-        biss = unit_vect(biss)
+    biss = np.cross(uv[1] - uv[0], e3)
+    #biss = np.delete(biss, 2, 0)  # retour à un vecteur 2D. Maintenant on travaille en dimension 3
+    biss = unit_vect(biss)
     return biss
 
 #TODO : doctring à faire
@@ -463,7 +464,8 @@ class LineLoop(object):
     def plot(self, color="black"):
         """Représenter la polyligne dans un plot matplotlib. 
         Disponible seulement en 2D pour l'instant."""
-
+        if not self.sides:
+            self.vertices_2_sides()
         for elmt in self.sides:
             elmt.plot(color)
 
@@ -505,21 +507,28 @@ class LineLoop(object):
         """Opération d'arrondi des angles appliquée à tous les sommets du polygone.
         Les rayons sont indiqués de manière explicite, sous forme d'une liste. liste de longueur 1 pour un rayon uniforme.
         """
-        radii = [radii[i % len(radii)] for i in range(len(self.vertices))]
+        if  isinstance(radii, list):
+            radii = [radii[i % len(radii)] for i in range(len(self.vertices))]
+        else:
+            radii = [radii]*(len(self.vertices))
         result_1D = list()
         for i in range(len(self.vertices)):
             result_1D.append(round_corner(self.vertices[i - 1], self.vertices[i - 2],
-                                          self.vertices[i], radii[i - 1], True, False))
+                                          self.vertices[i], radii[i - 1], False, False))
         self.round_corner_2_sides(result_1D)
 
-    def round_corner_incircle(self, R_list):
+
+    def round_corner_incircle(self, radii):
         """ Opération d'arrondi des angles appliquée à tous les sommets du polygone.
         La méthode du cercle inscrit est utilisée.
+        radii = liste de rayons à utiliser ou valeur (float) si rayon uniforme.
         Une liste de rayons de cercles inscrits peut être indiquée, liste de longueur 1 pour un rayon uniforme.
         Dans le cas où la longueur de la liste de rayon est ni 1 ni égale au nombre de sommets, un modulo est utilisé.
         """
-
-        effect_R = [R_list[i % len(R_list)] for i in range(len(self.vertices))]
+        if  isinstance(radii, list):
+            effect_R = [radii[i % len(radii)] for i in range(len(self.vertices))]
+        else:
+            effect_R = [radii]*(len(self.vertices))
         if self.info_offset:
             effect_R = map(operator.sub, effect_R, self.offset_dpcmt)
         result_1D = list()
@@ -528,14 +537,15 @@ class LineLoop(object):
                                           self.vertices[i], effect_R[i - 1], True, False))
         self.round_corner_2_sides(result_1D)
 
-    def round_corner_2_sides(self, result_list):
+
+    def round_corner_2_sides(self, result_list): #? Est-ce vraiment sa place dans l'architecture du code ?
         """ Permet de traiter les résultats d'une opération round_corner appliquée en série sur un ensemble de sommets.
         Une polyligne composée de segments et d'arc est composée puis stockée dans l'attribut sides.
         """
+
         for i, rslt in enumerate(result_list):
             new_line = rslt[0]
-            new_line.def_pts[0] = result_list[i - 1][1].def_pts[
-                1]  # Correction pour que le segment commence à la fin de l'arc précédent.
+            new_line.def_pts[0] = result_list[i - 1][1].def_pts[-1]  # Correction pour que le segment commence à la fin de l'arc précédent.
             new_arc = rslt[1]
             self.sides.extend([new_line, new_arc])
 
@@ -543,8 +553,7 @@ class LineLoop(object):
         """ Méthode permettant de générer automatiquement les segments reliant les sommets, stockés dans l'argument sides.
         Si une opération round_corner est utilisé, cette opération est inutile."""
         if self.sides:
-            print
-            "Warning : attribut sides d'une LineLoop écrasé lors de l'utilisation de la méthode vertices_2_sides."
+            print("Warning : attribut sides d'une LineLoop écrasé lors de l'utilisation de la méthode vertices_2_sides.")
         self.sides = [Line(self.vertices[i - 1], self.vertices[i]) for i in range(len(self.vertices))]
 
 
@@ -592,11 +601,11 @@ def translat_ll(inp_ll, vect):
 class PlaneSurface(object):
     """
     Calque de la fonction Plane Surface native de gmsh
-    Créée à partir d'une LineLoop définissant le contour extérieur et, si nécessaire, de line loop définissant des trous internes
+    Créée à partir d'une LineLoop définissant le contour extérieur et, si nécessaire, de line loops définissant des trous internes
     """
     geo_dim = 2 # Plane surfaces are geometrical entities of dimension 2 in Gmsh. # This class attribute may be useful for boolean operations. #* NEW !
 
-    def __init__(self, ext_contour, holes=None, tag=-1):
+    def __init__(self, ext_contour, holes=[], tag=-1):
         self.ext_contour = ext_contour
         self.holes = holes
         self.in_model = False
@@ -628,7 +637,7 @@ class PlaneSurface(object):
         if self.in_model:
             return self.tag #Le tag est là juste pour info
         all_loops = [self.ext_contour] if not self.holes else [self.ext_contour]+self.holes
-        for ll in self.all_loops:
+        for ll in all_loops:
             if not ll.in_model:
                 ll.add_gmsh()
         ipt_tag = self.tag if self.tag else -1
@@ -677,7 +686,7 @@ class PlaneSurface(object):
             output = factory.cut([(2,self.tag)], [(2,t.tag)], removeObject=True, removeTool=remove_tools) #TODO: si on généralise, c'est là qu'on peut avoir geo_dim
             #? passer directement une liste de tools en input de la fonction ?
             print("output boolean operation cut : ", output) #! Temporaire. Voir ce que renvoie une opération booléenne. Qu'est ce qu'est le 2d output ? 
-            new_tag = output[0][1]
+            new_tag = output[0][0][1]
             if new_tag != self.tag :
                 print("[Info] The boolean cut operation change the tag of the surface : surface %i becomes %i" %(self.tag, new_tag))
                 self.tag = new_tag
@@ -704,7 +713,7 @@ class PlaneSurface(object):
                 t.add_gmsh()
             output = factory.intersect([(2,self.tag)], [(2,t.tag)], removeObject=True, removeTool=remove_tools)
             print("output boolean operation cut : ", output) #! Temporaire
-            new_tag = output[0][1]
+            new_tag = output[0][0][1]
             if new_tag != self.tag :
                 print("[Info] The boolean cut operation change the tag of the surface : surface %i becomes %i" %(self.tag, new_tag))
                 self.tag = new_tag
@@ -714,9 +723,9 @@ class PlaneSurface(object):
     #! A TESTER 
     #!  #! #!
 
-
-    def delGmsh(self, script, recursive=False):
-        delGmsh(self, "Surface", script, recursive)
+#TODO : à mieux définir
+    # def delGmsh(self, script, recursive=False):
+    #     delGmsh(self, "Surface", script, recursive)
 
 
 class PhysicalEntity(object):
@@ -802,7 +811,7 @@ def remove_gmsh(geo_entity, recursive=False):
     """
     """
     #TODO : Faire docstring
-    if not geo.entity.in_model:
+    if not geo_entity.in_model:
         return False #? Renvoyer False car aucune opération n'est faite ? Autre output plus pertinent dans le cas où rien n'est fait ? Ou aucun output ?
     factory.remove([(geo_entity.geo_dim, geo_entity.tag)], recursive=recursive)
     geo_entity.in_model = False
@@ -887,7 +896,7 @@ def round_corner(inp_pt, pt_amt, pt_avl, r, junction_raduis=False, plot=False):
     v_avl = unit_vect(pt_avl.coord - inp_pt.coord)
 
     alpha = angle_between(v_amt, v_avl, orient=True)
-    v_biss = bissect2(v_amt, v_avl)
+    v_biss = bissect(v_amt, v_avl)
     if alpha < 0:  # corriger le cas des angles \in ]-pi;0[ = ]pi;2pi[]. L'arrondi est toujours dans le secteur <180°
         v_biss = -v_biss
 
@@ -901,13 +910,13 @@ def round_corner(inp_pt, pt_amt, pt_avl, r, junction_raduis=False, plot=False):
 
     pt_racc_amt = translat(inp_pt, dist_racc * v_amt)
     pt_racc_avl = translat(inp_pt, dist_racc * v_avl)
-    pt_racc_amt.name = "pt_racc_amt"
-    pt_racc_avl.name = "pt_racc_avl"
+    # pt_racc_amt.name = "pt_racc_amt"
+    # pt_racc_avl.name = "pt_racc_avl"
     pt_ctr = translat(inp_pt, dist_center * v_biss)
 
     round_arc = Arc(pt_racc_amt, pt_ctr, pt_racc_avl)
-    racc_amt = Line(pt_amt, pt_racc_amt, "Ligne de raccord amont")
-    racc_avl = Line(pt_racc_avl, pt_avl, "Ligne de raccord aval")
+    racc_amt = Line(pt_amt, pt_racc_amt)#, "Ligne de raccord amont")
+    racc_avl = Line(pt_racc_avl, pt_avl)#, "Ligne de raccord aval")
     geoList = [racc_amt, round_arc, racc_avl]
 
     if plot:
