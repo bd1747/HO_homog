@@ -142,21 +142,16 @@ class Point(object):
     geo_dim = 0 # Points are geometrical entities of dimension 0 in Gmsh. # This class attribute may be useful for boolean operations. #* NEW !
     # Info : https://www.toptal.com/python/python-class-attributes-an-overly-thorough-guide
 
-    def __init__(self, coord=np.array((0., 0.)),  mesh_size=0, tag=-1):
+    def __init__(self, coord=np.array((0., 0.)), mesh_size=0):
         """Constructeur de notre classe. Coordonnées importéées sous forme d'un np.array"""
         self.dim = coord.shape[0]
         self.coord = coord
         if self.dim == 2:
            self.coord = np.append(self.coord, [0.])
         #? Choix : on utilise toujours des coordonnés en 3D. Les points définis en 2D sont mis dans le plan z=0. 
-        self.tag = None if tag==-1 else tag
-        # Point.count += 1 # Pour garantir que l'identifiant d'un point soit toujours unique  #! Obsolète, on utilise la fonction de l'API qui assure l'unicité de l'identifiant. 
-        #self.name = inp_name 
-        #self.tag = factory.addPoint(self.coord[0],self.coord[1],self.coord[2],mesh_size,tag)
-        #? Je réutilise les arguments MeshSize et tag de la fonction gmsh.occ.addPoint. Il y a t'il une meilleure façon de faire ? (Plutôt que de passer les valeurs de mesh_size et tag dans tout les cas ? )
+        self.tag = None
         #* Nouveau ! Pour identifier les points "importants" autour des quels il faut raffiner le maillage
         self.fine_msh = False #TODO A définir et voir son utilisation...
-        self.in_model = False #Afin d'éviter qu'un point soit écrit plusieurs fois dans le script gmsh. Ce qui entrainerait une erreur gmsh #? Probablement redondant avec self.tag, un test bool(self.tag) suffit peut être dans les situations rencontrées
         self.mesh_size = mesh_size
 
     # def __repr__(self):#? Je ne m'en sers pas ou vraiment rarement. On supprime ? 
@@ -196,16 +191,9 @@ class Point(object):
     def add_gmsh(self):
         """
         """
-        if self.in_model:
-            return self.tag #Le tag est là juste pour info
-
-        ipt_tag = self.tag if self.tag else -1 
-        api_tag = factory.addPoint(self.coord[0], self.coord[1], self.coord[2], self.mesh_size, ipt_tag)
-        if not self.tag : 
-            self.tag = api_tag
-        else : 
-            assert api_tag == self.tag
-        self.in_model = True
+        if self.tag: # That means that the geometrical entity has already been instantiated in the gmsh model.
+            return self.tag #The tag is returned for information purposes only.
+        self.tag = factory.addPoint(self.coord[0], self.coord[1], self.coord[2], self.mesh_size)
         # Point.all_pts_in_script.append(self) #?Utile ?
 
     def rotation(self, centre, angle):
@@ -277,13 +265,9 @@ class Line(object):
     #TODO : Créer une méthode pour inverser le sens de la ligne ?
     geo_dim = 1 # Lines are geometrical entities of dimension 1 in Gmsh. # This class attribute may be useful for boolean operations. #* NEW !
 
-    def __init__(self, start_pt, end_pt, tag=-1):
+    def __init__(self, start_pt, end_pt):
         self.def_pts = [start_pt, end_pt]  #? Préférer cette écriture sous forme de List qui peut se généraliser aux arc, par exemple ?
-        # self.in_script = False
-        self.in_model = False
-        self.tag = None if tag==-1 else tag
-        # self.idx = copy.deepcopy(Line.count)
-        # Line.count += 1
+        self.tag = None
 
     # def __eq__(self, other):
     #     """ Renvoie True ssi les coordonnées des points de départ et d'arrivée sont égaux deux à deux. """
@@ -328,19 +312,13 @@ class Line(object):
         """Méthode permettant d'ajouter une ligne de script dans un fichier .geo pour créer la ligne,
         et les deux points extrémités si nécessaire.
         """
-        if self.in_model:
-            return self.tag #Le tag est là juste pour info
+        if self.tag: # Geometrical entity has already been instantiated in the gmsh model.
+            return self.tag # For information purposes only.
 
         for pt in self.def_pts:
-            if not pt.in_model:
+            if not pt.tag:
                 pt.add_gmsh()
-        ipt_tag = self.tag if self.tag else -1
-        api_tag = factory.addLine(self.def_pts[0].tag, self.def_pts[1].tag, ipt_tag)
-        if not self.tag : 
-            self.tag = api_tag
-        else : 
-            assert api_tag == self.tag
-        self.in_model = True
+        self.tag = factory.addLine(self.def_pts[0].tag, self.def_pts[1].tag)
 
 
 class Arc(Line):
@@ -354,7 +332,7 @@ class Arc(Line):
 
     geo_dim = 1 # Lines are geometrical entities of dimension 1 in Gmsh. # This class attribute may be useful for boolean operations. #* NEW !
 
-    def __init__(self, start_pt, center_pt, end_pt, tag=-1):
+    def __init__(self, start_pt, center_pt, end_pt):
         """ Crée un arc de cercle, après avoir comparé les distances entre le centre et les deux extrémités indiquées.
          https://docs.scipy.org/doc/numpy/reference/generated/numpy.testing.assert_array_almost_equal.html
         """
@@ -366,8 +344,7 @@ class Arc(Line):
         np.testing.assert_almost_equal(d1, d2, decimal=10)
         self.radius = (d1 + d2) / 2
         self.def_pts = [start_pt, center_pt, end_pt]
-        self.in_model = False
-        self.tag = None if tag==-1 else tag
+        self.tag = None
 
     def __str__(self):
         # prt_str = "Arc %s \n Pt début : %s Pt fin : %s Centre : %s" %(self.name, str(self.deb), str(self.fin), str(self.centre))
@@ -390,19 +367,13 @@ class Arc(Line):
         """Méthode permettant d'ajouter une ligne de script dans un fichier .geo pour l'arc de cercle,
         et si nécesaire les deux points extrémités et le centre.
         """
-        if self.in_model:
-            return self.tag #Le tag est là juste pour info
+        if self.tag: # Geometrical entity has already been instantiated in the gmsh model.
+            return self.tag # For information purposes only.
 
         for pt in self.def_pts:
-            if not pt.in_model:
+            if not pt.tag:
                 pt.add_gmsh()
-        ipt_tag = self.tag if self.tag else -1
-        api_tag = factory.addCircleArc(self.def_pts[0].tag, self.def_pts[1].tag, self.def_pts[2].tag, ipt_tag)
-        if not self.tag : 
-            self.tag = api_tag
-        else : 
-            assert api_tag == self.tag
-        self.in_model = True
+        self.tag = factory.addCircleArc(self.def_pts[0].tag, self.def_pts[1].tag, self.def_pts[2].tag)
 
 
 class LineLoop(object):
@@ -410,7 +381,7 @@ class LineLoop(object):
     Définit une courbe fermée, composée de segments et d'arc.
     """
 
-    def __init__(self, elements, explicit=False, tag=-1):
+    def __init__(self, elements, explicit=False):
         """
         La LineLoop est soit défini par des sommets, soit directement défini par une liste d'objets Line/Arcs (explicit = True)
         """
@@ -422,8 +393,7 @@ class LineLoop(object):
         else:
             self.vertices = elements
             self.sides = list()
-        self.in_model = False
-        self.tag = None if tag==-1 else tag
+        self.tag = None
 
     def __eq__(self, other):
         """
@@ -470,21 +440,14 @@ class LineLoop(object):
             elmt.plot(color)
 
     def add_gmsh(self):
-        if self.in_model:
-            return self.tag #Le tag est là juste pour info
-        
+        if self.tag: # Geometrical entity has already been instantiated in the gmsh model.
+            return self.tag # For information purposes only.
         if not self.sides:
             self.vertices_2_sides()
         for elmt in self.sides:
-            if not elmt.in_model:
+            if not elmt.tag:
                 elmt.add_gmsh()
-        ipt_tag = self.tag if self.tag else -1
-        api_tag = factory.addCurveLoop([elmt.tag for elmt in self.sides], ipt_tag)
-        if not self.tag :
-            self.tag = api_tag
-        else :
-            assert api_tag == self.tag
-        self.in_model = True
+        self.tag = factory.addCurveLoop([elmt.tag for elmt in self.sides])
 
     def reverse(self):
         self.sides.reverse()
@@ -605,11 +568,10 @@ class PlaneSurface(object):
     """
     geo_dim = 2 # Plane surfaces are geometrical entities of dimension 2 in Gmsh. # This class attribute may be useful for boolean operations. #* NEW !
 
-    def __init__(self, ext_contour, holes=[], tag=-1):
+    def __init__(self, ext_contour, holes=[]):
         self.ext_contour = ext_contour
         self.holes = holes
-        self.in_model = False
-        self.tag = None if tag==-1 else tag
+        self.tag = None
     
 
     def __eq__(self, other):
@@ -634,19 +596,14 @@ class PlaneSurface(object):
         return True
 
     def add_gmsh(self):
-        if self.in_model:
-            return self.tag #Le tag est là juste pour info
+        if self.tag:
+            return self.tag
         all_loops = [self.ext_contour] if not self.holes else [self.ext_contour]+self.holes
         for ll in all_loops:
-            if not ll.in_model:
+            if not ll.tag:
                 ll.add_gmsh()
-        ipt_tag = self.tag if self.tag else -1
-        api_tag = factory.addPlaneSurface([ll.tag for ll in all_loops], ipt_tag)
-        if not self.tag :
-            self.tag = api_tag
-        else : 
-            assert api_tag == self.tag
-        self.in_model = True
+        self.tag = factory.addPlaneSurface([ll.tag for ll in all_loops])
+
 
 #TODO : Choisir !!!! ET SURTOUT REGARDER CE QUI EST LE PLUS COH2RENT ! 
 #! Choix de passer l'opération booléenne dans une fonction, au lieu d'être une méthode de la classe Surface

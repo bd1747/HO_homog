@@ -6,9 +6,9 @@ Created on Mon Oct 15 11:00:18 2018
 """
 
 import os
-import gmsh 
+import gmsh
 import geometry as geo
-import math 
+import math
 import numpy as np
 import matplotlib.pyplot as plt
 import copy
@@ -34,12 +34,12 @@ def test_Point():
 
     print("Before calling the API addPoint function :")
     for pt in pts :
-        print("Point tag  : {}, coordinates : {}, Point in geometry model indicator : {}".format(pt.tag, pt.coord, pt.in_model))
+        print("Point tag  : {}, coordinates : {}".format(pt.tag, pt.coord))
     for pt in pts:
         pt.add_gmsh()
     print("After calling the API addPoint function :")
     for pt in pts :
-        print("Point tag  : {}, coordinates : {}, Point in geometry model indicator : {}".format(pt.tag, pt.coord, pt.in_model))
+        print("Point tag  : {}, coordinates : {}".format(pt.tag, pt.coord))
 
     gmsh.model.occ.synchronize()
     data = gmsh.model.getEntities()
@@ -51,6 +51,8 @@ def test_Point():
     for pt in pts:
         pt.plot()
     plt.pause(0.1)
+    gmsh.write("%s.brep"%name)
+    os.system("gmsh %s.brep &" %name)
 
 def test_Line():
     """
@@ -82,6 +84,11 @@ def test_Line():
     for ln in lines:
         ln.plot()
     plt.pause(0.1)
+    gmsh.model.mesh.generate(1)
+    gmsh.write("%s.brep"%name)
+    gmsh.write("%s.msh"%name)
+    os.system("gmsh %s.brep &" %name)
+    os.system("gmsh %s.msh &" %name)
 
 def test_Arc():
     """
@@ -119,7 +126,11 @@ def test_Arc():
     for arc in arcs:
         arc.plot()
     plt.pause(0.1)
-
+    gmsh.model.mesh.generate(1)
+    gmsh.write("%s.brep"%name)
+    gmsh.write("%s.msh"%name)
+    os.system("gmsh %s.brep &" %name)
+    os.system("gmsh %s.msh &" %name)
 
 def test_LineLoop():
     """
@@ -163,6 +174,11 @@ def test_LineLoop():
     ll_1.plot()
     ll_2.plot()
     plt.pause(0.1)
+    gmsh.model.mesh.generate(1)
+    gmsh.write("%s.brep"%name)
+    gmsh.write("%s.msh"%name)
+    os.system("gmsh %s.brep &" %name)
+    os.system("gmsh %s.msh &" %name)
 
 def test_PlaneSurface():
     """
@@ -209,7 +225,6 @@ def test_PlaneSurface():
     gmsh.model.mesh.generate(2)
     gmsh.write("%s.brep"%name)
     gmsh.write("%s.msh"%name)
-
     os.system("gmsh %s.brep &" %name)
     os.system("gmsh %s.msh &" %name)
 
@@ -307,8 +322,14 @@ def test_ll_modif():
 
     
 if __name__ == '__main__':
+    test_Point()
+    test_Line()
+    test_Arc()
+    test_LineLoop()
+    test_PlaneSurface()
+    test_ll_modif()
     # test_bool_ops()
-    test_ll_modif()  
+
     #* Bloc de fin
     plt.show() #* Il faut fermer toutes les fenêtres avant de passer à la GUI gmsh. (pertinent en mode non interactive)
     # gmsh.fltk.run() #! A revoir, ça génère des "kernel died" dans Spyder, pas idéal
