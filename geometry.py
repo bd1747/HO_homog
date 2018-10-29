@@ -240,8 +240,46 @@ def offset(pt, pt_dir1, pt_dir2, t):
     new_coord = pt.coord + dpcmt * v_biss
     return Point(new_coord)
 
+class Curve(object):
+    """
+    Superclass that is used to define both the Line and the Arc classes.
+    It is designed to represent geometrical entities of dimension one.
 
-class Line(object):
+    """
+    def __init__(self, def_pts_list):
+        self.def_pts = def_pts_list
+        self.tag = None
+        self.gmsh_constructor = None
+
+    
+    def __eq__(self, other):
+        """
+        Return True if and only if : 
+        - both self and other are instances of the same subclass,
+        AND
+        - The coordinates of the points that are used to define these two Line (or Arc) are equal.
+
+        """
+        if not type(other) is type(self):
+            return False
+        return all(p == q for p, q in zip(self.def_pts, other.def_pts))
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def add_gmsh(self):
+        #TODO : refaire docstring
+        """Méthode permettant d'ajouter une ligne de script dans un fichier .geo pour créer la ligne,
+        et les deux points extrémités si nécessaire.
+        """
+        if self.tag: # Geometrical entity has already been instantiated in the gmsh model.
+            return self.tag # For information purposes only.
+        for pt in self.def_pts:
+            if not pt.tag:
+                pt.add_gmsh()
+        self.tag = self.gmsh_constructor(*[p.tag for p in self.def_pts])
+
+class Line(Curve):
     """Classe définissant une ligne simple caractérisée par :
     - son point de départ
     - son point d'arrivée
@@ -249,27 +287,8 @@ class Line(object):
     #TODO : Créer une méthode pour inverser le sens de la ligne ?
 
     def __init__(self, start_pt, end_pt):
-        self.def_pts = [start_pt, end_pt]  #? Préférer cette écriture sous forme de List qui peut se généraliser aux arc, par exemple ?
-        self.tag = None
-
-    # def __eq__(self, other):
-    #     """ Renvoie True ssi les coordonnées des points de départ et d'arrivée sont égaux deux à deux. """
-
-    #     if not isinstance(other, Line):  # Lors de la comparaison d'éléments d'une LineLoop, il se peut qu'une Line soit comparé à un Arc.
-    #         return False
-    #     return all(p==q for p, q in zip(self.def_pts, other.def_pts))
-
-    def __eq__(self, other):
-        """ Renvoie True ssi les coordonnées des points de départ et d'arrivée sont égaux deux à deux.
-        Méthode sert aussi pour les objets Arc"""
-
-        if not type(other) is type(
-                self):  # Lors de la comparaison d'éléments d'une LineLoop, il se peut qu'une Line soit comparé à un Arc.
-            return False
-        return all(p == q for p, q in zip(self.def_pts, other.def_pts))
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
+        Curve.__init__(self, [start_pt, end_pt])
+        self.gmsh_constructor = factory.addLine
 
     def __str__(self):
         """Affichage plus clair des coordonnées des points de départ et d'arrivée."""
@@ -290,42 +309,26 @@ class Line(object):
         y = [pt.coord[1] for pt in self.def_pts]
         plt.plot(x, y, color=color)
 
-    def add_gmsh(self):
-        #TODO : refaire docstring
-        """Méthode permettant d'ajouter une ligne de script dans un fichier .geo pour créer la ligne,
-        et les deux points extrémités si nécessaire.
-        """
-        if self.tag: # Geometrical entity has already been instantiated in the gmsh model.
-            return self.tag # For information purposes only.
 
-        for pt in self.def_pts:
-            if not pt.tag:
-                pt.add_gmsh()
-        self.tag = factory.addLine(self.def_pts[0].tag, self.def_pts[1].tag)
-
-
-class Arc(Line):
+class Arc(Curve):
     """Classe définissant un arc de cercle caractérisé par :
     - son point de départ
     - son point d'arrivée
     - son centre
     - son rayon
-    - son nom
     """
 
     def __init__(self, start_pt, center_pt, end_pt):
         """ Crée un arc de cercle, après avoir comparé les distances entre le centre et les deux extrémités indiquées.
          https://docs.scipy.org/doc/numpy/reference/generated/numpy.testing.assert_array_almost_equal.html
         """
-        #if isinstance(start_pt, Point) and isinstance(end_pt, Point) and isinstance(center_pt, Point):
-        #        else:
-        #    raise TypeError("Les input ne sont pas au bon format (points)")
+
         d1 = np.linalg.norm(start_pt.coord - center_pt.coord)
         d2 = np.linalg.norm(end_pt.coord - center_pt.coord)
         np.testing.assert_almost_equal(d1, d2, decimal=10)
+        Curve.__init__(self, [start_pt, center_pt, end_pt])
+        self.gmsh_constructor = factory.addCircleArc
         self.radius = (d1 + d2) / 2
-        self.def_pts = [start_pt, center_pt, end_pt]
-        self.tag = None
 
     def __str__(self):
         # prt_str = "Arc %s \n Pt début : %s Pt fin : %s Centre : %s" %(self.name, str(self.deb), str(self.fin), str(self.centre))
@@ -333,7 +336,7 @@ class Arc(Line):
         prt_str += "start point tag : %i , center tag : %i , end point tag : %i" %(self.def_pts[0].tag, self.def_pts[1].tag, self.def_pts[2].tag)
         return prt_str
 
-    def plot(self,  circle_color="Green", end_pts_color="Blue", center_color="Orange", pt_size=5):
+    def plot(self, circle_color="Green", end_pts_color="Blue", center_color="Orange", pt_size=5):
         """Représenter l'arc de cercle dans un plot matplotlib. 
         Disponible seulement en 2D pour l'instant."""
 
@@ -344,17 +347,18 @@ class Arc(Line):
         ax = plt.gca()
         ax.add_patch(circle)
 
-    def add_gmsh(self):
-        """Méthode permettant d'ajouter une ligne de script dans un fichier .geo pour l'arc de cercle,
-        et si nécesaire les deux points extrémités et le centre.
-        """
-        if self.tag: # Geometrical entity has already been instantiated in the gmsh model.
-            return self.tag # For information purposes only.
+#! Replaced by the add_gmsh method of the base class curve.
+    # def add_gmsh(self):
+    #     """Méthode permettant d'ajouter une ligne de script dans un fichier .geo pour l'arc de cercle,
+    #     et si nécesaire les deux points extrémités et le centre.
+    #     """
+    #     if self.tag: # Geometrical entity has already been instantiated in the gmsh model.
+    #         return self.tag # For information purposes only.
 
-        for pt in self.def_pts:
-            if not pt.tag:
-                pt.add_gmsh()
-        self.tag = factory.addCircleArc(self.def_pts[0].tag, self.def_pts[1].tag, self.def_pts[2].tag)
+    #     for pt in self.def_pts:
+    #         if not pt.tag:
+    #             pt.add_gmsh()
+    #     self.tag = factory.addCircleArc(self.def_pts[0].tag, self.def_pts[1].tag, self.def_pts[2].tag)
 
 
 class LineLoop(object):
