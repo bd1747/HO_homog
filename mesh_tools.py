@@ -276,3 +276,60 @@ def set_background_mesh(fields):
     return final_field
 
 
+#*#*#*
+#* Tools for creating a periodic 2D mesh (may be generalized to 3D later)
+#*#*#*
+
+def translation2matrix(v, dist=None):
+    """
+    Return the affine transformation matrix that represent a given translation.
+
+    If only the value of the parameter 'v' is given, then the represented translation is the translation by the vector 'v'. Else, if both 'v' and 'dist' parameters are specified, it is the translation in the direction of 'v' (oriented) by the distance 'dist' (algebric).
+
+    Parameters
+    ----------
+    v : 1-D numpy array
+        Vector that entirely define the translation or only the direction if the second parameter is specified. 
+        The user can implicitely define the translation in the (e_x, e_y) plane and give a (2,) array for the v value.
+    d : float, optional
+        Distance of translation.
+    
+    Returns
+    -------
+    transform_matx : list of 16 float values
+        The affine transformation matrix A of shape 4x4 that represents the translation.
+        For a given affine transformation T mapping R^3 to R^3, represented by the tranformation matrix A :
+                x' = T(x)
+            <=> (x', y', z', 1)^T = A \cdot (x, y, z, 1)^T
+        The 4x4 matrix is flattened in row-major order and returned as a list.
+
+    See Also
+    --------
+    https://en.wikipedia.org/wiki/Transformation_matrix for more information about the matrix representation of affine transformations.
+
+    Examples
+    --------
+    >>> msh.translation2matrix(np.array([5, 0]))
+    [1.0, 0.0, 0.0, 5.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]
+    >>> msh.translation2matrix(np.array([1, 2, 3]))
+    [1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 2.0, 0.0, 0.0, 1.0, 3.0, 0.0, 0.0, 0.0, 1.0]
+    >>> mtx3 = msh.translation2matrix(np.array([1, 1, 0]), 1)
+    >>> msh.translation2matrix(np.array([1, 1, 0]), 1)
+    [1.0, 0.0, 0.0, 0.7071067811865475, 0.0, 1.0, 0.0, 0.7071067811865475, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]
+
+    """
+    if dist:
+        v_ = geo.unit_vect(v)
+        v_ = dist*v_
+    else:
+        v_ = v
+    if v_.shape == (3,):
+        v_ = np.append(v_,[0])
+    elif v_.shape == (2,):
+        v_ = np.append(v_,[0, 0])
+    else:
+        raise TypeError("The numpy array can not correspond to a translation vector.")
+    transform_matx = np.identity(4)
+    transform_matx[:,3] += v_
+    return transform_matx.flatten().tolist()
+

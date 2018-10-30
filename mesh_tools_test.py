@@ -35,7 +35,7 @@ def test_MathEval():
 
     """
     name = "test_MathEval"
-    gmsh.model.add(name)
+    model.add(name)
     rect_vtcs = [geo.Point(np.array(c)) for c in [(-4, -2), (4 , -2), (4, 2), (-4 , 2)]]
     rect_ll = geo.LineLoop(rect_vtcs,False)
     rect_s = geo.PlaneSurface(rect_ll)
@@ -46,7 +46,7 @@ def test_MathEval():
     msh.set_background_mesh(f)
 
     factory.synchronize()
-    gmsh.model.mesh.generate(2)
+    model.mesh.generate(2)
     gmsh.write("%s.msh"%name)
     os.system("gmsh %s.msh &" %name)
 
@@ -59,7 +59,7 @@ def test_Min():
 
     """
     name = "test_Min"
-    gmsh.model.add(name)
+    model.add(name)
     rect_vtcs = [geo.Point(np.array(c)) for c in [(-4, -2), (4 , -2), (4, 2), (-4 , 2)]]
     rect_ll = geo.LineLoop(rect_vtcs,False)
     rect_s = geo.PlaneSurface(rect_ll)
@@ -72,7 +72,7 @@ def test_Min():
     msh.set_background_mesh([h1, h2])
 
     factory.synchronize()
-    gmsh.model.mesh.generate(2)
+    model.mesh.generate(2)
     gmsh.write("%s.msh"%name)
     os.system("gmsh %s.msh &" %name)
 
@@ -83,7 +83,7 @@ def test_Threshold():
 
     """
     name = "test_Threshold"
-    gmsh.model.add(name)
+    model.add(name)
     rect_vtcs = [geo.Point(np.array(c)) for c in [(-4, -2), (4 , -2), (4, 2), (-4 , 2)]]
     mid_N = geo.Point(np.array((0, 2)))
     mid_S = geo.Point(np.array((0, -2)))
@@ -99,7 +99,7 @@ def test_Threshold():
     msh.set_background_mesh(g)
 
     factory.synchronize()
-    gmsh.model.mesh.generate(2)
+    model.mesh.generate(2)
     gmsh.write("%s.msh"%name)
     os.system("gmsh %s.msh &" %name)
 
@@ -110,7 +110,7 @@ def test_Restrict():
 
     """
     name = "test_Restrict"
-    gmsh.model.add(name)
+    model.add(name)
     vtcs_1 = [geo.Point(np.array(c)) for c in [(-1, -1), (1, -1), (1, 1), (-1 , 1)]]
     vtcs_2 = [geo.Point(np.array(c)) for c in [(0, 0), (2, 0), (2, 2), (0, 2)]]
     ll_1 = geo.LineLoop(vtcs_1, explicit=False)
@@ -126,7 +126,7 @@ def test_Restrict():
     msh.set_background_mesh([f,h])
 
     factory.synchronize()
-    gmsh.model.mesh.generate(2)
+    model.mesh.generate(2)
     gmsh.write("%s.msh"%name)
     os.system("gmsh %s.msh &" %name)
 
@@ -139,7 +139,7 @@ def test_refine_function():
 
     """
     name = "test_refine_function"
-    gmsh.model.add(name)
+    model.add(name)
     rect_vtcs = [geo.Point(np.array(c)) for c in [(-4, -2), (4 , -2), (4, 2), (-4 , 2)]]
     mid_N = geo.Point(np.array((0, 2)))
     mid_S = geo.Point(np.array((0, -2)))
@@ -153,25 +153,18 @@ def test_refine_function():
     msh.set_background_mesh(f)
 
     factory.synchronize()
-    gmsh.model.mesh.generate(2)
+    model.mesh.generate(2)
     gmsh.write("%s.msh"%name)
     os.system("gmsh %s.msh &" %name)
 
 def test_fctn_restrict():
     """
     Test of the function that has been designed to quickly specify a refinement constraint with a restriction to a given surface.
-
     #* Test OK
-    #?         |￣￣￣￣￣￣￣￣￣|
-    #?         |  C'est super !  |
-    #?         |  Pause méritée  |
-    #?         | ＿＿＿＿＿＿＿＿_|
-    #?  (\__/) ||
-    #?  (•ㅅ•) ||
-    #?  / 　 づ
+
     """
     name = "test_Restrict_with_fctn"
-    gmsh.model.add(name)
+    model.add(name)
     vtcs_1 = [geo.Point(np.array(c)) for c in [(-1, -1), (1, -1), (1, 1), (-1 , 1)]]
     vtcs_2 = [geo.Point(np.array(c)) for c in [(0, 0), (2, 0), (2, 2), (0, 2)]]
     ll_1 = geo.LineLoop(vtcs_1, explicit=False)
@@ -189,7 +182,45 @@ def test_fctn_restrict():
     msh.set_background_mesh([f,gr,hr])
 
     factory.synchronize()
-    gmsh.model.mesh.generate(2)
+    model.mesh.generate(2)
+    gmsh.write("%s.msh"%name)
+    os.system("gmsh %s.msh &" %name)
+
+#?               |￣￣￣￣￣￣￣￣￣|
+#?               | All field tests |
+#?               | succeeded !     |
+#?               | ＿＿＿＿＿＿＿＿_|
+#?        (\__/) ||
+#?        (•ㅅ•) ||
+#?        / 　 づ
+
+def test_translation2matrix():
+    mtx1 = msh.translation2matrix(np.array([5, 0]))
+    mtx2 = msh.translation2matrix(np.array([1, 2, 3]))
+    mtx3 = msh.translation2matrix(np.array([1, 1, 0]), 1)
+    print("translation by the vector (5,0) in the XY plane :\n", mtx1)
+    print("translation by the vector (1, 2, 3):\n", mtx2)
+    print("translation in the direction of the first bissectrice of the XY plane by a distance of 1:\n", mtx3)
+
+
+
+
+def test_periodic():
+    name = "periodic"
+    model.add(name)
+    
+    R = 2
+    factory.addBox(0, 0, 0, R, R, R)
+    factory.synchronize()
+
+    ent = model.getEntities(0)
+    model.mesh.setSize(ent, 1)
+    model.mesh.setSize([(0,1)], 0.01)
+    model.mesh.setPeriodic(2, [2], [1], [1,0,0,R, 0,1,0,0, 0,0,1,0, 0,0,0,1])
+
+    model.mesh.generate(2)
+    masterTag, nodes, tfo = model.mesh.getPeriodicNodes(2, 2)
+    print(masterTag, nodes, tfo)
     gmsh.write("%s.msh"%name)
     os.system("gmsh %s.msh &" %name)
 
@@ -200,4 +231,7 @@ if __name__ == '__main__':
     # test_Threshold()
     # test_refine_function()
     # test_Restrict()
-    test_fctn_restrict()
+    # test_fctn_restrict()
+
+    test_translation2matrix()
+    # test_periodic()
