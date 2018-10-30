@@ -13,6 +13,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import copy
 
+# nice shortcuts
+model = gmsh.model
+factory = model.occ
+
 SR2 = math.sqrt(2.)
 
 # plt.ion() #* interactive mode
@@ -41,7 +45,7 @@ def test_Point():
     for pt in pts :
         print("Point tag  : {}, coordinates : {}".format(pt.tag, pt.coord))
 
-    gmsh.model.occ.synchronize()
+    factory.synchronize()
     data = gmsh.model.getEntities()
     print("model name : %s"%name)
     print(data)
@@ -74,7 +78,7 @@ def test_Line():
     for ln in lines:
         ln.add_gmsh()
 
-    gmsh.model.occ.synchronize()
+    factory.synchronize()
     data = gmsh.model.getEntities()
     print("model name : %s \n "%name, data)
     gmsh.model.mesh.generate(1) #We can generatate 1D meshes for the 2 lines
@@ -112,7 +116,7 @@ def test_Arc():
     for arc in arcs:
         arc.add_gmsh()
 
-    gmsh.model.occ.synchronize()
+    factory.synchronize()
     data = gmsh.model.getEntities()
     print("model name : %s \n"%name, data)
     gmsh.model.mesh.generate(1) #We can generatate 1D meshes for the 2 lines
@@ -145,7 +149,7 @@ def test_LineLoop():
     name = "test_LineLoop"
     gmsh.model.add(name)
     #* Explicit constructor
-    coords = [(0.05,0.), (1.8,0.), (2.0, 0.2), (2.0, 1.95),  (1.95, 2.0), (0.2, 2.0), (0., 1.8), (0.,0.05)]
+    coords = [(0.05,0.), (1.8,0.), (2.0, 0.2), (2.0, 1.95), (1.95, 2.0), (0.2, 2.0), (0., 1.8), (0.,0.05)]
     mesh_size = [0.01]*len(coords)
     pts = [geo.Point(np.array(c), m_s) for c, m_s in zip(coords, mesh_size)]
     lines = [geo.Line(pts[0], pts[1]), geo.Line(pts[2], pts[3]), geo.Line(pts[4], pts[5]), geo.Line(pts[6], pts[7])]
@@ -164,7 +168,7 @@ def test_LineLoop():
 
     ll_1.add_gmsh()
     ll_2.add_gmsh()
-    gmsh.model.occ.synchronize()
+    factory.synchronize()
     data = gmsh.model.getEntities()
     print("model name : %s \n"%name, data)
     gmsh.model.mesh.generate(1) #We can generatate 1D meshes for the 2 lines
@@ -216,7 +220,7 @@ def test_PlaneSurface():
         s.add_gmsh()
         print(s.tag)
 
-    gmsh.model.occ.synchronize()
+    factory.synchronize()
     data = gmsh.model.getEntities()
     print("model name : %s"%name)
     print(data)
@@ -241,7 +245,7 @@ def test_bool_ops():
     name = "test_PlaneSurface_bool_ops"
     gmsh.model.add(name)
 
-    coords = [(0.,0.05), (0.05,0.), (1.8,0.), (2.0, 0.2), (2.0, 1.95),  (1.95, 2.0), (0.2, 2.0), (0., 1.8)]
+    coords = [(0.,0.05), (0.05,0.), (1.8,0.), (2.0, 0.2), (2.0, 1.95), (1.95, 2.0), (0.2, 2.0), (0., 1.8)]
     pts = [geo.Point(np.array(c), 0.03) for c in coords]
     lines = [geo.Line(pts[2*i-1], pts[2*i]) for i in range(len(pts)//2)]
     centers = [geo.Point(np.array(c), 0.03) for c in [(0.05,0.05), (1.8,0.2), (1.95, 1.95), (0.2, 1.8)]]
@@ -267,7 +271,7 @@ def test_bool_ops():
            "surf_1 : %i; surf_2 : %i; surf_rect : %i; surf_hole : %i; surf_with_hole : %i"%(surf_1.tag, surf_2.tag, surf_rect.tag, surf_hole.tag, surf_with_hole.tag))
     surf_with_hole.bool_cut(surf_hole,remove_tools=True)
     surf_1.bool_intersect(surf_2,remove_tools=False)
-    gmsh.model.occ.synchronize()
+    factory.synchronize()
     data = gmsh.model.getEntities()
     print("model name : %s"%name)
     print(data)
@@ -310,7 +314,7 @@ def test_ll_modif():
     surfs = [geo.PlaneSurface(ll) for ll in lls]
     for s in surfs:
         s.add_gmsh()
-    gmsh.model.occ.synchronize()
+    factory.synchronize()
     data = gmsh.model.getEntities()
     print("model name : %s"%name)
     print(data)
@@ -320,7 +324,7 @@ def test_ll_modif():
     os.system("gmsh %s.brep &" %name)
     os.system("gmsh %s.msh &" %name)
 
-    
+
 if __name__ == '__main__':
     test_Point()
     test_Line()
