@@ -32,10 +32,10 @@ class Field(object):
     Info pour l'héritage : https://openclassrooms.com/fr/courses/235344-apprenez-a-programmer-en-python/233164-lheritage
     Tutorial : gmsh-4.0.2-Linux64/share/doc/gmsh/demos/api/t10.py
     """
-    def __init__(self, tag=-1):
-        self.in_model = False
-        self.tag = None if tag==-1 else tag
-        self.parents = None
+    def __init__(self, f_type, parent_fields=[]):
+        self.tag = None
+        self.f_type = f_type
+        self.parents = parent_fields
 
     def set_params(self):
         """
@@ -48,35 +48,16 @@ class Field(object):
         """
         Partie générique des intructions nécessaires pour ajouter un field de contrôle de la taille des éléments. 
         """
-
-        if self.in_model:
-            return self.tag #Le tag est là juste pour info
+        
+        if self.tag: # That means that the field has already been instantiated in the gmsh model.
+            return self.tag #The tag is returned for information purposes only.
         if self.parents:
             for p_field in self.parents:
-                if not pt.in_model:
+                if not p_field.tag:
                     p_field.add_gmsh()
-        ipt_tag = self.tag if self.tag else -1
-        api_tag = api_field.add(self.f_type, ipt_tag)
-        self.set_params() #! Est-ce que c'est bon si l'on fait comme ça ?
-        if not self.tag : 
-            self.tag = api_tag
-        else : 
-            assert api_tag == self.tag
-        self.in_model = True
+        self.tag = api_field.add(self.f_type)
+        self.set_params()
 
-    @staticmethod
-    def set_background_mesh(fields, tag=-1):
-    """
-    Input : une liste de champs devant être utilisés pour imposer la taille caractéristiques des éléments.
-    Only one background field can be given for the mesh generation. (gmsh reference manual 26/09/2018, 6.3.1 Specifying mesh element size)
-    Toutes les contraintes sont ramenées à un unique champ scalaire en prenant, en chaque point, le minimum des valeurs imposées.
-    """
-    final_field = MinField(fields, tag)
-    final_field.add_gmsh()
-    api_field.setAsBackgroundMesh(final_field.tag)
-    return final_field
-    #? Rédaction terminée ! Mais fonction à tester
-    #TODO : Tester !
 
 class AttractorField(Field):
     """
@@ -87,9 +68,8 @@ class AttractorField(Field):
             nb_pts_discretization : Nb de points utilisés pour la discrétisation de chaque élément 1D de 'curves'.
     """
 
-    def __init__(self, points=[], curves=[], nb_pts_discretization=10, tag=-1):
-        Field.__init__(self, tag)
-        self.f_type = "Attractor"
+    def __init__(self, points=[], curves=[], nb_pts_discretization=10): #! C'est nb_pts_discretization - 2 points pris à l'intérieur de la courbe ! 
+        Field.__init__(self, "Attractor")
         self.points = points if points else None
         self.curves = curves if curves else None
         if curves:
@@ -99,17 +79,16 @@ class AttractorField(Field):
         if self.points:
             for pt in self.points:
                 #? La méthode add_gmsh contient déjà un test logique pour s'assurer que le Point n'est pas déjà dans le modèle. Est-ce que c'est mieux d'appeler la méthode et de faire le test de la méthode ou de faire un test, puis d'appeler la méthode (qui contient un second test) ?
-                if not pt.in_model:
+                if not pt.tag:
                     pt.add_gmsh()
             api_field.setNumbers(self.tag, "NodesList", [pt.tag for pt in self.points])
         if self.curves:
             api_field.setNumber(self.tag, "NNodesByEdge", self.nb_pts_discret)
             for crv in self.curves:
-                if not crv.in_model:
+                if not crv.tag:
                     crv.add_gmsh()
             api_field.setNumbers(self.tag, "EdgesList", [crv.tag for crv in self.curves])
-    #* Rédaction OK !
-    #TODO : À tester !
+
 
 class ThresholdField(Field):
     """
@@ -125,58 +104,50 @@ class ThresholdField(Field):
     F = interpolation between LcMin and LcMax if DistMin < Field[IField] < Dist-Max
     """
 
-    def __init__(self, attract_field, d_min, d_max, lc_min, lc_max, sigmoid_interpol=False, tag=-1):
-        Field.__init__(self, tag)
-        self.f_type = "Threshold"
+    def __init__(self, attract_field, d_min, d_max, lc_min, lc_max, sigmoid_interpol=False):
+        Field.__init__(self, "Threshold", [attract_field])
         self.d = (d_min, d_max)
         self.lc = (lc_min, lc_max)
-        self.parents = [attract_field]
         self.sigmoid = sigmoid_interpol
 
     def set_params(self):
-        # if not self.parents[0].in_model:
-        #     self.parents[0].add_gmsh()
         api_field.setNumber(self.tag, "IField", self.parents[0].tag)
-        api_field.setNumber(self.tag, "LcMin", lc[0])
-        api_field.setNumber(self.tag, "LcMax", lc[1])
-        api_field.setNumber(self.tag, "DistMin", d[0])
-        api_field.setNumber(self.tag, "DistMax", d[1])
-    #* Rédaction OK !
-    #TODO : À tester !
+        api_field.setNumber(self.tag, "LcMin", self.lc[0])
+        api_field.setNumber(self.tag, "LcMax", self.lc[1])
+        api_field.setNumber(self.tag, "DistMin", self.d[0])
+        api_field.setNumber(self.tag, "DistMax", self.d[1])
 
 
 class RestrictField(Field):
     """
     'Restrict the application of a field to a given list of geometrical points, curves, surfaces or volumes.'
+
+    #? Inclure les boudaries des entités géométriques sélectionnées ?
     """
 
-    def __init__(self, inpt_field, points=[], curves=[], surfaces=[], tag=-1):
-        Field.__init__(self, tag)
-        self.f_type = "Restrict"
+    def __init__(self, inpt_field, points=[], curves=[], surfaces=[]):
+        Field.__init__(self, "Restrict",  [inpt_field])
         self.points = points if points else None
         self.curves = curves if curves else None
         self.surfaces = surfaces if surfaces else None
-        self.parents =  [inpt_field]
 
     def set_params(self):
         api_field.setNumber(self.tag, "IField", self.parents[0].tag)
         if self.points:
             for pt in self.points:
-                if not pt.in_model:
+                if not pt.tag:
                     pt.add_gmsh()
             api_field.setNumbers(self.tag, "VerticesList", [pt.tag for crv in self.points])
         if self.curves:
             for crv in self.curves:
-                if not crv.in_model:
+                if not crv.tag:
                     crv.add_gmsh()
             api_field.setNumbers(self.tag, "EdgesList", [crv.tag for crv in self.curves])
         if self.surfaces:
             for srf in self.surfaces:
-                if not srf.in_model:
+                if not srf.tag:
                     srf.add_gmsh()
             api_field.setNumbers(self.tag, "FacesList", [srf.tag for srf in self.surfaces])
-    #* Rédaction OK !
-    #TODO : À tester !
 
 
 class MathEvalField(Field):
@@ -186,85 +157,122 @@ class MathEvalField(Field):
     Des champs peuvent être utilisés dans l'expression. Dans ce cas, les faire apparaitre dans le paramètre inpt_fields. 
     """
 
-    def __init__(self, formula_str, inpt_fields=[], tag=-1):
-        Field.__init__(self, tag)
-        self.f_type = "MathEval"
-        self.parents = inpt_fields
+    def __init__(self, formula_str, inpt_fields=[]):
+        Field.__init__(self, "MathEval", inpt_fields)
         self.formula = formula_str
     
     def set_params(self):
-        api_field.setString(self.tag, "F", formula)
+        api_field.setString(self.tag, "F", self.formula)
 
 
 class MinField(Field):
     """
     """
 
-    def __init__(self, inpt_fields, tag=-1):
-        Field.__init__(self, tag)
-        self.f_type = "Min"
-        self.parents=inpt_fields
+    def __init__(self, inpt_fields):
+        Field.__init__(self, "Min", inpt_fields)
 
     def set_params(self):
-        model.mesh.field.setNumbers(self.tag, "FieldsList", [f.tag for f in self.parents])
+        api_field.setNumbers(self.tag, "FieldsList", [f.tag for f in self.parents])
 
 
-#? Est-ce que emballer tout ça dans un gros objet facilite l'utilisation et/ou la compréhension ? Pas sûr... même plutôt tendance à penser le contraire
-class LocalMeshRefinement(object):
+#? Est-ce que emballer tout ça dans un gros objet facilite l'utilisation et/ou la compréhension ? Pas sûr... même plutôt tendance à penser le contraire.
+#* Sous forme d'une fonction
+def set_mesh_refinement(d_min_max, lc_min_max, attractors={'points':[],'curves':[]}, nb_pts_discretization=10, sigmoid_interpol=False, restrict_domain={'points':[],'curves':[], 'surfaces':[]}):
     """
-    Permet de raffiner le maillage autour de certains Points géométriques à l'aide d'objets de type Field (champs scalaires).
-    Le champ à utiliser par la suite est contenu dans l'attribut major_field
+    Create the fields that are required to impose mesh refinement constraints around some selected points or curves.
+    Return the major field which that should be used in subsequent operations on fields.
+    The application of the refinement constraint can be restricted to a part of the geometrical model.
+
+    Parameters
+    ----------
+    d_min_max : list of two floats
+        Distances from the attractors that delimit the area where the element size is interpolated between lc_min and lc_max.
+    lc_min_max : list of two floats
+        The first value, lc_min, is the caracteristic element size inside balls of raduis d_min and centered at each attractor point;
+        The second value, lc_max, is the caracteristic element size outside balls of raduis d_max and centered at each attractor point.
+            prescribed element size = lc_min if distance from the nearest attractor <= d_min
+                                    = lc_max if distance from the nearest attractor >= d_max
+                                    = interpolation between lc_min and lc_max else (if d_min < distance < d_max)
+    attractors : dictionnary, two possible keys "points" and "curves"
+        The geometrical entities around which the mesh must be finer, called attractors.
+        Points and curves can be used as attractors.
+        Points have to be instances of the Point class and curve have to be instances of the Line or Arc classes.
+    nb_pts_discretization : float, optional
+        If curves are used as attractors, each curve is replaced by a discrete set of equidistant points that are on the curve.
+        The distance from those points is used to compute the distance from the attractor curves during the mesh generation.
+        nb_pts_discretization is the number of those points.
+    sigmoid_interpol = bool, optional
+        If False, the element size that is prescribe between d_min and d_max is calculated with a linear interpolation between lc_min and lc_max. 
+        If True, a sigmoid function is used for this interpolation.
+    restrict_domain : dictionnary, optional
+        It is possible to impose The application of the refinement constraint can be restricted to selected geometrical entities.
+        Geometrical points, curves and surfaces can be given, in lists, using the three keys : 'points', 'curves' and 'surfaces'. They have to be instances of the Point, Line/Arc and PlaneSurface classes respectively.
+    
+    Returns
+    -------
+    major_field : fied
+        Instance of a subclass of Field that entirely characterize the refinement constraint.
+        If the application of the refinement constraint is restricted to geometrical entities then this field is an instance of the RestrictField class, else it is an instance of ThresholdField.
+
     """
-
-    def __init__(self, d_min, d_max, lc_min, lc_max, attractors={'points':[],'curves':[]}, nb_pts_discretization=10, sigmoid_interpol=False, restrict=False, restrict_domain={'points':[],'curves':[], 'surfaces':[]}):
+    try:
+        inpt_points = attractors['points']
+    except KeyError:
+        inpt_points = []
+    try:
+        inpt_curves = attractors['curves']
+    except KeyError:
+        inpt_curves = []
+    attract_field = AttractorField(inpt_points, inpt_curves, nb_pts_discretization)
+    d_min, d_max = d_min_max
+    lc_min, lc_max = lc_min_max
+    threshold_field = ThresholdField(attract_field, d_min, d_max, lc_min, lc_max)
+    if restrict_domain:
         try:
-            inpt_points = attractors['points']
+            rstrc_points = restrict_domain['points']
         except KeyError:
-            inpt_points = []
+            rstrc_points = []
         try:
-            inpt_curves = attractors['curves']
+            rstrc_curves = restrict_domain['curves']
         except KeyError:
-            inpt_curves = []
-        self.attract_field = AttractorField(inpt_points, inpt_curves,nb_pts_discretization)
-        self.threshold_field = ThresholdField(self.attract_field, d_min, d_max, lc_min, lc_max)
-        if restrict:
-            try:
-                rstrc_points = attractors['points']
-            except KeyError:
-                rstrc_points = []
-            try:
-                rstrc_curves = attractors['curves']
-            except KeyError:
-                rstrc_curves = []
-            try:
-                rstrc_surf = attractors['surfaces']
-            except KeyError:
-                rstrc_surf = []
-            self.restrict_field = RestrictField(self.threshold_field, rstrc_points,rstrc_curves, rstrc_surf)
-            self.major_field =  self.restrict_field 
-        else:
-            self.major_field =  self.threshold_field 
-
-
-        
+            rstrc_curves = []
+        try:
+            rstrc_surf = restrict_domain['surfaces']
+        except KeyError:
+            rstrc_surf = []
+        restrict = True if (rstrc_points or rstrc_curves or rstrc_surf) else False
+    else:
+        restrict = False
+    if restrict:
+        restrict_field = RestrictField(threshold_field, rstrc_points, rstrc_curves, rstrc_surf)
+        return restrict_field
+    else:
+        return threshold_field
 
 
 
-# def set_background_mesh(size_constraints, tag=-1):
-#     """
-#     Input : une liste d'objets correspondant à des contraintes imposées sur la taille caractéristiques des éléments, contenant un attribut major_field
-#     If tag is positive, assign the tag explcitly; otherwise a new tag is assigned automatically.
+def set_background_mesh(fields):
+    """
+    Set the background scalar field that will be used in order to prescribe all the element size constraints during the mesh generation process.
+    
+    Only one background field can be given for the mesh generation. (gmsh reference manual 26/09/2018, 6.3.1 Specifying mesh element size)
+    If multiple fields are specified in the unique parameter, the related element size constrains will be combined and reduce to a single field by means of a Minimum operation.
+    The whole domain on which a mesh is going to be generated should be covered by at least one specified element size field.
+    
+    Parameters
+    ----------
+    fields : a single field object or a list of fields
+        The specified fields must be instances of the subclasses of the Field base class.
+        It (or they) describe the element size that it is desired over the whole material domain on which a mesh is going to be generated.
 
-#     Only one background field can be given for the mesh generation. (gmsh reference manual 26/09/2018, 6.3.1 Specifying mesh element size)
-#     Toutes les contraintes sont ramenées à un unique champ scalaire en prenant, en chaque point, le minimum des valeurs imposées.
-#     """
-#     final_tag = api_field.add("Min", tag)
-#     field_tags = [c.major_field.tag for c in size_constraints]
-#     api_field.setNumbers(final_tag, "FieldsList", field_tags)
-#     api_field.setAsBackgroundMesh(final_tag)
-#     #? Rédaction terminée ! Mais fonction à tester
-#     #TODO : Tester !
-
-
+    """
+    if not isinstance(fields, list):
+        final_field = fields
+    else:
+        final_field = MinField(fields)
+    final_field.add_gmsh()
+    api_field.setAsBackgroundMesh(final_field.tag)
+    return final_field
 
 
