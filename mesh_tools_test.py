@@ -209,19 +209,22 @@ def test_periodic():
     name = "periodic"
     model.add(name)
     
-    R = 2
-    factory.addBox(0, 0, 0, R, R, R)
+    vtcs = [geo.Point(np.array(c),0.5) for c in [(-2, +1), (0, +1), (+2, +1), (+2, -1), (0, -1), (-2, -1)]]
+    vtcs[0].mesh_size = 0.01
+    vtcs[2].mesh_size = 0.05
+    sides = [geo.Line(vtcs[i-1], vtcs[i]) for i in range(len(vtcs))]
+    surf = geo.PlaneSurface(geo.LineLoop(sides,explicit=True))
+    surf.add_gmsh()
+    data = gmsh.model.getEntities()
+    print("model name : %s"%name)
+    print(data)
     factory.synchronize()
-
-    ent = model.getEntities(0)
-    model.mesh.setSize(ent, 1)
-    model.mesh.setSize([(0,1)], 0.01)
-    model.mesh.setPeriodic(2, [2], [1], [1,0,0,R, 0,1,0,0, 0,0,1,0, 0,0,0,1])
-
-    model.mesh.generate(2)
-    masterTag, nodes, tfo = model.mesh.getPeriodicNodes(2, 2)
-    print(masterTag, nodes, tfo)
+    msh.set_periodicity_pairs([sides[3]], [sides[0]], np.array((4,0)))
+    msh.set_periodicity_pairs([sides[-1],sides[-2]], [sides[1],sides[2]], np.array((0,-2)))
+    gmsh.model.mesh.generate(2)
+    gmsh.write("%s.brep"%name)
     gmsh.write("%s.msh"%name)
+    os.system("gmsh %s.brep &" %name)
     os.system("gmsh %s.msh &" %name)
 
 if __name__ == '__main__':
@@ -233,5 +236,5 @@ if __name__ == '__main__':
     # test_Restrict()
     # test_fctn_restrict()
 
-    test_translation2matrix()
-    # test_periodic()
+    # test_translation2matrix()
+    test_periodic()
