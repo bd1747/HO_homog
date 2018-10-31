@@ -256,25 +256,33 @@ def test_bool_ops():
     vertc = [geo.Point(np.array(c), 0.1) for c in coords]
     ll_2 = geo.LineLoop(vertc, explicit=False)
     rect_vtcs = [geo.Point(np.array(c), 0.05) for c in [(4,2), (4,4), (6,4), (6,2)]]
-    hole_vtcs = [geo.Point(np.array(c), 0.02) for c in [(5-0.1,3), (5,3-0.5), (5+0.1,3), (5,3+0.5)]]
+    hole_vtcs_1 = [geo.Point(np.array(c), 0.02) for c in [(5-0.1,3), (5,3-0.5), (5+0.1,3), (5,3+0.5)]]
+    hole_vtcs_2 = [geo.Point(np.array(c), 0.02) for c in [(5, 3-0.1), (5-0.5, 3), (5, 3+0.1), (5+0.5, 3)]]
     rect_ll = geo.LineLoop(rect_vtcs, explicit=False)
-    hole_ll = geo.LineLoop(hole_vtcs, explicit=False)
+    hole_ll_1= geo.LineLoop(hole_vtcs_1, explicit=False)
+    hole_ll_2= geo.LineLoop(hole_vtcs_2, explicit=False)
 
     surf_1 = geo.PlaneSurface(ll_1)
     surf_2 = geo.PlaneSurface(ll_2)
     surf_rect = geo.PlaneSurface(rect_ll)
-    surf_hole = geo.PlaneSurface(hole_ll)
-    surf_with_hole = surf_rect
-    for s in [surf_1, surf_2, surf_rect, surf_hole]:
+    surf_hole_1 = geo.PlaneSurface(hole_ll_1)
+    surf_hole_2 = geo.PlaneSurface(hole_ll_2)
+    for s in [surf_1, surf_2, surf_rect, surf_hole_1, surf_hole_2]:
         s.add_gmsh()
     print("Tags before boolean operations : \n", 
-           "surf_1 : %i; surf_2 : %i; surf_rect : %i; surf_hole : %i; surf_with_hole : %i"%(surf_1.tag, surf_2.tag, surf_rect.tag, surf_hole.tag, surf_with_hole.tag))
-    surf_with_hole.bool_cut(surf_hole,remove_tools=True)
-    surf_1.bool_intersect(surf_2,remove_tools=False)
+           "surf_1 : %i; surf_2 : %i; surf_rect : %i; surf_hole_1 : %i; surf_hole_2 : %i"%(surf_1.tag, surf_2.tag, surf_rect.tag, surf_hole_1.tag, surf_hole_2.tag))
+    surf_with_hole = geo.bool_cut_S(surf_rect, [surf_hole_1, surf_hole_2], remove_tool=True)
+    print(surf_with_hole)
+    surf_with_hole = surf_with_hole[0]
+    surf_inter = geo.bool_intersect_S(surf_1, surf_2, False, False)
+    print(surf_inter)
+    surf_inter = surf_inter[0]
     factory.synchronize()
     data = gmsh.model.getEntities()
     print("model name : %s"%name)
     print(data)
+    print("Tags after boolean operations : \n", 
+           "surf_1 : %s; surf_2 : %s; surf_rect : %s; surf_hole_1 : %s; surf_hole_2 : %s, surf_with_hole : %s; surf_inter:%s "%(surf_1.tag, surf_2.tag, surf_rect.tag, surf_hole_1.tag, surf_hole_2.tag, surf_with_hole.tag, surf_inter.tag))
     gmsh.model.mesh.generate(2)
     gmsh.write("%s.brep"%name)
     gmsh.write("%s.msh"%name)
@@ -326,13 +334,13 @@ def test_ll_modif():
 
 
 if __name__ == '__main__':
-    test_Point()
-    test_Line()
-    test_Arc()
-    test_LineLoop()
-    test_PlaneSurface()
-    test_ll_modif()
-    # test_bool_ops()
+    # test_Point()
+    # test_Line()
+    # test_Arc()
+    # test_LineLoop()
+    # test_PlaneSurface()
+    # test_ll_modif()
+    test_bool_ops()
 
     #* Bloc de fin
     plt.show() #* Il faut fermer toutes les fenêtres avant de passer à la GUI gmsh. (pertinent en mode non interactive)

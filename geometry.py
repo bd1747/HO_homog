@@ -588,7 +588,17 @@ class PlaneSurface(object):
                 ll.add_gmsh()
         self.tag = factory.addPlaneSurface([ll.tag for ll in all_loops])
 
+class AbstractSurface(object):
+    """
+    Surface dont on ne connait rien à part le tag.
+    Une instance d'AbstractSurface existe dans le model gmsh et est récupérée grâce à l'API.
+    Il s'agit par exemple du résulat d'une opération booléenne.
+    Par contre, ses bords sont a priori inconnus
+    """
 
+    def __init__(self, tag):
+        self.tag = tag
+        self.boundary = []
 #TODO : Choisir !!!! ET SURTOUT REGARDER CE QUI EST LE PLUS COH2RENT ! 
 #! Choix de passer l'opération booléenne dans une fonction, au lieu d'être une méthode de la classe Surface
 #? Est-ce que l'opération booléenne pourrait fonctionner sur d'autres objets que des surfaces ?
@@ -601,68 +611,92 @@ class PlaneSurface(object):
 #     pass
 #? SI ON A UNE FONCTION A PART ENTIERE, CEST PEUT ETRE PAS PLUS MAL : LA NOUVELLE SURFACE EST DEFINI SEULEMENT PAR L'OPERATION BOOLEENNE, ON NE CONNAIT PAS SES SOMMETS NI SES COTES, DONC ON CREE UN NOUVEL OBJET PYTHON DIFFERENT DE BODY ????
 
-    def bool_cut(self, tools, remove_tools=False):
-    #def boolRemoveGmsh(self, planeSurfToolList, script, delTool=False):
-        #TODO : refaire docstring
-        """
-        Remove the tool entities from the body entity. Removing a set of geometrical entities 'tools' is possible.
-        Si plusieurs tools : l'input doit être une liste.
-        Option pour supprimer ou non les tools. 
+def bool_cut_S(body, tool, remove_body=True, remove_tool=False):
 
-        Opération booléenne de soustraction, sur des objets gmsh de type Plane Surface
-        NECESSITE noyau géométrique OpenCASCADE "SetFactory("OpenCASCADE");"
-        Possibilité de garder ou de supprimer l'outil (par défaut)
-        Rmq : dans gmsh le résultat de l'opération garde le même ID que l'objet autant que possible avec l'option Geometry.OCCBooleanPreserveNumbering
-        Cela n'est possible que si l'object est supprimé lors de l'opération.
         """
-        #   TO DO: NECESSITE noyau géométrique OpenCASCADE "SetFactory("OpenCASCADE");"
-        if not self.in_model:
-            self.add_gmsh()
-        if isinstance(tools, PlaneSurface):
-            tools = [tools]
-        assert isinstance(tools, list)
-        for t in tools:
-            if not t.in_model:
-                t.add_gmsh()
-            output = factory.cut([(2,self.tag)], [(2,t.tag)], removeObject=True, removeTool=remove_tools) #TODO: si on généralise, c'est là qu'on peut avoir geo_dim
-            #? passer directement une liste de tools en input de la fonction ?
-            print("output boolean operation cut : ", output) #! Temporaire. Voir ce que renvoie une opération booléenne. Qu'est ce qu'est le 2d output ? 
-            new_tag = output[0][0][1]
-            if new_tag != self.tag :
-                print("[Info] The boolean cut operation change the tag of the surface : surface %i becomes %i" %(self.tag, new_tag))
-                self.tag = new_tag
-            if remove_tools :
-                t.in_model = False
-                #! Faire quelquechose sur le tag ???
-    #! A TESTER 
-    #!  #! #!
+    Boolean operation of cutting performed on surfaces.
 
-    def bool_intersect(self, tools, remove_tools=False):
-    #def boolIntersectGmsh(self, planeSurfToolList, script, delTool=False):
+    Remove the aeras taken by the tool entities from the body surface.
+    Removing a set of geometrical entities 'tools' at once is possible.
+
+
+    Parameters
+    ----------
+    body : instance of PlaneSurface
+        Main operand of the cut operation.
+    tool : instance of PlaneSurface or list of instances of it
+        Several tool areas can be removed to the body surface at once. To do this, the tool parameter must be a list.
+    remove_body : bool, optional
+        Delete the body surface from the gmsh model after the boolean operation.
+        If True, the tag of the resulting surface might be equal to the one of the deleted body.
+    remove_tool : bool, optional
+        Delete the tool surface from the gmsh model after the boolean operation, or all the tools if several tools are used.
+    
+    Return
+    ----------
+    cut_surf : Instance of PlaneSurface
+        An Python object that represents the surface that is obtained with the boolean operation.
+        This will be a degenerate instance with only a tag attribut and a boundary attribut that can be evaluate later. #! Peut être à compléter
+
         """
-        Opération booléenne d'intersection, sur des objets gmsh de type Plane Surface.
-        Résultat seulement visible dans gmsh, les objets dans Python ne sont pas modifiés
-        Possibilité de garder ou de supprimer l'outil (par défaut)
-        """
-        if not self.in_model:
-            self.add_gmsh()
-        if isinstance(tools, PlaneSurface):
-            tools = [tools]
-        assert isinstance(tools, list)
-        for t in tools:
-            if not t.in_model:
+    if not body.tag:
+        body.add_gmsh()
+    if isinstance(tool, PlaneSurface):
+        tool = [tool]
+    assert isinstance(tool, list)
+    for t in tool:
+        if not t.tag:
                 t.add_gmsh()
-            output = factory.intersect([(2,self.tag)], [(2,t.tag)], removeObject=True, removeTool=remove_tools)
+        # output = factory.cut([(2,body.tag)], [(2,t.tag)], removeObject=remove_body, removeTool=remove_tool)
+        # #? passer directement une liste de tools en input de la fonction ?
+        # print("output boolean operation cut : ", output) #! Temporaire. Voir ce que renvoie une opération booléenne. Qu'est ce qu'est le 2d output ?
+        # new_tag = output[0][0][1]
+        # if new_tag != body.tag :
+        #     print("[Info] The boolean cut operation change the tag of the surface : surface %i becomes %i" %(body.tag, new_tag))
+        #     body.tag = new_tag
+        # if remove_tool :
+        #     t.in_model = False
+    output = factory.cut([(2,body.tag)], [(2,t.tag) for t in tool], removeObject=remove_body, removeTool=remove_tool)
+    if remove_body:
+        body.tag = None
+    if remove_tool:
+        for t in tool:
+            t.tag = None
+    print("output boolean operation cut : ", output)
+    new_surf = []
+    for entity in output[0]:
+        if entity[0]==2:
+            new_surf.append(AbstractSurface(entity[1]))
+        else:
+            print("[Warning] Some entities that result from a cut boolean operation are not surfaces and therefore are not returned. Complete output from the API function : ", output)
+    return new_surf
+
+def bool_intersect_S(body, tool, remove_body=True, remove_tool=False):
+        """
+
+        """
+    if not body.tag:
+        body.add_gmsh()
+    if isinstance(tool, PlaneSurface):
+        tool = [tool]
+    assert isinstance(tool, list)
+    for t in tool:
+        if not t.tag:
+                t.add_gmsh()
+    output = factory.intersect([(2,body.tag)], [(2,t.tag) for t in tool], removeObject=remove_body, removeTool=remove_tool)
+    if remove_body:
+        body.tag = None
+    if remove_tool:
+        for t in tool:
+            t.tag = None
             print("output boolean operation cut : ", output) #! Temporaire
-            new_tag = output[0][0][1]
-            if new_tag != self.tag :
-                print("[Info] The boolean cut operation change the tag of the surface : surface %i becomes %i" %(self.tag, new_tag))
-                self.tag = new_tag
-            if remove_tools :
-                t.in_model = False
-                #! Faire quelquechose sur le tag ???
-    #! A TESTER 
-    #!  #! #!
+    new_surf = []
+    for entity in output[0]:
+        if entity[0]==2:
+            new_surf.append(AbstractSurface(entity[1]))
+        else:
+            print("[Warning] Some entities that result from a cut boolean operation are not surfaces and therefore are not returned. Complete output from the API function : ", output)
+    return new_surf
 
 #TODO : à mieux définir
     # def delGmsh(self, script, recursive=False):
