@@ -361,6 +361,57 @@ class Arc(Curve):
     #     self.tag = factory.addCircleArc(self.def_pts[0].tag, self.def_pts[1].tag, self.def_pts[2].tag)
 
 
+class AbstractCurve(Curve):
+    """
+    """
+    def __init__(self, tag):
+        """
+        Créer une représentation d'une courbe existant dans le modèle Gmsh.
+
+        #! A corriger Lors de l'instantiation, les points extrémités peuvent être donnés, soient explicitement, soit par leurs tags.
+
+        """
+        Curve.__init__(self, [])
+        self.tag = tag
+    
+    def get_boundary(self, get_coords=True):
+        """
+        Récupérer les points correspondants aux extrémités de la courbe à partir du modèle Gmsh.
+
+        Parameters
+        ----------
+        coords : bool, optional
+            If true, les coordonnées des points extrémités sont aussi récupérés.
+        
+        """
+        def_pts = []
+        #! Pour debug print ("tag in get_boundary method of AbstractCurve", self.tag)
+        boundary = model.getBoundary((1, self.tag), False, False, False)
+        print("getBoundary results, for AbstractCurve %i : "%self.tag, boundary)
+        for pt_dimtag in boundary:
+            if not pt_dimtag[0] == 0:
+                raise TypeError("The boundary of the geometrical entity %i are not points." %self.tag)
+            #! BUG for pt in Point.all_instances:
+            for pt in []: #? TEST
+                if pt.tag == pt_dimtag[1]:
+                    print("One end of the AbstractCurve instance is already represented by an instance of Point!")
+                    def_pts.append(pt)
+                    break
+            else:
+                #! getValue call requires the model to be synchronized !
+                coords = model.getValue(0, pt_dimtag[1], []) if get_coords else []
+                print(coords)
+                new_pt = Point(np.array(coords))
+                new_pt.tag = pt_dimtag[1]
+                def_pts.append(new_pt)
+        self.def_pts = def_pts
+
+    def plot(self, color="black"):
+        """En 2D seulement. Tracer les points de def_pts reliés dans un plot matplotlib. """
+        x = [pt.coord[0] for pt in self.def_pts]
+        y = [pt.coord[1] for pt in self.def_pts]
+        plt.plot(x, y, color=color, linestyle = 'dashed')
+
 class LineLoop(object):
     """
     Définit une courbe fermée, composée de segments et d'arc.
@@ -599,6 +650,61 @@ class AbstractSurface(object):
     def __init__(self, tag):
         self.tag = tag
         self.boundary = []
+    
+    def get_boundary(self, recursive=True):
+        """
+        Récupérer les tags des entitées géométriques 1D qui composent le bord de la surface.
+        
+        Parameters
+        ----------
+        recursive : bool, optional
+        If True, the boundaries of the 1-D entities that form the boundary of the AbstractSurface instance are also extracted from the gmsh model. 
+        #? Utile ? Instances of Point are created to represent them.
+
+        """
+        #! Pour debug print(self.__dict__)
+        def_crv = []
+        boundary = model.getBoundary((2, self.tag), False, False, False)
+        # if isinstance(self.tag, list):
+        #     boundary = model.getBoundary([(2, t) for t in self.tag], combine=True, oriented=False, recursive=False)
+        # else:
+        #     boundary = model.getBoundary([(2, self.tag)], False, False, False)
+        print(boundary)
+        for crv in boundary:
+            if not crv[0] == 1:
+                print("[Warning] Unexpected type of geometrical entity in the boundary of surface %i" %self.tag)
+                continue
+            for instc in [] : #! Curve.all_instances: TENTATIVE
+                if instc.tag == crv[1] :
+                    def_crv.append(instc)
+                    break
+            else:
+                def_crv.append(AbstractCurve(crv[1]))
+        
+        if recursive:
+            for crv in def_crv:
+                if isinstance(crv, AbstractCurve):
+                    crv.get_boundary()
+        
+        self.boundary = def_crv
+
+
+#TODO : Not tested yet
+# def combine_AbstractSurface(surfs):
+#     """
+#     Combine several AbstractSurface into one. This operation may be useful before request for the boundary of a whole RVE.
+
+#     Parameters
+#     ----------
+#     surfs : list of instances of AbstractSurface or PlaneSurface
+#     """
+#     for s in surfs :
+#         if not s.tag: #May occure if s is there are PlaneSurface instances in the input list.
+#             s.add_gmsh()
+#     combined_s = AbstractSurface([s.tag for s in surfs])
+
+
+
 #TODO : Choisir !!!! ET SURTOUT REGARDER CE QUI EST LE PLUS COH2RENT ! 
 #! Choix de passer l'opération booléenne dans une fonction, au lieu d'être une méthode de la classe Surface
 #? Est-ce que l'opération booléenne pourrait fonctionner sur d'autres objets que des surfaces ?
@@ -612,8 +718,7 @@ class AbstractSurface(object):
 #? SI ON A UNE FONCTION A PART ENTIERE, CEST PEUT ETRE PAS PLUS MAL : LA NOUVELLE SURFACE EST DEFINI SEULEMENT PAR L'OPERATION BOOLEENNE, ON NE CONNAIT PAS SES SOMMETS NI SES COTES, DONC ON CREE UN NOUVEL OBJET PYTHON DIFFERENT DE BODY ????
 
 def bool_cut_S(body, tool, remove_body=True, remove_tool=False):
-
-        """
+    """
     Boolean operation of cutting performed on surfaces.
 
     Remove the aeras taken by the tool entities from the body surface.
@@ -637,8 +742,8 @@ def bool_cut_S(body, tool, remove_body=True, remove_tool=False):
     cut_surf : Instance of PlaneSurface
         An Python object that represents the surface that is obtained with the boolean operation.
         This will be a degenerate instance with only a tag attribut and a boundary attribut that can be evaluate later. #! Peut être à compléter
-
-        """
+    
+    """
     if not body.tag:
         body.add_gmsh()
     if isinstance(tool, PlaneSurface):
@@ -646,7 +751,7 @@ def bool_cut_S(body, tool, remove_body=True, remove_tool=False):
     assert isinstance(tool, list)
     for t in tool:
         if not t.tag:
-                t.add_gmsh()
+            t.add_gmsh()
         # output = factory.cut([(2,body.tag)], [(2,t.tag)], removeObject=remove_body, removeTool=remove_tool)
         # #? passer directement une liste de tools en input de la fonction ?
         # print("output boolean operation cut : ", output) #! Temporaire. Voir ce que renvoie une opération booléenne. Qu'est ce qu'est le 2d output ?
@@ -662,7 +767,7 @@ def bool_cut_S(body, tool, remove_body=True, remove_tool=False):
     if remove_tool:
         for t in tool:
             t.tag = None
-    print("output boolean operation cut : ", output)
+    #! Pour debug print("output boolean operation cut : ", output)
     new_surf = []
     for entity in output[0]:
         if entity[0]==2:
@@ -672,9 +777,9 @@ def bool_cut_S(body, tool, remove_body=True, remove_tool=False):
     return new_surf
 
 def bool_intersect_S(body, tool, remove_body=True, remove_tool=False):
-        """
+    """
 
-        """
+    """
     if not body.tag:
         body.add_gmsh()
     if isinstance(tool, PlaneSurface):
@@ -697,6 +802,34 @@ def bool_intersect_S(body, tool, remove_body=True, remove_tool=False):
         else:
             print("[Warning] Some entities that result from a cut boolean operation are not surfaces and therefore are not returned. Complete output from the API function : ", output)
     return new_surf
+
+
+def gather_boundary_fragments(curves, main_crv):
+    """
+    Extract from a set of curves (1-D geometrical entities) those which represent a part of the main curve.
+
+    Parameters
+    ----------
+    curves: list of instances of a Curve subclass
+    main_crv : instance of Curve subclass
+
+    """  
+    if not main_crv.tag:
+        main_crv.add_gmsh()
+    for c in curves:
+        if not c.tag:
+            c.add_gmsh()
+            print("[Info] In gather_boundary_fragments, curve {} added to the model".format(c.tag))
+    parts = []
+    for c in curves:
+        factory.synchronize()
+        # print ("main curve tag : {}, part candidate tag : {}".format(main_crv.tag,c.tag))
+        output = factory.intersect([(1,main_crv.tag)], factory.copy([(1,c.tag)]), removeObject=False, removeTool=True) #! Methode détournée qui fonctionne. Dans le test élémentaire, si on prend removeTool=False, avec les courbes à trier, toutes ne sont pas détectées.
+        # print("dans gather boundary, pour la courbe %i, l'output est : "%c.tag , output)
+        output_1D = [dimtag[1] for dimtag in output[0] if dimtag[0] == 1]
+        if output_1D:
+            parts.append(c)
+    return parts
 
 #TODO : à mieux définir
     # def delGmsh(self, script, recursive=False):
