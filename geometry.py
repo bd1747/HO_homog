@@ -417,6 +417,28 @@ class LineLoop(object):
     Définit une courbe fermée, composée de segments et d'arc.
     """
 
+    @staticmethod
+    def remove_duplicates(ll_list):
+        """ 
+        Remove all duplicates from a list of LineLoop instances.
+
+        It should be noted that the equality operator has been overidden for the LineLoop class and takes into account the lineloop direction (clockwise/anticlockwise).
+
+        Note
+        --------
+        Since the __eq__ method has been overridden in the definition of the LineLoop class, LineLoop instances are not hashable.
+        Faster solution for hashable objects : https://stackoverflow.com/questions/7961363/removing-duplicates-in-lists/7961425#7961425
+
+        """
+        unique = list()
+        for x in ll_list:
+            for y in unique:
+                if x == y:
+                    break
+            else:
+                unique.append(x)
+        return unique
+
     def __init__(self, elements, explicit=False):
         """
         La LineLoop est soit défini par des sommets, soit directement défini par une liste d'objets Line/Arcs (explicit = True)
@@ -950,21 +972,6 @@ def remove_gmsh(geo_entity, recursive=False):
 #         outputline = "Recursive " + outputline
 #     script.write(outputline)
 
-def remove_duplicates_ll(geo_entities):
-    """
-    Supprimer les doublons dans une liste, en conservant l'ordre.
-    Fonction conçue pour fonctionner avec des listes de LineLoop.
-    """
-    filtered = list()
-    for nxt_entity in geo_entities:
-        for already_entity in filtered:
-            if nxt_entity == already_entity:
-                break
-        else:
-            newList.append(elmt)
-    #? Faire avec : [nv.append(item) for item in liste if not item in nv] ? comment le test d'appartenance fonctionne avec des classes perso ? A TESTER
-    return newList
-    #! Fonction à tester !
 
 # def suppr_doublon(inpList):
 #     """

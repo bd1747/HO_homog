@@ -391,6 +391,42 @@ def test_gather():
     os.system("gmsh %s.brep &" %name)
     os.system("gmsh %s.msh &" %name)
 
+
+def test_remove_ll_duplicates():
+    """
+    Test of the remove_duplicates static method of the class LineLoop.
+    Results : OK
+    """
+    pts_1 = [(2, 1), (-2, 1), (-2, -1), (2, -1)]
+    pts_1 = [geo.Point(np.array(c)) for c in pts_1]
+    pts_2 = [(-2, -1), (2, -1), (2, 1), (-2, 1)]
+    pts_2 = [geo.Point(np.array(c)) for c in pts_2]
+    lines_1 = [[(3, 4),(-3, 4)], [(-3, 4), (-3, -4)], [(-3, -4), (3, -4)], [(3, -4), (3, 4)]]
+    lines_2 = [[(-3, 4), (-3, -4)], [(-3, -4), (3, -4)], [(3, -4), (3, 4)], [(3, 4),(-3, 4)]]
+    lines_1 = [geo.Line(*[geo.Point(np.array(c)) for c in cc]) for cc in lines_1]
+    lines_2 = [geo.Line(*[geo.Point(np.array(c)) for c in cc]) for cc in lines_2]
+    ll_pts_1 = geo.LineLoop(pts_1, explicit=False)
+    ll_pts_2 = geo.LineLoop(pts_2, explicit=False)
+    ll_lines_1 = geo.LineLoop(lines_1, explicit=True)
+    ll_lines_2 = geo.LineLoop(lines_2, explicit=True)
+    all_ll = [ll_lines_2, ll_pts_1, ll_pts_2, ll_lines_1]
+    print(all_ll)
+    plt.figure()
+    plt.axis('equal')
+    colors = ['red', 'green', 'orange', 'blue']
+    for ll, c in zip(all_ll, colors):
+        ll_copy = copy.deepcopy(ll) #The plot method will creat sides and the 3 next methods have been designed to work well only if sides is empty.
+        ll_copy.plot(c)
+        plt.pause(0.2)
+    unique_ll = geo.LineLoop.remove_duplicates(all_ll)
+    print(unique_ll)
+    plt.figure()
+    plt.axis('equal')
+    for ll, c in zip(unique_ll[0], colors):
+        ll.plot(c)
+        plt.pause(0.2)
+
+
 if __name__ == '__main__':
     # test_Point()
     # test_Line()
@@ -399,7 +435,8 @@ if __name__ == '__main__':
     # test_PlaneSurface()
     # test_ll_modif()
     #test_bool_ops()
-    test_gather()
+    # test_gather()
+    test_remove_ll_duplicates()
 
     #* Bloc de fin
     plt.show() #* Il faut fermer toutes les fenêtres avant de passer à la GUI gmsh. (pertinent en mode non interactive)
