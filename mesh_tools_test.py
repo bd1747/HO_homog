@@ -227,6 +227,74 @@ def test_periodic():
     os.system("gmsh %s.brep &" %name)
     os.system("gmsh %s.msh &" %name)
 
+def test_order_curves():
+    """
+    Test of the order_curves function.
+    Shoud be run after the test of the gather_boundary_fragments function.
+
+    Test of the ordering : OK
+    Reverse functionnality : #! not tested yet
+    """
+
+    name = "test_order"
+    gmsh.model.add(name)
+    rect_vtcs = [(-4, 2), (-4, -2), (4, -2), (4, 2)]
+    rect_vtcs = [geo.Point(np.array(c), 0.2) for c in rect_vtcs]
+    line_N = geo.Line(geo.Point(np.array((-4, 2))), geo.Point(np.array((4, 2))))
+    line_W = geo.Line(geo.Point(np.array((-4, -2))), geo.Point(np.array((-4, 2))))
+    line_S = geo.Line(geo.Point(np.array((-4, -2))), geo.Point(np.array((4, -2))))
+    line_E = geo.Line(geo.Point(np.array((4, -2))), geo.Point(np.array((4, 2))))
+    lines = {'N':line_N, 'E':line_E, 'S':line_S, 'W':line_W}
+    holes = list()
+    hole_shape = [np.array(c) for c in [(-0.2, 0), (0, -0.4), (0.2, 0), (0, 0.4)]]
+    translations = [(-3, 2.1), (-1, 2.1), (1, 2.1), (3, 2.1),
+                    (-3, -2.1), (-1, -2.1), (1, -2.1), (3, -2.1),
+                    (4.1, -1), (4.1, 1),
+                    (-4.1, -1), (-4.1, 1)]
+    translations = [np.array(t) for t in translations]
+    for t in translations:
+        holes.append([geo.Point(c+t, 0.05) for c in hole_shape])
+
+    rect_ll = geo.LineLoop(rect_vtcs, explicit=False)
+    hole_ll = [geo.LineLoop(h, explicit=False) for h in holes]
+    rect_s = geo.PlaneSurface(rect_ll)
+    hole_s = [geo.PlaneSurface(ll) for ll in hole_ll]
+    final_s = geo.bool_cut_S(rect_s, hole_s, remove_body=False, remove_tool=False)
+    factory.synchronize()
+    final_s = final_s[0]
+    final_s.get_boundary(recursive=True)
+    fig, ax = plt.subplots()
+    ax.set_xlim(-4.1, 4.1)
+    ax.set_ylim(-2.1, 2.1)
+    for crv in final_s.boundary:
+        crv.plot("blue")
+    boundaries = {'N':[], 'E':[], 'S':[], 'W':[]}
+    for key, line in lines.items():
+        boundaries[key] = geo.gather_boundary_fragments(final_s.boundary, line)
+        random.shuffle(boundaries[key])
+    fig, ax = plt.subplots()
+    ax.set_xlim(-4.1, 4.1)
+    ax.set_ylim(-2.1, 2.1)
+    colors = {'N':'red', 'E':'green', 'S':'orange', 'W':'blue'}
+    for key in boundaries.keys():
+        for l in boundaries[key]:
+            l.plot(colors[key])
+            plt.pause(0.5) #In order to see the order of the curves
+    basis = np.array(((1., 0.), (0., 1.), (0.,0.)))
+    dir_v = {'N':basis[:,0], 'E':basis[:,1], 'S':basis[:,0], 'W':basis[:,1]}
+    for key, lns in boundaries.items():
+        msh.order_curves(lns, dir_v[key]) 
+    fig, ax = plt.subplots()
+    ax.set_xlim(-4.1, 4.1)
+    ax.set_ylim(-2.1, 2.1)
+    for key in boundaries.keys():
+        for l in boundaries[key]:
+            l.plot(colors[key])
+            plt.pause(0.5) #In order to see the order of the curves
+    factory.synchronize()
+    plt.show(block=True)
+
+
 if __name__ == '__main__':
     geo.init_geo_tools()
     # test_MathEval()

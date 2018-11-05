@@ -265,7 +265,7 @@ def set_background_mesh(fields):
     fields : a single field object or a list of fields
         The specified fields must be instances of the subclasses of the Field base class.
         It (or they) describe the element size that it is desired over the whole material domain on which a mesh is going to be generated.
-
+    
     """
     if not isinstance(fields, list):
         final_field = fields
@@ -300,7 +300,7 @@ def translation2matrix(v, dist=None):
         The affine transformation matrix A of shape 4x4 that represents the translation.
         For a given affine transformation T mapping R^3 to R^3, represented by the tranformation matrix A :
                 x' = T(x)
-            <=> (x', y', z', 1)^T = A \cdot (x, y, z, 1)^T
+            <=> (x', y', z', 1)^T = A cdot (x, y, z, 1)^T
         The 4x4 matrix is flattened in row-major order and returned as a list.
 
     See Also
@@ -346,3 +346,41 @@ def set_periodicity_pairs(slaves, masters, translation_v, translation_dist=None)
     #         crve.add_gmsh()
     model.mesh.setPeriodic(geo_dim, [s.get_tag() for s in slaves], [m.get_tag() for m in masters], translation2matrix(translation_v, translation_dist))
 
+def sort_function_factory(dir_v):
+    """
+    Info : https://en.wikipedia.org/wiki/Closure_(computer_programming)
+    """
+    def sort_function(curve):
+        return np.dot(curve.def_pts[0].coord + curve.def_pts[-1].coord, dir_v)
+    return sort_function
+
+
+def order_curves(curves, dir_v, orientation=False):
+    """
+    Ordonne une liste de courbes.
+    dir_v correspond globalement à la direction des courbes. Le produit scalaire avec ce vecteur directeur est utilisé pour définir l'ordre des courbes. 
+    orientation:
+        Si True, l'orientation des courbes est corrigée de sorte à ce qu'elles soient toutes dans le même sens.
+
+    Return
+        Liste de curves modifiée sur place.
+
+    Info
+    "La seul différence est que sort() retourne None et modifie sur place, tandis que sorted() retourne une nouvelle liste. sorted() est un peu moins performant."
+    http://sametmax.com/ordonner-en-python/
+    #TODO : Choisir, utiliser sort ou sorted ? 
+
+    """
+    # def sort_function(curve, dir_v):
+    #     print("dans order_curves : ", curve.def_pts[0].coord.shape, dir_v.shape)
+    #     return np.dot(curve.def_pts[0].coord + curve.def_pts[-1].coord, dir_v)
+
+    #ordered = sorted(curves, key=sort_function_factory(dir_v))
+    curves.sort(key=sort_function_factory(dir_v))
+    if orientation:
+        for c in curves:
+            if np.dot(c.def_pts[0].coord, dir_v) > np.dot(c.def_pts[-1].coord, dir_v):
+                c.def_pts.reverse()
+                # print("[Info] orientation d'une courbe inversée. Nouvelles coordonnées : ", [pt.coord for pt in c.def_pts]) #! Debug only
+    # return ordered
+    return None
