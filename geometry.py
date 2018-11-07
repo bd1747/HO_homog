@@ -857,83 +857,84 @@ def gather_boundary_fragments(curves, main_crv):
     # def delGmsh(self, script, recursive=False):
     #     delGmsh(self, "Surface", script, recursive)
 
-
-class PhysicalEntity(object):
+#TODO : à déplacer dans mesh ?
+class PhysicalGroup(object):
     """
-    Physical entity d'un certain type, à préciser en entrée.
-    Est identifié par un tag et/ou un ID uniques
+    Create and manage groups of geometrical entities in the gmsh model.
+    Physical groups can be visible in the exported mesh.
+
+    "Groups of elementary geometrical entities can also be defined and are called “physical”
+    groups. These physical groups cannot be modified by geometry commands: their only
+    purpose is to assemble elementary entities into larger groups so that they can be referred to
+    by the mesh module as single entities." (gmsh reference manual 26/09/2018)
+
     """
-    count = 1
-    tagDejaPris = set()
-
-    def __init__(self, inpList, inpType, tag=None):
+    def __init__(self, entities, geo_dim, name=None):
         """
-        Inptype : type d'entités géométriques regroupées. Point, Line, Surface ou Volume
-        """
-        self.idx = copy.deepcopy(PhysicalEntity.count)
-        PhysicalEntity.count += 1
+        Gather multiple instances of one of the geometrical Python classes (Point, Curve, PlaneSurface) to form a single object in the gmsh model.
+        
+        Parameters
+        ----------
+        entities : list
+            The instances that will compose the physical group.
+            They must have the same geometrical dimension (0 for points, 1 for line, arcs, instances of AbstractCurve, 2 for surfaces, 3 for volumes)
+        geo_dim : int
+            Geometrical dimension of the entities that are gathered.
+        name : string, optional
+            name of the group.
 
-        if tag == None:
-            self.tag = None
+        """
+        self.entities = entities
+        self.dim = geo_dim
+        self.name = name
+        self.tag = None
         elif not tag in PhysicalEntity.tagDejaPris:
             self.tag = copy.deepcopy(tag)
             PhysicalEntity.tagDejaPris.add(self.tag)
         else:
             raise ValueError("tag déjà utilisé")
 
-        self.elmts = inpList  # Utiliser un set ou une liste ?
-        self.in_script = False
-        self.elmtType = inpType
+    def add_gmsh(self):
+        if self.tag:
+            return self.tag
+        tags = list()
+        print (self.entities)
+        for item in self.entities:
+            if not item.tag:
+                item.add_gmsh()
+            tags.append(item.tag)
+        self.tag = model.addPhysicalGroup(self.dim, tags)
+        if self.name:
+            model.setPhysicalName(self.dim, self.tag, self.name)
 
-    def addgmsh(self, script):
-        if not self.in_script:
-            for elmt in self.elmts:
-                if not elmt.in_script:
-                    elmt.addgmsh(
-                        script)  # TOUJOURS LE MEME PROBLEME DE LONGUEUR CARACTERISTIQUE SI CEST UN ENSEMBLE DE POINTS
-
-            outputline = "Physical " + self.elmtType + "("
-
-            if self.tag != None:
-                outputline += '"' + self.tag + '", '
-            outputline += str(self.idx) + ") = {" + ", ".join([str(elmt.idx) for elmt in self.elmts]) + "};\n"
-            script.write(outputline)
-            self.in_script = True
-        # Modèles :
-
-    #        Physical Line("test") = {3, 2, 4};
-    #        Physical Line(88) = {2, 3};
-    #        Physical Point("testPote") = {2, 1, 4};
-    #        Physical Surface("testSur") = {1};
-    #        Physical Surface("test", 1) += {1};
-
-    def add(self, script, elmt):
+    def add_to_group(self, entities):
         """
-        ajouter un élément à une physical entity
+        Add a geometrical entity or a list of geometrical entities to an existing physical group.
+
+        The appended items must be of the same geometrical dimension.
         """
-        if not elmt in self.elmts:
-            self.elmts.append(elmt)
+        if self.tag:
+            raise AttributeError("The physical group has been already defined in the gmsh model. It is too late to add entities to this group.")
+        if isinstance(entities, list):
+            self.entities += entities
+        else :
+            self.entities.append(entities)
 
-            outputline = "Physical " + self.elmtType + "("
-            if self.tag != None:
-                outputline += '"' + self.tag + '", '
-            outputline += str(self.idx) + ") += {" + str(elmt.idx) + "};\n"
-            # modèle : Physical Surface("test", 1) += {1};
-
-        else:
-            print
-            "Element déjà présent dans l'entité physique ", self.tag, str(self.idx)
-            print
-            elmt
-
-    def setMeshColor(self, script, color):
+    def set_color(self, rgba_color, recursive=False):
         """
         Choisir la couleur du maillage qui coincidera avec les éléments géométriques contenus de l'entité physique.
-        color : string, nom ( Blue, Black, Red, Orange,...) ou expression RGB "{255,255,0}"
+        
+       Parameters
+       ----------
+        rgba_color : list of 4 integers between 0 and 255.
+            RGBA code of the desired color.
+        recursive : bool, optional
+            Apply the color setting to the parent geometrical entities as well.
         """
-        output = "Color %s { %s {%s};} \n" % (color, self.elmtType, ", ".join([str(elmt.idx) for elmt in self.elmts]))
-        script.write(output)
-        # Modèles : Color Red { Point{3}; Surface{1}; }; Color {255,255,0} { Line{4}; }; Color White { Line {2, 1, 4}; }
+        dimtags = [(self.dim, e.tag) for e in self.entities]
+        model.setVisibility(dimtags, 1)
+        model.setColor(dimtags, *rgba_color, recursive)
+
 
 #TODO : Faire un choix.
 #? Est ce qu'on met plutôt ce remove sous forme d'une méthode dans chaque classe d'objet géométrique ?

@@ -240,8 +240,8 @@ def test_bool_ops():
     intersection : geometry : OK
     intersection : mesh size : No. Very coarse mesh if the characteristic length is set from the values at Points
     #? What the second output of the boolean operation functions are?
-    """
 
+    """
     name = "test_PlaneSurface_bool_ops"
     gmsh.model.add(name)
 
@@ -426,6 +426,62 @@ def test_remove_ll_duplicates():
         ll.plot(c)
         plt.pause(0.2)
 
+def test_physical_group():
+    """
+    Test of the PhysicalGroup class.
+    Group membership in the gmsh model : OK
+    Colors in the gmsh GUI opened with gmsh.fltk.run() : OK
+    #TODO : Vérifier l'export des physical groups dans le maillage
+    """
+
+    name = "test_PhysicalGroup"
+    gmsh.model.add(name)
+
+    coords = [(0.,0.05), (0.05,0.), (1.8,0.), (2.0, 0.2), (2.0, 1.95),  (1.95, 2.0), (0.2, 2.0), (0., 1.8)]
+    pts = [geo.Point(np.array(c), 0.03) for c in coords]
+    lines = [geo.Line(pts[2*i-1], pts[2*i]) for i in range(len(pts)//2)]
+    centers = [geo.Point(np.array(c), 0.03) for c in [(0.05,0.05), (1.8,0.2), (1.95, 1.95), (0.2, 1.8)]]
+    arcs = [geo.Arc(pts[2*i], centers[i], pts[2*i+1]) for i in range(len(pts)//2)]
+    elmts_1D = [item for pair in zip(lines, arcs) for item in pair]
+    ll_1 = geo.LineLoop(elmts_1D, explicit=True)
+    coords = [(1.,1.), (3., 1.), (3., 3.), (1., 3.)]
+    vertc = [geo.Point(np.array(c), 0.01) for c in coords]
+    ll_2 = geo.LineLoop(vertc, explicit=False)
+
+    surf_1 = geo.PlaneSurface(ll_1)
+    surf_2 = geo.PlaneSurface(ll_2)
+
+    rect_vtcs = [geo.Point(np.array(c), 0.05) for c in [(4,2), (4,4), (6,4), (6,2)]]
+    hole_vtcs = [geo.Point(np.array(c), 0.02) for c in [(5-0.1,3), (5,3-0.5), (5+0.1,3), (5,3+0.5)]]
+    rect_ll = geo.LineLoop(rect_vtcs, explicit=False)
+    hole_ll = geo.LineLoop(hole_vtcs, explicit=False)
+    surf_with_hole = geo.PlaneSurface(rect_ll, [hole_ll])
+
+    all_surf = [surf_1, surf_2, surf_with_hole]
+    print("Model : %s \n Add PlaneSurface instances to a gmsh model. \n Surfaces tag :"%name)
+    for s in all_surf:
+        s.add_gmsh()
+        print(s.tag)
+
+    factory.synchronize()
+
+    surf_group = geo.PhysicalGroup([surf_1, surf_with_hole], 2)
+    line_group = geo.PhysicalGroup(ll_2.sides, 1)
+    surf_group.add_gmsh()
+    # surf_group.add_to_group(surf_2) #* Raise an AttributeError, OK
+    line_group.add_to_group(ll_1.sides)
+    line_group.add_gmsh()
+    surf_group.set_color([255, 65, 0, 255])
+    line_group.set_color([120, 246, 0, 255])
+
+
+    gmsh.model.mesh.generate(2)
+    gmsh.write("%s.brep"%name)
+    gmsh.write("%s.msh"%name)
+    os.system("gmsh %s.brep &" %name)
+    os.system("gmsh %s.msh &" %name)
+
+    gmsh.fltk.run()
 
 if __name__ == '__main__':
     # test_Point()
@@ -436,8 +492,9 @@ if __name__ == '__main__':
     # test_ll_modif()
     #test_bool_ops()
     # test_gather()
-    test_remove_ll_duplicates()
-
+    # test_remove_ll_duplicates()
+    test_physical_group()
+    
     #* Bloc de fin
     plt.show() #* Il faut fermer toutes les fenêtres avant de passer à la GUI gmsh. (pertinent en mode non interactive)
     # gmsh.fltk.run() #! A revoir, ça génère des "kernel died" dans Spyder, pas idéal
