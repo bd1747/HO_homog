@@ -128,8 +128,8 @@ def init_geo_tools():
     gmsh.option.setNumber("General.Terminal", 1)
     
     Point.all_pts_in_script = []
-    PhysicalEntity.count = 1
-    PhysicalEntity.tagDejaPris = set()
+    # PhysicalEntity.count = 1
+    # PhysicalEntity.tagDejaPris = set()
     
 
 class Point(object):
@@ -146,6 +146,7 @@ class Point(object):
     all_pts_in_script = []  #TODO : Doit être gardé ? # Utile pour imposer une certaine longueur caractéristique d'éléments en fin de script
     # https://www.toptal.com/python/python-class-attributes-an-overly-thorough-guide 
     # "We could even use this design pattern to track all existing instances of a given class, rather than just some associated data."
+    all_instances = [] #! Refactoring nécessaire pour regrouper avec all_pts_in_script
 
     def __init__(self, coord=np.array((0., 0.)), mesh_size=0):
         """Constructeur de notre classe. Coordonnées importéées sous forme d'un np.array"""
@@ -158,6 +159,7 @@ class Point(object):
         #* Nouveau ! Pour identifier les points "importants" autour des quels il faut raffiner le maillage
         self.fine_msh = False #TODO A définir et voir son utilisation...
         self.mesh_size = mesh_size
+        Point.all_instances.append(self)
 
     # def __repr__(self):#? Je ne m'en sers pas ou vraiment rarement. On supprime ? 
     #     """Methode pour afficher les coordonnées du point."""
@@ -190,6 +192,7 @@ class Point(object):
         return not self.__eq__(other)
 
     #TODO Adapter à la 3D avec matplotlib option 3D ?
+    #? Passer la couleur la taille et tout le reste en kargs, puis passer les kargs en parametres du plot() ?
     def plot(self, color="red", size=5):
         plt.plot(self.coord[0], self.coord[1], marker='o', markersize=size, color=color)
 
@@ -270,11 +273,12 @@ class Curve(object):
     It is designed to represent geometrical entities of dimension one.
 
     """
+    all_instances = []
     def __init__(self, def_pts_list):
         self.def_pts = def_pts_list
         self.tag = None
         self.gmsh_constructor = None
-
+        Curve.all_instances.append(self)
     
     def __eq__(self, other):
         """
