@@ -1061,15 +1061,13 @@ def round_corner(inp_pt, pt_amt, pt_avl, r, junction_raduis=False, plot=False):
     dist_center = float(r) / abs(math.sin(alpha / 2.))
     dist_racc = float(r) / abs(math.tan(alpha / 2.))
 
-    pt_racc_amt = translat(inp_pt, dist_racc * v_amt)
-    pt_racc_avl = translat(inp_pt, dist_racc * v_avl)
-    # pt_racc_amt.name = "pt_racc_amt"
-    # pt_racc_avl.name = "pt_racc_avl"
-    pt_ctr = translat(inp_pt, dist_center * v_biss)
+    pt_racc_amt = translation(inp_pt, dist_racc * v_amt)
+    pt_racc_avl = translation(inp_pt, dist_racc * v_avl)
+    pt_ctr = translation(inp_pt, dist_center * v_biss)
 
     round_arc = Arc(pt_racc_amt, pt_ctr, pt_racc_avl)
-    racc_amt = Line(pt_amt, pt_racc_amt)#, "Ligne de raccord amont")
-    racc_avl = Line(pt_racc_avl, pt_avl)#, "Ligne de raccord aval")
+    racc_amt = Line(pt_amt, pt_racc_amt)
+    racc_avl = Line(pt_racc_avl, pt_avl)
     geoList = [racc_amt, round_arc, racc_avl]
 
     if plot:
