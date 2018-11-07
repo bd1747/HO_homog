@@ -10,6 +10,16 @@ sources :
 
 """
 
+import copy
+import math
+import operator
+import os
+import warnings
+
+import matplotlib.patches
+import matplotlib.pyplot as plt
+import numpy as np
+
 import gmsh
 
 # nice shortcuts
@@ -20,15 +30,6 @@ factory = model.occ
 # gmsh.initialize() #? A mettre dans un fichier init ????
 # #? Uitliser cet argument ? gmsh.initialize(sys.argv) cf script boolean.py
 # gmsh.option.setNumber("General.Terminal", 1) #0 or 1 : print information on the terminal
-
-# TODO : à trier
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.patches
-import math
-import copy
-import os
-import operator
 
 #TODO : à revoir
 GEOMETRY_KERNELS = ["Built-in", "OpenCASCADE"] #!
@@ -809,14 +810,14 @@ def bool_intersect_S(body, tool, remove_body=True, remove_tool=False):
     assert isinstance(tool, list)
     for t in tool:
         if not t.tag:
-                t.add_gmsh()
+            t.add_gmsh()
     output = factory.intersect([(2,body.tag)], [(2,t.tag) for t in tool], removeObject=remove_body, removeTool=remove_tool)
     if remove_body:
         body.tag = None
     if remove_tool:
         for t in tool:
             t.tag = None
-            print("output boolean operation cut : ", output) #! Temporaire
+    print("output boolean operation intersect : ", output) #! Temporaire
     new_surf = []
     for entity in output[0]:
         if entity[0]==2:
@@ -888,11 +889,6 @@ class PhysicalGroup(object):
         self.dim = geo_dim
         self.name = name
         self.tag = None
-        elif not tag in PhysicalEntity.tagDejaPris:
-            self.tag = copy.deepcopy(tag)
-            PhysicalEntity.tagDejaPris.add(self.tag)
-        else:
-            raise ValueError("tag déjà utilisé")
 
     def add_gmsh(self):
         if self.tag:
@@ -1060,130 +1056,96 @@ def round_corner(inp_pt, pt_amt, pt_avl, r, junction_raduis=False, plot=False):
 
     return geoList
 
+#***
+#*** Affine transformations on LineLoops, Curves and Points
+#***
 
-if __name__ == '__main__':
-    test = []
+#? Test : utilisation d'une factory
+# def point_reflection(geo_ent, center):
+#     """ Renvoie un nouvel objet géométrique obtenu par symétrie centrale.
+    
+#     geo_ent : instance of a geometrical class Point, Curve and its subclass or LineLoop
+#     """
+#     if geo_ent.tag:
+#         raise NotImplementedError("For now a geometrical properties of a geometrical entity cannot be modified if this entity has already been added to the gmsh geometry model.") 
+#     if isinstance(geo_ent, Point):
+#         coord = -(geo_ent.coord - center.coord) + center.coord
+#         new_ent = Point(coord)
+#     if isinstance(geo_ent, Curve):
+#         pts = [point_reflection(pt, center) for pt in geo_ent.def_pts]
+#         if isinstance(geo_ent, Line):
+#             new_ent = Line(*pts)
+#         if isinstance(geo_ent, Arc):
+#             new_ent = Line(*pts)
+#     if isinstance(geo_ent, LineLoop):
+#         if geo_ent.sides:
+#             crv = [point_reflection(crv, center) for crv in geo_ent.sides]
+#             new_ent = LineLoop(crv, explicit=True)
+#         else:
+#             pts = [point_reflection(pt, center) for pt in geo_ent.vertices]
+#             new_ent = LineLoop(pts, explicit=False)
+#         if geo_ent.info_offset:
+#             new_ent.info_offset = True
+#             new_ent.offset_dpcmt = geo_ent.offset_dpcmt
+#     return new_ent
 
-    ### test de la méthode boolRemovegmsh de PlaneSurface ####
-    if "planeSurface" in test:
-        a, b = 1., 2.
+def geo_transformation_factory(pt_coord_fctn):
+    """
+    A partir d'une fonction élémentaire qui indique comment les coordonnées d'un point sont transformées, cette factory renvoie une fonction capable d'appliquer cette transformation sur une instance de Point, Line, Arc ou LineLoop.
 
-        Incl = [(a, 0.), (0., b), (-a, 0.), (0., -b)]
-        Incl = map(np.array, Incl)
-        Incl = map(Point, Incl)
+    """
+    def transformation(geo_ent, *args, **kwargs):
+        """ Renvoie un nouvel objet géométrique obtenu par symétrie centrale.
+        geo_ent : instance of a geometrical class Point, Curve and its subclass or LineLoop
+        """
+        if geo_ent.tag:
+            raise NotImplementedError("For now a geometrical properties of a geometrical entity cannot be modified if this entity has already been added to the gmsh geometry model.") 
+        if isinstance(geo_ent, Point):
+            coord = pt_coord_fctn(geo_ent.coord, *args, **kwargs)
+            new_ent = Point(coord)
+        if isinstance(geo_ent, Curve):
+            pts = [transformation(pt, *args, **kwargs) for pt in geo_ent.def_pts]
+            if isinstance(geo_ent, Line):
+                new_ent = Line(*pts)
+            if isinstance(geo_ent, Arc):
+                new_ent = Arc(*pts)
+        if isinstance(geo_ent, LineLoop):
+            if geo_ent.sides:
+                crv = [transformation(crv, *args, **kwargs) for crv in geo_ent.sides]
+                new_ent = LineLoop(crv, explicit=True)
+            else:
+                pts = [transformation(pt, *args, **kwargs) for pt in geo_ent.vertices]
+                new_ent = LineLoop(pts, explicit=False)
+            if geo_ent.info_offset:
+                new_ent.info_offset = True
+                new_ent.offset_dpcmt = geo_ent.offset_dpcmt
+        return new_ent
+    return transformation
 
-        Rect = [(4 * a, 4 * b), (-4 * a, 4 * b), (-4 * a, -4 * b), (4 * a, -4 * b)]
-        Rect = map(np.array, Rect)
-        Rect = map(Point, Rect)
+def pt_reflection_basis(pt_coord, center):
+     return center.coord - (pt_coord - center.coord)
+#base_point_reflection = lambda pt_coord, center: -(pt_coord - center.coord) + center.coord
+point_reflection = geo_transformation_factory(pt_reflection_basis)
 
-        surfRect = PlaneSurface(LineLoop(Rect))
-        surfIncl = PlaneSurface(LineLoop(Incl))
+def pln_reflection_basis(pt_coord, pln_pt, pln_normal):
+    """
+    Symétrie mirroir, en 3D, par rapport à un plan. 
+    Le plan est défini par une normale et un point contenu dans ce plan. 
+    """
+    #?laisser la possibilité d'utiliser directement un np.array ou une liste pour donner les coordonnées pour plus de facilité d'utilisation ?
+    if isinstance(pln_pt, Point): 
+        pln_pt = pln_pt.coord
+    else:
+        pln_pt = np.asarray(pln_pt) # Array interpretation of a. No copy is performed if the input is already an ndarray 
+    n = unit_vect(pln_normal)
+    return (pt_coord - pln_pt) - 2*(pt_coord - pln_pt).dot(n) * n + pln_pt
+plane_reflection = geo_transformation_factory(pln_reflection_basis)
 
-        scriptTest = "testBoolRemoveSurface.geo"
-        with open(scriptTest, 'w') as fileOut:
-            geometry_kernel(fileOut, 1)
-            surfRect.addgmsh(fileOut)
-            surfRect.boolRemoveGmsh([surfIncl], fileOut, delTool=True)
-
-        strCmd = "gmsh " + scriptTest
-        os.system(strCmd)  # Ok ! Les deux géométries sont créées et affichées correctement
-
-    #### Test fonction bissectrice offset et angle ####
-    vectTests = [[np.array((0., 2.)), np.array((-3. * math.sqrt(2.) / 2., -3. * math.sqrt(2.) / 2.))],
-                 [np.array((-1., 0.)), np.array((2. * math.sqrt(3) / 2., 2. * 1. / 2.))],
-                 [np.array((-5., -5.)), np.array((5., 5.))], [np.array((3., -2.)), np.array((-3., 2.))]]
-    if "bissectrice" in test:
-        for vectCouple in vectTests:
-            print
-            angle_between(vectCouple[0], vectCouple[1], True)
-        # Pour bissectrice
-        for vectCouple in vectTests:
-            P1 = Point(vectCouple[0])
-            P2 = Point(vectCouple[1])
-            P3 = Point(bissect(vectCouple[0], vectCouple[1]))
-            fig = plt.figure()
-            ax = fig.add_subplot(1, 1, 1)
-            P1.plot("red")
-            Line(Point(), P1).plot("red")
-            P2.plot("blue")
-            Line(Point(), P2).plot("blue")
-            P3.plot("orange")
-            Line(Point(), P3).plot("orange")
-            plt.axis('equal')
-            plt.show()
-
-        # Pour bissectrice 2
-        for vectCouple in vectTests:
-            P1 = Point(vectCouple[0])
-            P2 = Point(vectCouple[1])
-            P3 = Point(bissect2(vectCouple[0], vectCouple[1]))
-            fig = plt.figure()
-            ax = fig.add_subplot(1, 1, 1)
-            P1.plot("red")
-            Line(Point(), P1).plot("red")
-            P2.plot("blue")
-            Line(Point(), P2).plot("blue")
-            P3.plot("orange")
-            Line(Point(), P3).plot("orange")
-            plt.axis('equal')
-            plt.show()
-        # OK !
-    if "offset" in test:
-        # Pour offset
-        from matplotlib.backends.backend_pdf import PdfPages
-
-        pp = PdfPages('offsetTests.pdf')
-
-        for vectCouple in vectTests:
-            P1 = Point(vectCouple[0])
-            P2 = Point(vectCouple[1])
-            P3 = Point(np.array((0., 0.)))
-            P4 = offset2(P3, P1, P2, 0.5)
-            fig = plt.figure()
-            ax = fig.add_subplot(1, 1, 1)
-            P1.plot("red")
-            Line(Point(), P1).plot("red")
-            P2.plot("blue")
-            Line(Point(), P2).plot("blue")
-            P3.plot("orange")
-            P4.plot("purple")
-            Line(translat(P1, P4.coord - P3.coord), P4).plot("purple")
-            Line(translat(P2, P4.coord - P3.coord), P4).plot("purple")
-            plt.axis('equal')
-            plt.savefig(pp, format='pdf')
-            plt.show()
-        pp.close()
-
-    #### Test fonction PeriodicLinePaires ####
-    if "periodic" in test:
-        a, b = 1., 1.
-        rect = [(a, b), (-a, b), (-a, -b), (a, -b)]
-        rect = [Point(np.array(coord)) for coord in rect]
-        contourRect = LineLoop(rect, polygone=True)
-        surfRect = PlaneSurface(contourRect)
-
-        script = "Ex_periodic_mesh.geo"
-        with open(script, 'w') as fileOut:
-            rect[0].addgmsh(fileOut, 0.01)
-            surfRect.addgmsh(fileOut)
-            perLinePaires(fileOut, [3, 4], [-1, -2], ID=True)
-            # OK ! Cela donne bien le résultat attendu, visuellement. Vérifier si les coordonées les noeuds sont corrects ?
-
-            group1 = PhysicalEntity([contourRect.sides[0], contourRect.sides[2]], "Line", tag="groupTest")
-            group1.addgmsh(fileOut)
-            group1.setMeshColor(fileOut, "{0,255,255}")  # OK
-
-            fileOut.write("Mesh 2; ")  # ATTENTION, genere un maillage mais n'écrit pas de fichier .msh
-
-        strCmd = "gmsh " + script
-        os.system(strCmd)
-
-    #### test fonction importLineListFromFile ####
-    if "importLine" in test:
-        fileTest = "exp_gmsh_bord_haut"
-        resultLines = importLineList(fileTest)
-        for elmt in resultLines:
-            elmt.plot()
-            elmt.deb.plot()
-            elmt.fin.plot()
-
+def translation_basis(pt_coord, vect):
+    """
+    vect : 1-D array-like
+        The 3 components of the vector that entirely define the translation.
+    """
+    vect = np.asarray(vect)
+    return pt_coord + vect
+translation = geo_transformation_factory(translation_basis)

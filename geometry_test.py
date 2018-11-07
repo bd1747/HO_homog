@@ -483,6 +483,42 @@ def test_physical_group():
 
     gmsh.fltk.run()
 
+def test_reflections():
+
+    name = "test_reflections"
+    gmsh.model.add(name)
+    pt1 = geo.Point(np.array((1., 0.)))
+    pt2 = geo.Point(np.array((2., 3.)))
+    pt_I = geo.Point(np.array((3., 3.)))
+    pt1_s = geo.point_reflection(pt1, pt_I)
+    pt2_s = geo.point_reflection(pt2, pt_I)
+    plt.figure()
+    plt.axis('equal')
+    for p,c in zip([pt1, pt2, pt1_s, pt2_s, pt_I], ['red', 'blue', 'orange', 'green', 'black']):
+        p.plot(c)
+        p.add_gmsh()
+    plt.show()
+    rect = [(-2, -3), (-5,-3), (-5,-4), (-2,-4)]
+    rect = geo.LineLoop([geo.Point(np.array(c)) for c in rect], False)
+    tri = [(-3, 2), (-2, 3), (-1, 2)]
+    tri = geo.LineLoop([geo.Point(np.array(c)) for c in tri], False)
+    tri.round_corner_incircle(0.1)
+    pt_M = geo.Point(np.array((-6., 0.)))
+    rect_s = geo.plane_reflection(rect, pt_M, np.array((4.,0.,0.)))
+    tri_s = geo.plane_reflection(tri, pt_M, np.array((4.,0.,0.)))
+    plt.figure()
+    plt.axis('equal')
+    for p,c in zip([rect, tri, rect_s, tri_s, pt_M], ['red', 'blue', 'orange', 'green', 'black']):
+        p.plot(c)
+        p.add_gmsh()
+    plt.show()
+    factory.synchronize()
+    gmsh.write("%s.brep"%name)
+    os.system("gmsh %s.brep &" %name)
+
+#TODO : faire test de translation function
+
+
 if __name__ == '__main__':
     # test_Point()
     # test_Line()
@@ -493,8 +529,9 @@ if __name__ == '__main__':
     #test_bool_ops()
     # test_gather()
     # test_remove_ll_duplicates()
-    test_physical_group()
-    
+    # test_physical_group()
+    test_reflections()
+
     #* Bloc de fin
     plt.show() #* Il faut fermer toutes les fenêtres avant de passer à la GUI gmsh. (pertinent en mode non interactive)
     # gmsh.fltk.run() #! A revoir, ça génère des "kernel died" dans Spyder, pas idéal
