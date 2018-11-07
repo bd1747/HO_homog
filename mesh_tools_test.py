@@ -11,10 +11,14 @@ import gmsh
 import geometry as geo
 import mesh_tools as msh
 import numpy as np
+import random
+import matplotlib.pyplot as plt
 
 # nice shortcuts
 model = gmsh.model
 factory = model.occ
+
+plt.ion()
 
 #? COMPARER AVEC DES MAILLAGES PRODUITS A LA MAIN JUSTE AVEC LA GUI GMSH ?
 
@@ -305,4 +309,5 @@ if __name__ == '__main__':
     # test_fctn_restrict()
 
     # test_translation2matrix()
-    test_periodic()
+    # test_periodic()
+    test_order_curves()

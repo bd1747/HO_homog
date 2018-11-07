@@ -289,7 +289,7 @@ def translation2matrix(v, dist=None):
     Parameters
     ----------
     v : 1-D numpy array
-        Vector that entirely define the translation or only the direction if the second parameter is specified. 
+        Vector that entirely define the translation or only the direction if the second parameter is specified.
         The user can implicitely define the translation in the (e_x, e_y) plane and give a (2,) array for the v value.
     d : float, optional
         Distance of translation.
