@@ -26,6 +26,8 @@ import gmsh
 model = gmsh.model
 factory = model.occ
 
+warnings.simplefilter("error") #? Doc: https://docs.python.org/3.6/library/warnings.html
+
 #TODO : regarder ou mettre ces commandes
 # gmsh.initialize() #? A mettre dans un fichier init ????
 # #? Uitliser cet argument ? gmsh.initialize(sys.argv) cf script boolean.py
@@ -209,9 +211,10 @@ class Point(object):
 
 
 #### Fonctions permettant des opérations géométriques de bases sur des objets de type Point ####
-def centroSym(pt, centre):
+def centroSym(pt, center):
+    warnings.warn("Deprecated. Should use the point_reflection function instead.", DeprecationWarning)
     """ Renvoie un nouveau point obtenu par symétrie centrale."""
-    new_coord = -(pt.coord - centre.coord) + centre.coord
+    new_coord = -(pt.coord - center.coord) + center.coord
     return Point(new_coord)
 
 def mirrorSym(pt, centre, axe):
@@ -220,12 +223,14 @@ def mirrorSym(pt, centre, axe):
     SEULEMENT EN 2D POUR LE MOMENT
     To do : généraliser 2D et 3D
     """
+    warnings.warn("Deprecated. Should use the plane_reflection function instead.", DeprecationWarning)
     new_coord = (2 * (pt.coord - centre.coord).dot(axe) * axe - (pt.coord - centre.coord) + centre.coord)
     return Point(new_coord)
 
 def translat(pt, vect):
-    """ Translation d'un point, défini par un vecteur de type np.array
+    """ DEPRECATED. Translation d'un point, défini par un vecteur de type np.array
     """
+    warnings.warn("Deprecated. Should use the translation function instead.", DeprecationWarning)
     new_coord = pt.coord + vect
     return Point(new_coord)
 
@@ -279,6 +284,16 @@ class Curve(object):
             if not pt.tag:
                 pt.add_gmsh()
         self.tag = self.gmsh_constructor(*[p.tag for p in self.def_pts])
+    
+    #! JUSTE UN ESSAI POUR LE MOMENT. Reste à valider.
+    #? Utiliser @property ? http://sametmax.com/le-guide-ultime-et-definitif-sur-la-programmation-orientee-objet-en-python-a-lusage-des-debutants-qui-sont-rassures-par-les-textes-detailles-qui-prennent-le-temps-de-tout-expliquer-partie-3/
+    def get_tag(self):
+        if self.tag:
+            return self.tag
+        else:
+            self.add_gmsh()
+            return self.tag
+
 
 class Line(Curve):
     """Classe définissant une ligne simple caractérisée par :
@@ -580,6 +595,7 @@ class LineLoop(object):
 
 
 def centro_sym_ll(inp_ll, center):
+    warnings.warn("Deprecated. Should use the point_reflection function instead.", DeprecationWarning)
     """Opération de symétrie centrale sur une LineLoop ou liste de LineLoop. Une nouvelle LineLoop ou liste de LineLoop est renvoyée.
     La symétrie est faite aux niveaux des sommets (objets Points) de la LineLoop et n'agit pas sur l'attribut sides.
     """
@@ -592,10 +608,12 @@ def centro_sym_ll(inp_ll, center):
 
 
 def mirror_sym_ll(inp_ll, center, axe):
+    
     """Une nouvelle LineLoop ou liste de LineLoop est calculée par symmétrie mirroir et renvoyée.
     La symétrie est faite aux niveaux des sommets (objets Points) de la LineLoop et n'agit pas sur l'attribut sides.
     Le sens de rotation de la LineLoop (horaire / anti_horaire) est conservé.
     """
+    warnings.warn("Deprecated. Should use the point_reflection function instead.", DeprecationWarning)
     if type(inp_ll) is not list:
         new_pts = [mirrorSym(pt, center, axe) for pt in inp_ll.vertices]
         new_pts.reverse()
@@ -606,7 +624,9 @@ def mirror_sym_ll(inp_ll, center, axe):
 
 
 def translat_ll(inp_ll, vect):
-    """ Doc_string à compléter. Voir mirror_sym_ll pour un fonctionnement similaire. """
+    """ DEPRECATED.  Doc_string à compléter. Voir mirror_sym_ll pour un fonctionnement similaire. """
+    
+    warnings.warn("Deprecated. Should use the translation function instead.", DeprecationWarning)
     if type(inp_ll) is not list:
         new_pts = [translat(pt, vect) for pt in inp_ll.vertices]
         return LineLoop(new_pts, explicit=False)
@@ -631,7 +651,6 @@ class PlaneSurface(object):
         self.holes = holes
         self.tag = None
     
-
     def __eq__(self, other):
         """
          Opérateur de comparaison == surchargé pour les objets de la classe Plane Surface
