@@ -86,6 +86,24 @@ def bissect(v1, v2):
     biss = unit_vect(biss)
     return biss
 
+def dual_base(basis):
+    """
+    Calculates the dual basis associated with a given basis. 
+
+    Parameters
+    ----------
+    basis : numpy array_like, square matrix
+        The components of the basis vectors in an orthogonal coordinate system.
+        2-D array, Dimensions of the matrix : 2×2 or 3×3
+    
+    Return
+    ------
+    dual_b : np.array
+        The components of the vectors that composed the dual base, in the same orthogonal coordinate system.
+    
+    """
+    return np.linalg.inv(basis).T
+
 #TODO : doctring à faire
 #TODO : Utiliser une fonction de l'API gmsh ? 
 def geometry_kernel(script, choix=1): #! Obsolète. Travail directement que avec des fonctions géométriques de la classe occ de l'API. 
