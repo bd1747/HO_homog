@@ -363,6 +363,8 @@ def order_curves(curves, dir_v, orientation=False):
         Si True, l'orientation des courbes est corrigée de sorte à ce qu'elles soient toutes dans le même sens.
 
     Return
+    ------
+    None
         Liste de curves modifiée sur place.
 
     Info
