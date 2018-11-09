@@ -15,12 +15,16 @@ import math
 import operator
 import os
 import warnings
+import logging
 
 import matplotlib.patches
 import matplotlib.pyplot as plt
 import numpy as np
 
 import gmsh
+
+logger = logging.getLogger(__name__) #http://sametmax.com/ecrire-des-logs-en-python/
+logger.setLevel(logging.DEBUG)
 
 # nice shortcuts
 model = gmsh.model
@@ -425,7 +429,7 @@ class AbstractCurve(Curve):
         def_pts = []
         #! Pour debug print ("tag in get_boundary method of AbstractCurve", self.tag)
         boundary = model.getBoundary((1, self.tag), False, False, False)
-        print("getBoundary results, for AbstractCurve %i : "%self.tag, boundary)
+        # print("getBoundary results, for AbstractCurve %i : "%self.tag, boundary)
         for pt_dimtag in boundary:
             if not pt_dimtag[0] == 0:
                 raise TypeError("The boundary of the geometrical entity %i are not points." %self.tag)
@@ -438,7 +442,7 @@ class AbstractCurve(Curve):
             else:
                 #! getValue call requires the model to be synchronized !
                 coords = model.getValue(0, pt_dimtag[1], []) if get_coords else []
-                print(coords)
+                logger.debug(repr(coords))
                 new_pt = Point(np.array(coords))
                 new_pt.tag = pt_dimtag[1]
                 def_pts.append(new_pt)
@@ -733,7 +737,7 @@ class AbstractSurface(object):
         #     boundary = model.getBoundary([(2, t) for t in self.tag], combine=True, oriented=False, recursive=False)
         # else:
         #     boundary = model.getBoundary([(2, self.tag)], False, False, False)
-        print(boundary)
+        logger.debug(repr(boundary))
         for crv in boundary:
             if not crv[0] == 1:
                 print("[Warning] Unexpected type of geometrical entity in the boundary of surface %i" %self.tag)
@@ -970,7 +974,7 @@ class PhysicalGroup(object):
         """
         dimtags = [(self.dim, e.tag) for e in self.entities]
         model.setVisibility(dimtags, 1)
-        model.setColor(dimtags, *rgba_color, recursive)
+        model.setColor(dimtags, *rgba_color, recursive=recursive)
 
 
 #TODO : Faire un choix.
