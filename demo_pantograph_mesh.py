@@ -120,27 +120,26 @@ fine_pts = geo.LineLoop.remove_duplicates(fine_pts)
 f = msh.set_mesh_refinement([r, a], [r/2, a/3], attractors={'points':fine_pts}, sigmoid_interpol=True)
 msh.set_background_mesh(f)
 logger.info('Done defining a mesh refinement constraint')
-
-macro_boundry = macro_ll.sides
-micro_boundry = list()
+macro_bndry = macro_ll.sides
+micro_bndry = list()
 rve_s.get_boundary(recursive=True)
-micro_boundry = [geo.gather_boundary_fragments(rve_s.boundary, M_ln) for M_ln in macro_boundry]
-dirct = [(M_ln.def_pts[-1].coord - M_ln.def_pts[0].coord) for M_ln in macro_boundry]
+micro_bndry = [geo.gather_boundary_fragments(rve_s.boundary, M_ln) for M_ln in macro_bndry]
+dirct = [(M_ln.def_pts[-1].coord - M_ln.def_pts[0].coord) for M_ln in macro_bndry]
 logger.debug('value and type of dirct items : ' + repr([(i, type(i)) for i in dirct]))
-for  i, crvs in enumerate(micro_boundry):
+for  i, crvs in enumerate(micro_bndry):
     msh.order_curves(crvs, dirct[i%2], orientation=True)
-logger.debug("length of micro_boundry list : " + str(len(micro_boundry)))
+logger.debug("length of micro_bndry list : " + str(len(micro_bndry)))
 
-# for crv in micro_boundry[2]: #!INUTILE si on prend le même vecteur pour les 2 tris 
+# for crv in micro_bndry[2]: #!INUTILE si on prend le même vecteur pour les 2 tris 
 #     crv.reverse()
-# for crv in micro_boundry[3]:
+# for crv in micro_bndry[3]:
 #     crv.reverse()
-vect_t1 = macro_boundry[2].def_pts[0].coord - macro_boundry[0].def_pts[-1].coord
-vect_t2 = macro_boundry[3].def_pts[0].coord - macro_boundry[1].def_pts[-1].coord
-for crvs in micro_boundry:
+vect_t1 = macro_bndry[2].def_pts[0].coord - macro_bndry[0].def_pts[-1].coord
+vect_t2 = macro_bndry[3].def_pts[0].coord - macro_bndry[1].def_pts[-1].coord
+for crvs in micro_bndry:
     print(len(crvs), crvs)
-# msh.set_periodicity_pairs(micro_boundry[0], micro_boundry[2], vect_t1)
-# msh.set_periodicity_pairs(micro_boundry[1], micro_boundry[3], vect_t2)
+# msh.set_periodicity_pairs(micro_bndry[0], micro_bndry[2], vect_t1)
+# msh.set_periodicity_pairs(micro_bndry[1], micro_bndry[3], vect_t2)
 # logger.info('Done defining a mesh periodicity constraint')
 #! Bug à trouver...
 factory.remove([(1, l.tag) for l in macro_ll.sides])
