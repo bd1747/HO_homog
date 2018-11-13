@@ -311,15 +311,17 @@ class Curve(object):
                 pt.add_gmsh()
         self.tag = self.gmsh_constructor(*[p.tag for p in self.def_pts])
     
-    #! JUSTE UN ESSAI POUR LE MOMENT. Reste à valider.
-    #? Utiliser @property ? http://sametmax.com/le-guide-ultime-et-definitif-sur-la-programmation-orientee-objet-en-python-a-lusage-des-debutants-qui-sont-rassures-par-les-textes-detailles-qui-prennent-le-temps-de-tout-expliquer-partie-3/
     def get_tag(self):
+        warnings.warn("Deprecated. Should use explicit if not self.tag checks before reading set.tag instead.", DeprecationWarning)
+        pass
+        # if self.tag:
+        #     return self.tag
+        # else:
+        #     self.add_gmsh()
+        #     return self.tag
+        # #? Autre idée : @property
         if self.tag:
-            return self.tag
-        else:
-            self.add_gmsh()
-            return self.tag
-
+            self.tag *= -1
 
 class Line(Curve):
     """Classe définissant une ligne simple caractérisée par :
