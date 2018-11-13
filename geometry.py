@@ -1101,6 +1101,33 @@ def round_corner(inp_pt, pt_amt, pt_avl, r, junction_raduis=False, plot=False):
 
     return geoList
 
+
+def remove_duplicates(ent_list): #! Fonctionne très bien aussi pour d'autres types d'objets géométriques (Points par exemple)
+    """ 
+    Remove all duplicates from a list of geometrical entities. 
+    
+    Designed to be used with instances of one of the geometrical classes
+    (Point, Curve, LineLoop and Surface).
+    It should be noted that the equality operator has been overidden for these classes.
+    For the LineLoop instances, it takes into account the lineloop direction (clockwise/anticlockwise).
+
+    Note
+    --------
+    Since the __eq__ method has been overridden in the definition of the geometrical classes,
+    their instances are not hashable.
+    Faster solution for hashable objects : 
+    https://stackoverflow.com/questions/7961363/removing-duplicates-in-lists/7961425#7961425
+
+    """
+    unique = list()
+    for x in ent_list:
+        for y in unique:
+            if x == y:
+                break
+        else:
+            unique.append(x)
+    return unique
+
 #***
 #*** Affine transformations on LineLoops, Curves and Points
 #***

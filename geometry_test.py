@@ -418,7 +418,7 @@ def test_remove_ll_duplicates():
         ll_copy = copy.deepcopy(ll) #The plot method will creat sides and the 3 next methods have been designed to work well only if sides is empty.
         ll_copy.plot(c)
         plt.pause(0.2)
-    unique_ll = geo.LineLoop.remove_duplicates(all_ll)
+    unique_ll = geo.remove_duplicates(all_ll)
     print(unique_ll)
     plt.figure()
     plt.axis('equal')

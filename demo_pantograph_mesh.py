@@ -65,7 +65,7 @@ pattern_ll = [geo.LineLoop(pt_list, explicit=False) for pt_list in contours]
 pattern_ll += [geo.point_reflection(ll, M) for ll in pattern_ll]
 pattern_ll += [geo.plane_reflection(ll, I, e1) for ll in pattern_ll]
 pattern_ll += [geo.plane_reflection(ll, I, e2) for ll in pattern_ll]
-geo.LineLoop.remove_duplicates(pattern_ll)
+geo.remove_duplicates(pattern_ll)
 logger.info('Done removing of the line-loops duplicates')
 
 r = a/20
@@ -115,7 +115,7 @@ os.system("gmsh %s.brep &" %name)
 logger.info('Start defining a mesh refinement constraint')
 constr_pts = [pt for ll in pattern_ll for pt in ll.vertices]
 fine_pts = [pt for pt in constr_pts if (pt.coord[0] % 1 < p[0]/2. or pt.coord[0] % 1 > 1. - p[0]/2.)]
-fine_pts = geo.LineLoop.remove_duplicates(fine_pts)
+fine_pts = geo.remove_duplicates(fine_pts)
 
 f = msh.set_mesh_refinement([r, a], [r/2, a/3], attractors={'points':fine_pts}, sigmoid_interpol=True)
 msh.set_background_mesh(f)
