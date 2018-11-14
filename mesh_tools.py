@@ -333,18 +333,18 @@ def translation2matrix(v, dist=None):
     transform_matx[:,3] += v_
     return transform_matx.flatten().tolist()
 
-def set_periodicity_pairs(slaves, masters, translation_v, translation_dist=None):
+def set_periodicity_pairs(slaves, masters, translation_v):
     """
     A rédiger #TODO
     """
-    if all(isinstance(s, geo.Curve) for s in slaves) and all(isinstance(m, geo.Curve) for m in masters) :
+    if all(isinstance(s, geo.Curve) for s in slaves) and all(isinstance(m, geo.Curve) for m in masters):
         geo_dim = 1
     else:
         raise TypeError("set_periodicity_pairs only suppports 1-D geometrical entities for now.")
-    for crve in slaves + masters :
+    for crve in slaves + masters:
         if not crve.tag:
             crve.add_gmsh()
-    model.mesh.setPeriodic(geo_dim, [s.tag for s in slaves], [m.tag for m in masters], translation2matrix(translation_v, translation_dist))
+    model.mesh.setPeriodic(geo_dim, [s.tag for s in slaves], [m.tag for m in masters], translation2matrix(translation_v))
 
 def sort_function_factory(dir_v):
     """
