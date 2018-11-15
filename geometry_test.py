@@ -391,6 +391,61 @@ def test_gather():
     os.system("gmsh %s.brep &" %name)
     os.system("gmsh %s.msh &" %name)
 
+def test_gather_line():
+    """
+    Test of the macro_line_fragments function.
+    colors on plots : OK
+    
+    """
+    name = "test_gather_line"
+    gmsh.model.add(name)
+    rect_vtcs = [(-4, 2), (-4, -2), (4, -2), (4, 2)]
+    rect_vtcs = [geo.Point(np.array(c), 0.2) for c in rect_vtcs]
+    line_N = geo.Line(geo.Point(np.array((-4, 2))), geo.Point(np.array((4, 2))))
+    line_W = geo.Line(geo.Point(np.array((-4, -2))), geo.Point(np.array((-4, 2))))
+    line_S = geo.Line(geo.Point(np.array((-4, -2))), geo.Point(np.array((4, -2))))
+    line_E = geo.Line(geo.Point(np.array((4, -2))), geo.Point(np.array((4, 2))))
+    holes = list()
+    hole_shape = [np.array(c) for c in [(-0.2, 0), (0, -0.4), (0.2, 0), (0, 0.4)]]
+    translations = [(-3, 2.1), (-1, 2.1), (1, 2.1), (3, 2.1),
+                    (-3, -2.1), (-1, -2.1), (1, -2.1), (3, -2.1),
+                    (4.1, -1), (4.1, 1),
+                    (-4.1, -1), (-4.1, 1)]
+    translations = [np.array(t) for t in translations]
+    for t in translations:
+        holes.append([geo.Point(c+t, 0.05) for c in hole_shape])
+
+    rect_ll = geo.LineLoop(rect_vtcs, explicit=False)
+    hole_ll = [geo.LineLoop(h, explicit=False) for h in holes]
+    rect_s = geo.PlaneSurface(rect_ll)
+    hole_s = [geo.PlaneSurface(ll) for ll in hole_ll]
+    final_s = geo.bool_cut_S(rect_s, hole_s, remove_body=False, remove_tool=False)
+    factory.synchronize()
+    print("length of final_s : ", len(final_s))
+    final_s = final_s[0]
+    final_s.get_boundary(recursive=True)
+
+    plt.figure()
+    plt.axis('equal')
+    for crv in final_s.boundary:
+        crv.plot("blue")
+    boundary_N = geo.macro_line_fragments(final_s.boundary, line_N)
+    boundary_W = geo.macro_line_fragments(final_s.boundary, line_W)
+    boundary_S = geo.macro_line_fragments(final_s.boundary, line_S)
+    boundary_E = geo.macro_line_fragments(final_s.boundary, line_E)
+    plt.figure()
+    plt.axis('equal')
+    colors = ['red', 'green', 'orange', 'blue']
+    for l_list,c in zip([boundary_N, boundary_W, boundary_S, boundary_E], colors):
+        for l in l_list:
+            l.plot(c)
+    factory.synchronize()
+
+    gmsh.model.mesh.generate(2)
+    gmsh.write("%s.brep"%name)
+    gmsh.write("%s.msh"%name)
+    os.system("gmsh %s.brep &" %name)
+    os.system("gmsh %s.msh &" %name)
 
 def test_remove_ll_duplicates():
     """
@@ -530,7 +585,8 @@ if __name__ == '__main__':
     # test_gather()
     # test_remove_ll_duplicates()
     # test_physical_group()
-    test_reflections()
+    # test_reflections()
+    test_gather_line()
 
     #* Bloc de fin
     plt.show() #* Il faut fermer toutes les fenêtres avant de passer à la GUI gmsh. (pertinent en mode non interactive)

@@ -876,6 +876,7 @@ def bool_intersect_S(body, tool, remove_body=True, remove_tool=False):
 
 def gather_boundary_fragments(curves, main_crv):
     """
+    DEPRECATED
     Extract from a set of curves (1-D geometrical entities) those which represent a part of the main curve.
 
     Parameters
@@ -883,7 +884,8 @@ def gather_boundary_fragments(curves, main_crv):
     curves: list of instances of a Curve subclass
     main_crv : instance of Curve subclass
 
-    """  
+    """
+    warnings.warn("Deprecated. Should use the macro_line_fragments function instead.", DeprecationWarning)
     if not main_crv.tag:
         main_crv.add_gmsh()
     for c in curves:
@@ -899,6 +901,38 @@ def gather_boundary_fragments(curves, main_crv):
         output_1D = [dimtag[1] for dimtag in output[0] if dimtag[0] == 1]
         if output_1D:
             parts.append(c)
+    return parts
+
+def macro_line_fragments(curves, main_line):
+    """
+    Extract from a set of curves (1-D geometrical entities) those which represent a part of the main line.
+
+    Designed to identify in the list of the boundary elements of the microstructure
+    those that are on a given border of the RVE.
+
+    Parameters
+    ----------
+    curves: list of instances of a Curve subclass
+    main_line : instance of Curve subclass
+
+    """
+    for ln in curves + [main_line]:
+        if not ln.tag:
+            ln.add_gmsh()
+        if not ln.def_pts:
+            ln.get_boundary()
+            logger.debug(f"In gather_boundary_fragments, curve {ln.tag} added to the model")
+    main_start = main_line.def_pts[0].coord
+    main_dir = main_line.def_pts[-1].coord - main_line.def_pts[0].coord
+    parts = list()
+    for crv in curves:
+        crv_dir = crv.def_pts[-1].coord - crv.def_pts[0].coord
+        if not np.allclose([0,0,0], np.cross(main_dir, crv_dir), rtol=0, atol=1e-08):
+            continue
+        mix_dir = 1/2*(crv.def_pts[-1].coord + crv.def_pts[0].coord) - main_start
+        if not np.allclose([0,0,0], np.cross(main_dir, mix_dir), rtol=0, atol=1e-08):
+            continue
+        parts.append(crv)
     return parts
 
 #TODO : à mieux définir
