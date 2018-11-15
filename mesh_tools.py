@@ -275,7 +275,7 @@ def set_background_mesh(fields):
     api_field.setAsBackgroundMesh(final_field.tag)
     return final_field
 
-
+#TODO : Pourquoi pas mettre dans un fichier à part
 #*#*#*
 #* Tools for creating a periodic 2D mesh (may be generalized to 3D later)
 #*#*#*
