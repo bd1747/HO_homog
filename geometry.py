@@ -30,7 +30,7 @@ logger.setLevel(logging.DEBUG)
 model = gmsh.model
 factory = model.occ
 
-warnings.simplefilter("error") #? Doc: https://docs.python.org/3.6/library/warnings.html
+warnings.simplefilter("always") #? Doc: https://docs.python.org/3.6/library/warnings.html
 
 #TODO : regarder ou mettre ces commandes
 # gmsh.initialize() #? A mettre dans un fichier init ????
