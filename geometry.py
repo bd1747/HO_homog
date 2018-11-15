@@ -323,6 +323,12 @@ class Curve(object):
         #     self.add_gmsh()
         #     return self.tag
         # #? Autre idée : @property
+
+    def reverse(self):
+        """ Peut-être utile au moment de définir les contraites de périodicité.
+        #! À tester !!!
+        """
+        self.def_pts.reverse()
         if self.tag:
             self.tag *= -1
 
