@@ -551,6 +551,58 @@ def test_physical_group():
     os.system("gmsh %s.msh &" %name)
     gmsh.fltk.run()
 
+def test_mesh_only_phy_groups():
+    """
+    Test of the set_group_mesh classmethod.
+    A mesh must be generated only entities that belong to physical groups.
+    """
+
+    name = "test_mesh_only_phy_groups"
+    gmsh.model.add(name)
+    gmsh.option.setNumber('Mesh.SaveAll', 1)
+
+    coords = [(0.,0.05), (0.05,0.), (1.8,0.), (2.0, 0.2), (2.0, 1.95),  (1.95, 2.0), (0.2, 2.0), (0., 1.8)]
+    pts = [geo.Point(np.array(c), 0.03) for c in coords]
+    lines = [geo.Line(pts[2*i-1], pts[2*i]) for i in range(len(pts)//2)]
+    centers = [geo.Point(np.array(c), 0.03) for c in [(0.05,0.05), (1.8,0.2), (1.95, 1.95), (0.2, 1.8)]]
+    arcs = [geo.Arc(pts[2*i], centers[i], pts[2*i+1]) for i in range(len(pts)//2)]
+    elmts_1D = [item for pair in zip(lines, arcs) for item in pair]
+    ll_1 = geo.LineLoop(elmts_1D, explicit=True)
+    coords = [(1.,1.), (3., 1.), (3., 3.), (1., 3.)]
+    vertc = [geo.Point(np.array(c), 0.01) for c in coords]
+    ll_2 = geo.LineLoop(vertc, explicit=False)
+    surf_1 = geo.PlaneSurface(ll_1)
+    surf_2 = geo.PlaneSurface(ll_2)
+
+    rect_vtcs = [geo.Point(np.array(c), 0.05) for c in [(4,2), (4,4), (6,4), (6,2)]]
+    hole_vtcs = [geo.Point(np.array(c), 0.02) for c in [(5-0.1,3), (5,3-0.5), (5+0.1,3), (5,3+0.5)]]
+    rect_ll = geo.LineLoop(rect_vtcs, explicit=False)
+    hole_ll = geo.LineLoop(hole_vtcs, explicit=False)
+    surf_with_hole = geo.PlaneSurface(rect_ll, [hole_ll])
+
+    all_surf = [surf_1, surf_2, surf_with_hole]
+    for s in all_surf:
+        s.add_gmsh()
+    factory.synchronize()
+    surf_group = geo.PhysicalGroup([surf_1, surf_with_hole], 2, 'surf_group')
+    line_group = geo.PhysicalGroup(ll_2.sides+ll_1.sides, 1, 'line_group')
+    surf_group.add_gmsh()
+    line_group.add_gmsh()
+    surf_group.set_color([22,160,133,255])
+    line_group.set_color([234,97,83,255])
+    geo.PhysicalGroup.set_group_mesh(True)
+    factory.synchronize() #* Important before meshing
+    data = model.getPhysicalGroups()
+    logger.info(f"All physical groups in '{name}' model : {data} Names : {[model.getPhysicalName(*dimtag) for dimtag in data]}")
+    gmsh.model.mesh.generate(2)
+    gmsh.write("%s.brep"%name)
+    gmsh.write("%s.msh"%name)
+    os.system("gmsh %s.brep &" %name)
+    os.system("gmsh %s.msh &" %name)
+    gmsh.fltk.run()
+
+
+
 def test_reflections():
 
     name = "test_reflections"
@@ -597,9 +649,10 @@ if __name__ == '__main__':
     # test_bool_ops()
     # test_gather()
     # test_remove_ll_duplicates()
-    test_physical_group()
+    # test_physical_group()
     # test_reflections()
     # test_gather_line()
+    test_mesh_only_phy_groups()
 
     #* Bloc de fin
     plt.show() #* Il faut fermer toutes les fenêtres avant de passer à la GUI gmsh. (pertinent en mode non interactive)

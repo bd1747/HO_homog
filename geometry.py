@@ -125,8 +125,8 @@ def geometry_kernel(script, choix=1): #! Obsolète. Travail directement que avec
 
 def init_geo_tools():
     """
-    The Gmsh Python API must be initialized before using any functions. 
-    In addition the counters that are used to get the tags/incremental ID of the geometry objects are set to 1. 
+    The Gmsh Python API must be initialized before using any functions.
+    In addition, some options are set to custom values.
     """
     gmsh.initialize()
     gmsh.option.setNumber("General.Terminal", 1)
@@ -134,10 +134,14 @@ def init_geo_tools():
     logger.info(f"Initial value of Geometry.AutoCoherence option, before set it to 0 : {gmsh.option.getNumber('Geometry.AutoCoherence')}")
     gmsh.option.setNumber("Geometry.AutoCoherence",0)
     gmsh.option.setNumber("Mesh.ColorCarousel", 2) #0=by element type, 1=by elementary entity, 2=by physical entity, 3=by partition
+    gmsh.option.setNumber("Mesh.MeshOnlyVisible", 0)
     Point.all_pts_in_script = []
     # PhysicalEntity.count = 1
     # PhysicalEntity.tagDejaPris = set()
-    
+
+def reset():
+    """Throw out all information about the created geometry."""
+    PhysicalGroup.all_groups = dict()
 
 class Point(object):
     """Classe définissant un point caractérisée par :
@@ -919,6 +923,8 @@ class PhysicalGroup(object):
     by the mesh module as single entities." (gmsh reference manual 26/09/2018)
 
     """
+    all_groups = dict()
+
     def __init__(self, entities, geo_dim, name=None):
         """
         Gather multiple instances of one of the geometrical Python classes (Point, Curve, PlaneSurface) to form a single object in the gmsh model.
@@ -938,6 +944,10 @@ class PhysicalGroup(object):
         self.dim = geo_dim
         self.name = name
         self.tag = None
+        try:
+            PhysicalGroup.all_groups[self.dim].append(self)
+        except KeyError:
+            PhysicalGroup.all_groups[self.dim] = [self]
 
     def add_gmsh(self):
         if self.tag:
@@ -980,6 +990,49 @@ class PhysicalGroup(object):
         model.setVisibility(dimtags, 1)
         model.setColor(dimtags, *rgba_color, recursive=recursive)
 
+    @classmethod
+    def set_group_visibility(cls, val):
+        """
+        Make only entities that belong to at least one physical group visible, or make all geometrical entities visibles.
+
+        Parameters
+        ----------
+        val : bool
+            If True, only entities that to at least one physical group visible.
+            If False, all geometrical entities will be visible.
+        """
+        if val:
+            model.setVisibility(model.getEntities(), 0)
+            dimtags=list()
+            for gps in cls.all_groups.values():
+                for gp in gps:
+                    dimtags += [(gp.dim, ent.tag) for ent in gp.entities]
+            model.setVisibility(dimtags, 1, recursive=True)
+        else:
+            model.setVisibility(model.getEntities(), 1)
+        return None
+
+    @classmethod
+    def set_group_mesh(cls, val):
+        """
+        Mesh only the entities that belong to at least one physical group.
+
+        Based on the EXPERIMENTAL MeshOnlyVisible option.
+
+        Parameters
+        ----------
+        val : bool
+            If True, only entities that to at least one physical group will be mesh.
+            If False, a mesh will be generate for all geometrical entities.
+        
+        """
+        if val:
+            cls.set_group_visibility(1)
+            gmsh.option.setNumber("Mesh.MeshOnlyVisible", 1)
+            gmsh.option.setNumber("Mesh.SaveAll", 0)
+        else:
+            cls.set_group_visibility(0)
+            gmsh.option.setNumber("Mesh.MeshOnlyVisible", 0)
 
 #TODO : Faire un choix.
 #? Est ce qu'on met plutôt ce remove sous forme d'une méthode dans chaque classe d'objet géométrique ?
