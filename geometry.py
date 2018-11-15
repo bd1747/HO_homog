@@ -787,10 +787,10 @@ def bool_cut_S(body, tool):
     tool : instance of PlaneSurface or list of instances of it
         Several tool areas can be removed to the body surface at once. To do this, the tool parameter must be a list.
     NOT ENABLED ANYMORE remove_body : bool, optional
-        Delete the body surface from the gmsh model after the boolean operation.
-        If True, the tag of the resulting surface might be equal to the one of the deleted body.
+                        Delete the body surface from the gmsh model after the boolean operation.
+                        If True, the tag of the resulting surface might be equal to the one of the deleted body.
     NOT ENABLED ANYMORE remove_tool : bool, optional
-        Delete the tool surface from the gmsh model after the boolean operation, or all the tools if several tools are used.
+                        Delete the tool surface from the gmsh model after the boolean operation, or all the tools if several tools are used.
     
     Return
     ----------
