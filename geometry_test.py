@@ -12,10 +12,18 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 import copy
+import logging
 
 # nice shortcuts
 model = gmsh.model
 factory = model.occ
+
+logger = logging.getLogger() #http://sametmax.com/ecrire-des-logs-en-python/
+logger.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(levelname)s :: %(message)s') # Afficher le temps à chaque message
+stream_handler = logging.StreamHandler()
+stream_handler.setFormatter(formatter)
+logger.addHandler(stream_handler) #Pour écriture du log dans la console
 
 SR2 = math.sqrt(2.)
 
@@ -239,7 +247,7 @@ def test_bool_ops():
     cut : OK
     intersection : geometry : OK
     intersection : mesh size : No. Very coarse mesh if the characteristic length is set from the values at Points
-    #? What the second output of the boolean operation functions are?
+    #? What the second output of the booleans operations functions is?
 
     """
     name = "test_PlaneSurface_bool_ops"
@@ -269,25 +277,28 @@ def test_bool_ops():
     surf_hole_2 = geo.PlaneSurface(hole_ll_2)
     for s in [surf_1, surf_2, surf_rect, surf_hole_1, surf_hole_2]:
         s.add_gmsh()
-    print("Tags before boolean operations : \n", 
-           "surf_1 : %i; surf_2 : %i; surf_rect : %i; surf_hole_1 : %i; surf_hole_2 : %i"%(surf_1.tag, surf_2.tag, surf_rect.tag, surf_hole_1.tag, surf_hole_2.tag))
-    surf_with_hole = geo.bool_cut_S(surf_rect, [surf_hole_1, surf_hole_2], remove_tool=True)
+    print(f"""Tags before boolean operations : 
+            surf_1 : {surf_1.tag}; surf_2 : {surf_2.tag}; surf_rect : {surf_rect.tag}; 
+            surf_hole_1 : {surf_hole_1.tag}; surf_hole_2 : {surf_hole_2.tag}""")
+    surf_with_hole = geo.bool_cut_S(surf_rect, [surf_hole_1, surf_hole_2])
     print(surf_with_hole)
     surf_with_hole = surf_with_hole[0]
-    surf_inter = geo.bool_intersect_S(surf_1, surf_2, False, False)
+    surf_inter = geo.bool_intersect_S(surf_1, surf_2)
     print(surf_inter)
     surf_inter = surf_inter[0]
     factory.synchronize()
     data = gmsh.model.getEntities()
-    print("model name : %s"%name)
+    print(f"model name : {name}")
     print(data)
-    print("Tags after boolean operations : \n", 
-           "surf_1 : %s; surf_2 : %s; surf_rect : %s; surf_hole_1 : %s; surf_hole_2 : %s, surf_with_hole : %s; surf_inter:%s "%(surf_1.tag, surf_2.tag, surf_rect.tag, surf_hole_1.tag, surf_hole_2.tag, surf_with_hole.tag, surf_inter.tag))
+    print(f"""Tags after boolean operations :
+            surf_1 : {surf_1.tag}; surf_2 : {surf_2.tag}; surf_rect : {surf_rect.tag}; 
+            surf_hole_1 : {surf_hole_1.tag}; surf_hole_2 : {surf_hole_2.tag};
+            surf_with_hole : {surf_with_hole.tag}; surf_inter: {surf_inter.tag}""")
     gmsh.model.mesh.generate(2)
-    gmsh.write("%s.brep"%name)
-    gmsh.write("%s.msh"%name)
-    os.system("gmsh %s.brep &" %name)
-    os.system("gmsh %s.msh &" %name)
+    gmsh.write(f"{name}.brep")
+    gmsh.write(f"{name}.msh")
+    os.system(f"gmsh {name}.brep &")
+    os.system(f"gmsh {name}.msh &")
 
 def test_ll_modif():
     """
@@ -360,7 +371,7 @@ def test_gather():
     rect_s = geo.PlaneSurface(rect_ll)
     hole_s = [geo.PlaneSurface(ll) for ll in hole_ll]
     #final_s = geo.bool_cut_S(rect_s, hole_s, remove_body=True, remove_tool=True) #!ERREUR CAR LA SUPPRESSION DES ELEMENTS BOSCULE LE SYSTEME DE TAG
-    final_s = geo.bool_cut_S(rect_s, hole_s, remove_body=False, remove_tool=False)
+    final_s = geo.bool_cut_S(rect_s, hole_s)
     factory.synchronize()
     print("length of final_s : ", len(final_s))
     final_s = final_s[0]
@@ -395,7 +406,7 @@ def test_gather_line():
     """
     Test of the macro_line_fragments function.
     colors on plots : OK
-    
+
     """
     name = "test_gather_line"
     gmsh.model.add(name)
@@ -419,7 +430,7 @@ def test_gather_line():
     hole_ll = [geo.LineLoop(h, explicit=False) for h in holes]
     rect_s = geo.PlaneSurface(rect_ll)
     hole_s = [geo.PlaneSurface(ll) for ll in hole_ll]
-    final_s = geo.bool_cut_S(rect_s, hole_s, remove_body=False, remove_tool=False)
+    final_s = geo.bool_cut_S(rect_s, hole_s)
     factory.synchronize()
     print("length of final_s : ", len(final_s))
     final_s = final_s[0]
@@ -486,11 +497,14 @@ def test_physical_group():
     Test of the PhysicalGroup class.
     Group membership in the gmsh model : OK
     Colors in the gmsh GUI opened with gmsh.fltk.run() : OK
-    #TODO : Vérifier l'export des physical groups dans le maillage
-    """
+    Information about Physical group membership are exported in the msh file : OK
 
+    """
     name = "test_PhysicalGroup"
     gmsh.model.add(name)
+    logger.info(f"In model '{name}' option Mesh.SaveAll set to 0. Initial value :{gmsh.option.getNumber('Mesh.SaveAll')}")
+    gmsh.option.setNumber('Mesh.SaveAll', 0)
+    # gmsh.option.setNumber('Mesh.MeshOnlyVisible',1)
 
     coords = [(0.,0.05), (0.05,0.), (1.8,0.), (2.0, 0.2), (2.0, 1.95),  (1.95, 2.0), (0.2, 2.0), (0., 1.8)]
     pts = [geo.Point(np.array(c), 0.03) for c in coords]
@@ -519,23 +533,22 @@ def test_physical_group():
         print(s.tag)
 
     factory.synchronize()
-
-    surf_group = geo.PhysicalGroup([surf_1, surf_with_hole], 2)
-    line_group = geo.PhysicalGroup(ll_2.sides, 1)
+    surf_group = geo.PhysicalGroup([surf_1, surf_with_hole], 2, 'surf_group')
+    line_group = geo.PhysicalGroup(ll_2.sides, 1, 'line_group')
     surf_group.add_gmsh()
     # surf_group.add_to_group(surf_2) #* Raise an AttributeError, OK
     line_group.add_to_group(ll_1.sides)
     line_group.add_gmsh()
-    surf_group.set_color([255, 65, 0, 255])
-    line_group.set_color([120, 246, 0, 255])
-
-
+    surf_group.set_color([22,160,133,255])
+    line_group.set_color([234,97,83,255])
+    factory.synchronize() #* Important before meshing
+    data = model.getPhysicalGroups()
+    logger.info(f"All physical groups in '{name}' model : {data} Names : {[model.getPhysicalName(*dimtag) for dimtag in data]}")
     gmsh.model.mesh.generate(2)
     gmsh.write("%s.brep"%name)
     gmsh.write("%s.msh"%name)
     os.system("gmsh %s.brep &" %name)
     os.system("gmsh %s.msh &" %name)
-
     gmsh.fltk.run()
 
 def test_reflections():
@@ -581,12 +594,12 @@ if __name__ == '__main__':
     # test_LineLoop()
     # test_PlaneSurface()
     # test_ll_modif()
-    #test_bool_ops()
+    # test_bool_ops()
     # test_gather()
     # test_remove_ll_duplicates()
-    # test_physical_group()
+    test_physical_group()
     # test_reflections()
-    test_gather_line()
+    # test_gather_line()
 
     #* Bloc de fin
     plt.show() #* Il faut fermer toutes les fenêtres avant de passer à la GUI gmsh. (pertinent en mode non interactive)

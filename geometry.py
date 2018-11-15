@@ -130,7 +130,10 @@ def init_geo_tools():
     """
     gmsh.initialize()
     gmsh.option.setNumber("General.Terminal", 1)
-    
+    gmsh.option.setNumber("General.Verbosity", 4)
+    logger.info(f"Initial value of Geometry.AutoCoherence option, before set it to 0 : {gmsh.option.getNumber('Geometry.AutoCoherence')}")
+    gmsh.option.setNumber("Geometry.AutoCoherence",0)
+    gmsh.option.setNumber("Mesh.ColorCarousel", 2) #0=by element type, 1=by elementary entity, 2=by physical entity, 3=by partition
     Point.all_pts_in_script = []
     # PhysicalEntity.count = 1
     # PhysicalEntity.tagDejaPris = set()
