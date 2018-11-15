@@ -461,28 +461,6 @@ class LineLoop(object):
     Définit une courbe fermée, composée de segments et d'arc.
     """
 
-    @staticmethod
-    def remove_duplicates(ll_list):
-        """ 
-        Remove all duplicates from a list of LineLoop instances.
-
-        It should be noted that the equality operator has been overidden for the LineLoop class and takes into account the lineloop direction (clockwise/anticlockwise).
-
-        Note
-        --------
-        Since the __eq__ method has been overridden in the definition of the LineLoop class, LineLoop instances are not hashable.
-        Faster solution for hashable objects : https://stackoverflow.com/questions/7961363/removing-duplicates-in-lists/7961425#7961425
-
-        """
-        unique = list()
-        for x in ll_list:
-            for y in unique:
-                if x == y:
-                    break
-            else:
-                unique.append(x)
-        return unique
-
     def __init__(self, elements, explicit=False):
         """
         La LineLoop est soit défini par des sommets, soit directement défini par une liste d'objets Line/Arcs (explicit = True)
@@ -775,9 +753,7 @@ class AbstractSurface(object):
 
 
 
-#TODO : Choisir !!!! ET SURTOUT REGARDER CE QUI EST LE PLUS COH2RENT ! 
-#! Choix de passer l'opération booléenne dans une fonction, au lieu d'être une méthode de la classe Surface
-#? Est-ce que l'opération booléenne pourrait fonctionner sur d'autres objets que des surfaces ?
+
 # def bool_cut(body, tools, tag=-1):
 # """
 # Remove the tool entities from the body entity. Removing a set of geometrical entities 'tools' is possible.
@@ -785,15 +761,15 @@ class AbstractSurface(object):
 # option pour supprimer ou non les tools. 
 # """
 #     pass
-#? SI ON A UNE FONCTION A PART ENTIERE, CEST PEUT ETRE PAS PLUS MAL : LA NOUVELLE SURFACE EST DEFINI SEULEMENT PAR L'OPERATION BOOLEENNE, ON NE CONNAIT PAS SES SOMMETS NI SES COTES, DONC ON CREE UN NOUVEL OBJET PYTHON DIFFERENT DE BODY ????
 
-def bool_cut_S(body, tool, remove_body=True, remove_tool=False):
+
+def bool_cut_S(body, tool):
     """
     Boolean operation of cutting performed on surfaces.
 
     Remove the aeras taken by the tool entities from the body surface.
     Removing a set of geometrical entities 'tools' at once is possible.
-
+    The removeObject and removeTool parameters of the gmsh API function are set to False in order to keep the consistency between the python geometrical instances and the gmsh geometrical model as far as possible.
 
     Parameters
     ----------
@@ -801,18 +777,17 @@ def bool_cut_S(body, tool, remove_body=True, remove_tool=False):
         Main operand of the cut operation.
     tool : instance of PlaneSurface or list of instances of it
         Several tool areas can be removed to the body surface at once. To do this, the tool parameter must be a list.
-    remove_body : bool, optional
+    NOT ENABLED ANYMORE remove_body : bool, optional
         Delete the body surface from the gmsh model after the boolean operation.
         If True, the tag of the resulting surface might be equal to the one of the deleted body.
-    remove_tool : bool, optional
+    NOT ENABLED ANYMORE remove_tool : bool, optional
         Delete the tool surface from the gmsh model after the boolean operation, or all the tools if several tools are used.
     
     Return
     ----------
     cut_surf : Instance of PlaneSurface
-        An Python object that represents the surface that is obtained with the boolean operation.
-        This will be a degenerate instance with only a tag attribut and a boundary attribut that can be evaluate later. #! Peut être à compléter
-    
+        A Python object that represents the surface that is obtained with the boolean operation.
+        This will be a degenerate instance with only a tag attribut and a boundary attribut that can be evaluate later.
     """
     if not body.tag:
         body.add_gmsh()
@@ -822,32 +797,21 @@ def bool_cut_S(body, tool, remove_body=True, remove_tool=False):
     for t in tool:
         if not t.tag:
             t.add_gmsh()
-        # output = factory.cut([(2,body.tag)], [(2,t.tag)], removeObject=remove_body, removeTool=remove_tool)
-        # #? passer directement une liste de tools en input de la fonction ?
-        # print("output boolean operation cut : ", output) #! Temporaire. Voir ce que renvoie une opération booléenne. Qu'est ce qu'est le 2d output ?
-        # new_tag = output[0][0][1]
-        # if new_tag != body.tag :
-        #     print("[Info] The boolean cut operation change the tag of the surface : surface %i becomes %i" %(body.tag, new_tag))
-        #     body.tag = new_tag
-        # if remove_tool :
-        #     t.in_model = False
-    output = factory.cut([(2,body.tag)], [(2,t.tag) for t in tool], removeObject=remove_body, removeTool=remove_tool)
-    if remove_body:
-        body.tag = None
-    if remove_tool:
-        for t in tool:
-            t.tag = None
-    #! Pour debug print("output boolean operation cut : ", output)
-    new_surf = []
+    output = factory.cut([(2,body.tag)], [(2,t.tag) for t in tool], removeObject=False, removeTool=False)
+    logger.debug(f"Output of boolean operation 'cut' on surfaces : {output}")
+    new_surf = list()
     for entity in output[0]:
         if entity[0]==2:
             new_surf.append(AbstractSurface(entity[1]))
         else:
-            print("[Warning] Some entities that result from a cut boolean operation are not surfaces and therefore are not returned. Complete output from the API function : ", output)
+            logger.warn(f"Some entities that result from a cut boolean operation are not surfaces and therefore are not returned. \n Complete output from the API function :{output}")
     return new_surf
 
-def bool_intersect_S(body, tool, remove_body=True, remove_tool=False):
+def bool_intersect_S(body, tool):
     """
+    Boolean operation of intersection performed on surfaces.
+
+    See the bool_cut_S() doc for more informations.
 
     """
     if not body.tag:
@@ -858,19 +822,14 @@ def bool_intersect_S(body, tool, remove_body=True, remove_tool=False):
     for t in tool:
         if not t.tag:
             t.add_gmsh()
-    output = factory.intersect([(2,body.tag)], [(2,t.tag) for t in tool], removeObject=remove_body, removeTool=remove_tool)
-    if remove_body:
-        body.tag = None
-    if remove_tool:
-        for t in tool:
-            t.tag = None
-    print("output boolean operation intersect : ", output) #! Temporaire
-    new_surf = []
+    output = factory.intersect([(2,body.tag)], [(2,t.tag) for t in tool], removeObject=False, removeTool=False)
+    logger.debug(f"Output of boolean operation 'intersection' on surfaces : {output}")
+    new_surf = list()
     for entity in output[0]:
         if entity[0]==2:
             new_surf.append(AbstractSurface(entity[1]))
         else:
-            print("[Warning] Some entities that result from a cut boolean operation are not surfaces and therefore are not returned. Complete output from the API function : ", output)
+            logger.warn(f"Some entities that result from a intersection boolean operation are not surfaces and therefore are not returned. \n Complete output from the API function :{output}")
     return new_surf
 
 
