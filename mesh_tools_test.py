@@ -230,6 +230,8 @@ def test_periodic():
     gmsh.write("%s.msh"%name)
     os.system("gmsh %s.brep &" %name)
     os.system("gmsh %s.msh &" %name)
+    gmsh.fltk.run()
+
 
 def test_order_curves():
     """
@@ -309,5 +311,5 @@ if __name__ == '__main__':
     # test_fctn_restrict()
 
     # test_translation2matrix()
-    # test_periodic()
-    test_order_curves()
+    test_periodic()
+    # test_order_curves()

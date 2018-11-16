@@ -333,9 +333,11 @@ def translation2matrix(v, dist=None):
     transform_matx[:,3] += v_
     return transform_matx.flatten().tolist()
 
-def set_periodicity_pairs(slaves, masters, translation_v):
+def set_periodicity_pairs(slaves, masters, translation_v=None):
     """
     A rédiger #TODO
+
+    #! Idée : Il n'est pas nécessaire de donner le vecteur translation explicitement, on se sert des points des éléments de slaves et master pour le définir
     """
     if all(isinstance(s, geo.Curve) for s in slaves) and all(isinstance(m, geo.Curve) for m in masters):
         geo_dim = 1
@@ -344,7 +346,14 @@ def set_periodicity_pairs(slaves, masters, translation_v):
     for crve in slaves + masters:
         if not crve.tag:
             crve.add_gmsh()
-    model.mesh.setPeriodic(geo_dim, [s.tag for s in slaves], [m.tag for m in masters], translation2matrix(translation_v))
+    if translation_v.any():
+        vect = translation_v
+    else:
+        vect =-1*(slaves[0].def_pts[0].coord - masters[0].def_pts[0].coord)
+        print(vect)
+    vect_imp =-1*(slaves[0].def_pts[0].coord - masters[0].def_pts[0].coord)
+    print(vect_imp)
+    model.mesh.setPeriodic(geo_dim, [s.tag for s in slaves], [m.tag for m in masters], translation2matrix(vect))
 
 def sort_function_factory(dir_v):
     """
