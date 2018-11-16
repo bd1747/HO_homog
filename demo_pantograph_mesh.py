@@ -111,11 +111,16 @@ for i, crvs in enumerate(micro_bndry):
     msh.order_curves(crvs,
                     macro_bndry[i%2].def_pts[-1].coord - macro_bndry[i%2].def_pts[0].coord,
                     orientation=True)
+directs = [(M_ln.def_pts[-1].coord - M_ln.def_pts[0].coord) for M_ln in macro_bndry]
+logger.debug('value and type of directs items : ' + repr([(i, type(i)) for i in directs]))
+for  i, crvs in enumerate(micro_bndry):
+    msh.order_curves(crvs, directs[i%2], orientation=True)
 msh.set_periodicity_pairs(micro_bndry[0], micro_bndry[2])
 msh.set_periodicity_pairs(micro_bndry[1], micro_bndry[3])
 logger.info('Done defining a mesh periodicity constraint')
 geo.PhysicalGroup.set_group_mesh(True)
 model.mesh.generate(2)
+gmsh.model.mesh.generate(2)
 gmsh.write(f"{name}.msh")
 os.system(f"gmsh {name}.msh &")
 gmsh.fltk.run()
