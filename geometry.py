@@ -953,7 +953,6 @@ class PhysicalGroup(object):
         if self.tag:
             return self.tag
         tags = list()
-        print (self.entities)
         for item in self.entities:
             if not item.tag:
                 item.add_gmsh()
