@@ -12,20 +12,23 @@ import logging
 from logging.handlers import RotatingFileHandler
 import gmsh
 import os
+import matplotlib.pyplot as plt
 
 # nice shortcuts
 model = gmsh.model
 factory = model.occ
 
 logger = logging.getLogger() #http://sametmax.com/ecrire-des-logs-en-python/
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s :: %(levelname)s :: %(message)s') # Afficher le temps à chaque message
 file_handler = RotatingFileHandler('activity.log', 'a', 1000000, 1)
 file_handler.setLevel(logging.DEBUG)
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler) #Pour écriture d'un fichier log
+formatter = logging.Formatter('%(levelname)s :: %(message)s') 
 stream_handler = logging.StreamHandler()
 stream_handler.setLevel(logging.INFO)
+stream_handler.setFormatter(formatter)
 logger.addHandler(stream_handler) #Pour écriture du log dans la console
 
 geo.init_geo_tools()
@@ -48,8 +51,8 @@ b = b/a*e2
 
 E1 = geo.Point(e1)
 E2 = geo.Point(e2)
-E1m = geo.Point(-e1)
-E2m = geo.Point(-e2)
+E1m = geo.Point(-1*e1)
+E2m = geo.Point(-1*e2)
 O = np.zeros((3,))
 L = geo.Point(2*(e1+e2))
 Lm = geo.Point(2*(e1-e2))
@@ -79,7 +82,7 @@ macro_s = geo.PlaneSurface(macro_ll)
 
 logger.info('Start boolean operations on surfaces')
 pattern_s = [geo.PlaneSurface(ll) for ll in pattern_ll]
-rve_s = geo.bool_cut_S(macro_s, pattern_s, remove_body=False, remove_tool=False)
+rve_s = geo.bool_cut_S(macro_s, pattern_s)
 rve_s = rve_s[0]
 logger.info('Done boolean operations on surfaces')
 rve_s_phy = geo.PhysicalGroup([rve_s], 2, "partition_plein")
@@ -123,32 +126,52 @@ logger.info('Done defining a mesh refinement constraint')
 macro_bndry = macro_ll.sides
 micro_bndry = list()
 rve_s.get_boundary(recursive=True)
-micro_bndry = [geo.gather_boundary_fragments(rve_s.boundary, M_ln) for M_ln in macro_bndry]
-dirct = [(M_ln.def_pts[-1].coord - M_ln.def_pts[0].coord) for M_ln in macro_bndry]
-logger.debug('value and type of dirct items : ' + repr([(i, type(i)) for i in dirct]))
+#micro_bndry = [geo.gather_boundary_fragments(rve_s.boundary, M_ln) for M_ln in macro_bndry]
+micro_bndry = [geo.macro_line_fragments(rve_s.boundary, M_ln) for M_ln in macro_bndry]
+directs = [(M_ln.def_pts[-1].coord - M_ln.def_pts[0].coord) for M_ln in macro_bndry]
+logger.debug('value and type of directs items : ' + repr([(i, type(i)) for i in directs]))
 for  i, crvs in enumerate(micro_bndry):
-    msh.order_curves(crvs, dirct[i%2], orientation=True)
-logger.debug("length of micro_bndry list : " + str(len(micro_bndry)))
+    # msh.order_curves(crvs, directs[i%2], orientation=True)
+    msh.order_curves(crvs, directs[i%2], orientation=False)
+logger.debug(f"length of micro_bndry list : {len(micro_bndry)}")
 
-# for crv in micro_bndry[2]: #!INUTILE si on prend le même vecteur pour les 2 tris 
-#     crv.reverse()
-# for crv in micro_bndry[3]:
-#     crv.reverse()
 vect_t1 = macro_bndry[2].def_pts[0].coord - macro_bndry[0].def_pts[-1].coord
+t1_ln = geo.Line(macro_bndry[0].def_pts[-1], macro_bndry[2].def_pts[0])
 vect_t2 = macro_bndry[3].def_pts[0].coord - macro_bndry[1].def_pts[-1].coord
+t2_ln = geo.Line(macro_bndry[1].def_pts[-1], macro_bndry[3].def_pts[0])
+
+plt.figure()
+plt.axis('equal')
+colors = ['red', 'green', 'orange', 'blue']
+t1_ln.plot("yellow")
+t1_ln.def_pts[0].plot("red")
+t1_ln.def_pts[1].plot("orange")
+t2_ln.plot("purple")
+t2_ln.def_pts[0].plot("green")
+t2_ln.def_pts[1].plot("blue")
+plt.pause(1)
+for bdr, c in zip(micro_bndry, colors):
+    for ln in bdr:
+        ln.plot(c)
+        plt.pause(0.2)
+plt.show()
 for crvs in micro_bndry:
     print(len(crvs), crvs)
+# dummy_trans_v = micro_bndry[2][0].def_pts[0].coord - micro_bndry[0][0].def_pts[0].coord
 # msh.set_periodicity_pairs(micro_bndry[0], micro_bndry[2], vect_t1)
+# msh.set_periodicity_pairs(micro_bndry[0], micro_bndry[2], dummy_trans_v)
+msh.set_periodicity_pairs(micro_bndry[0], micro_bndry[2], np.array((-4,0))) #* Cette ligne fonctionne !
 # msh.set_periodicity_pairs(micro_bndry[1], micro_bndry[3], vect_t2)
-# logger.info('Done defining a mesh periodicity constraint')
+# msh.set_periodicity_pairs(micro_bndry[0], micro_bndry[2])
+# msh.set_periodicity_pairs(micro_bndry[1], micro_bndry[3])
+logger.info('Done defining a mesh periodicity constraint')
 #! Bug à trouver...
 factory.remove([(1, l.tag) for l in macro_ll.sides])
 for  l in macro_ll.sides:
         l.tag = None
-
-logger.debug('Mesh.SaveAll option value before change : ' + str(gmsh.option.getNumber('Mesh.SaveAll')))
-gmsh.option.setNumber('Mesh.SaveAll',0)
-logger.debug('Mesh.SaveAll option value after change : ' + str(gmsh.option.getNumber('Mesh.SaveAll')))
+geo.PhysicalGroup.set_group_mesh(True)
+gmsh.option.setNumber("General.Verbosity", 2)
 # gmsh.model.mesh.generate(2)
-# gmsh.write("%s.msh"%name)
-# os.system("gmsh %s.msh &" %name)
+# gmsh.write(f"{name}.msh")
+# os.system(f"gmsh {name}.msh &")
+gmsh.fltk.run()
