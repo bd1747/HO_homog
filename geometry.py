@@ -1275,3 +1275,4 @@ def translation_basis(pt_coord, vect):
     vect = np.asarray(vect)
     return pt_coord + vect
 translation = geo_transformation_factory(translation_basis)
+#? Avis d'Arthur sur cette façon de définir les opérations géométriques ? 
