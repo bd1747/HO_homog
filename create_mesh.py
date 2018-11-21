@@ -5,15 +5,18 @@ Created on 17/11/2018
 
 """
 
-import geometry as geo
-import mesh_tools as msh
-import numpy as np
 import logging
-from logging.handlers import RotatingFileHandler
-import gmsh
-import os
-import matplotlib.pyplot as plt
 import math
+import os
+from logging.handlers import RotatingFileHandler
+
+import matplotlib.pyplot as plt
+import numpy as np
+from more_itertools import one
+
+import geometry as geo
+import gmsh
+import mesh_tools as msh
 
 # nice shortcuts
 model = gmsh.model
@@ -64,10 +67,10 @@ def offset_pattern(cell_ll, offset_vect, gen_vect):
     t_vect = -1 * np.array([val % gen_vect[i][i] for i,val in enumerate(offset_vect)])
         #GeneratingVector[i][i] pour récupérer la longueur de la cellule selon la direction i.
         #L'opératation modulo avec des floats est possible. Résultat du signe du second terme.
-    shifted_ll = [geo.translation(ll, t_vect) for ll in cell_ll] geo.translation(cell_ll, t_vect)
+    shifted_ll = [geo.translation(ll, t_vect) for ll in cell_ll]
     return shifted_ll
 
-class GeoAndMesh(object):
+class GeoAndMesh_1(object): #! On crée plutôt des objets Part maillage+matériau
     """
     Contrat :
     Pour un certain choix de microstructure, construit un mesh qui représente un milieu périodique sur une certaine étendue.
@@ -84,6 +87,7 @@ class GeoAndMesh(object):
     def __init__(self,):
         self.mesh_path = #? ou name ?
         self.physical_groups =
+    # def __init__(self, cell_ll): #? En entrée : lineloop qui composent exactement le motif(donc après arrondi ou offset si nécessaire) sur une ce
 
 
     @staticmethod
@@ -146,7 +150,7 @@ class GeoAndMesh(object):
         pattern_ll += [geo.plane_reflection(ll, I, e2) for ll in pattern_ll]
         geo.remove_duplicates(pattern_ll)
         logger.info('Done removing of the line-loops duplicates')
-#! REPRENDRE ICI
+        #! REPRENDRE ICI
         #? Idem, utiliser un array pour offset ?
         if np.asarray(offset).any():
             effect_nb_cells = [int(math.ceil(val+1)) if offset_v[i] != 0 else int(math.ceil(val)) for i,val in enumerate(nb_cells)]
@@ -206,4 +210,227 @@ class GeoAndMesh(object):
         created_phy_gp = copy.deepcopy(geo.PhysicalGroup.all_groups)
         geo.reset()
         #modèle :  return Fenics_2D_RVE(GeneratingVectors, mesh ,listOfMaterials, domain = domain, symmetries = np.array((0,0)))
-        return GeoAndMesh(gen_vect, created_phy_gp, name=name)
+        return GeoAndMesh1(gen_vect, created_phy_gp, name=name)
+
+
+class FenicsPart(object):
+    pass
+
+class Fenics2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais plus de 2 matériaux constitutifs ? Imaginer une autre sous-classe semblable qui permet de définir plusieurs sous-domaines à partir d'une liste d'ensembles de LineLoop (chaque ensemble correspondant à un type d'inclusions ?)
+    
+    def __init__(self, pattern_ll, gen_vect, nb_cells, offset, soft_mat, name):
+        """
+        Contrat : Créer un couple maillage + matériaux pour des RVE 2D, plans, comportant au plus 2 matériaux constitutifs et pouvant contenir plusieurs cellules.
+        #! La cellule est un parallélogramme.
+
+        #! Pour le moment, seule la géométrie est crée.
+
+        Parameters
+        ----------
+        pattern_ll : list
+            Instances of LineLoop that define the contours of the microstructure.
+        gen_vect : 2D array
+            dimensions of the unit cell and directions of periodicity.
+            (given in a 2D cartesian coordinate system)
+        nb_cells : 1D array
+            Numbers of cells in each direction of repetition/periodicity.
+        offset : 1D array
+            Relative position inside a cell of the point that will coincide with the origin of the global domain.
+        # refinement : instance of a Field subclass
+        #     Scalar field that defines an element size constraint for the mesh generation.
+        # attractors : instances of Point or Curve #? Ou dict {'points':[],'curves':[]} ? # ou list of physical groups ?
+            Geometrical elements of the cell around which mesh refinement constraints will be set.
+        """
+
+        if offset.any():
+                nb_pattern = [math.ceil(val+1) if offset[i] != 0 else math.ceil(val) for i,val in enumerate(nb_cells)]
+                nb_pattern = np.array(nb_pattern) #? Par confort de travailler avec un array ensuite (test np.equal). Est-ce gênant ?
+                pattern_ll = offset_pattern(pattern_ll, offset, gener_vect)
+            else:
+                nb_pattern = numpy.ceil(nb_cells)
+        if not np.equal(nb_pattern, 1).all():
+                duplicate_pattern(pattern_ll, nb_pattern, gen_vect)
+        macro_vect = gen_vect*nb_cells[:,np.newaxis]
+        macro_vtx = [O, macro_vect[0], macro_vect[0] + macro_vect[1] , macro_vect[1]]
+        macro_ll = geo.LineLoop([geo.Point(c) for c in macro_vtx])
+        macro_s = geo.PlaneSurface(macro_ll)
+        
+        for attract_gp in attractors:
+            if offset.any():
+                attract_gp.entities = offset_pattern(attract_gp.entities, offset, gener_vect)
+            if not np.equal(nb_pattern, 1).all():
+                duplicate_pattern(attract_gp.entities, nb_pattern, gen_vect)
+
+        logger.info('Start boolean operations on surfaces')
+        phy_surf = list()
+        pattern_s = [geo.PlaneSurface(ll) for ll in pattern_ll]
+        rve_s = geo.bool_cut_S(macro_s, pattern_s)
+        rve_s = rve_s[0]
+        rve_s_phy = geo.PhysicalGroup([rve_s], 2, "microstruct_domain")
+        phy_surf.append(rve_s_phy)
+        if soft_mat:
+            soft_s = geo.bool_intersect_S(macro_s, pattern_s)
+            soft_s = soft_s[0]
+            soft_s_phy = geo.PhysicalGroup([rve_s], 2, "soft_domain")
+            phy_surf.append(soft_s_phy)
+        logger.info('Done boolean operations on surfaces')
+        factory.synchronize()
+        rve_s_phy.add_gmsh()
+        if soft_mat:
+            soft_s_phy.add_gmsh()
+        for attract_gp in attractors:
+            attract_gp.add_gmsh()
+        factory.synchronize()
+
+        data = model.getPhysicalGroups()
+        logger.info('All physical groups in the model ' + repr(data)
+                    + ' Names : ' + repr([model.getPhysicalName(*dimtag) for dimtag in data]))
+        logger.info('Done generating the gmsh geometrical model')
+        gmsh.write("%s.brep"%name)
+
+        macro_bndry = macro_ll.sides
+        rve_s.get_boundary(recursive=True)
+        micro_bndry = [geo.macro_line_fragments(rve_s.boundary, M_ln) for M_ln in macro_bndry]
+        for i, crvs in enumerate(micro_bndry):
+             msh.order_curves(crvs,
+                macro_bndry[i%2].def_pts[-1].coord - macro_bndry[i%2].def_pts[0].coord,
+                orientation=True)
+        msh.set_periodicity_pairs(micro_bndry[0], micro_bndry[2])
+        msh.set_periodicity_pairs(micro_bndry[1], micro_bndry[3])
+        logger.info('Done defining a mesh periodicity constraint')
+
+        self.name = name
+        self.gen_vect = gen_vect
+        self.nb_cells = nb_cells
+        self.macro_vect = macro_vect
+        self.attractors = attractors
+        self.phy_surf = phy_surf
+
+    def main_mesh_refinement(self, d_min_max, lc_min_max, nb_pts_discretization=10, sigmoid_interpol=False):
+        model.setCurrent(self.name)
+        attractors = {'points':[],'curves':[]}
+        for attract_gp in self.attractors:
+            if attract_gp.dim == 0:
+                attractors['points'] += attract_gp.entities
+            elif attract_gp.dim == 1:
+                attractors['curves'] += attract_gp.entities
+        rve_s = one(self.phy_surf[0].entities)
+        restrict_domain = {'surfaces':[rve_s]}
+        if not rve_s.boundary:
+            factory.synchronize()
+            rve_s.get_boundary(recursive=False)
+        restrict_domain['curves'] = rve_s.boundary #? Duck typing, même les PlaneSurface ont un attribut boundary
+        field = set_mesh_refinement(d_min_max, lc_min_max, attractors, nb_pts_discretization, sigmoid_interpol, restrict_domain)
+        try:
+            self.mesh_fields.append(field)
+        except AttributeError:
+            self.mesh_fields = [field]
+    
+    def soft_mesh_refinement(self, d_min_max, lc_min_max, nb_pts_discretization=10, sigmoid_interpol=False):
+        model.setCurrent(self.name)
+        attractors = {'points':[],'curves':[]}
+        for attract_gp in self.attractors:
+            if attract_gp.dim == 0:
+                attractors['points'] += attract_gp.entities
+            elif attract_gp.dim == 1:
+                attractors['curves'] += attract_gp.entities
+        soft_s = one(self.phy_surf[1].entities)
+        restrict_domain = {'surfaces':[soft_s]}
+        field = set_mesh_refinement(d_min_max, lc_min_max, attractors, nb_pts_discretization, sigmoid_interpol, restrict_domain)
+        try:
+            self.mesh_fields.append(field)
+        except AttributeError:
+            self.mesh_fields = [field]
+
+    def mesh_generate(self):
+        model.setCurrent(self.name)
+        self.mesh_fields = msh.set_background_mesh(self.mesh_fields)
+        geo.PhysicalGroup.set_group_mesh(True)
+        model.mesh.generate(2)
+        gmsh.write(f"{self.name}.msh")
+
+
+    @staticmethod
+    def pantograph(a,b,k, junction_r, nb_cells=(1, 1), offset=(0., 0.), soft_mat=False, name=''):
+        """
+        Contrat :
+        
+        Parameters
+        ----------
+        a,b and k : floats
+            main length of the microstruture
+        junction_r : float
+            radius of the junctions inside the pantograph microstructure
+        nb_cells : tuple or 1D array
+            nb of cells in each direction of repetition
+        offset : tuple or 1D array
+            Relative position inside a cell of the point that will coincide with the origin of the global domain
+        #! Et les paramètres de raffinement du maillage ?
+
+        Returns
+        -------
+        Instance of the Fenics2DRVE class.
+        """
+
+        name = name if name else "pantograph" 
+        model.add(name)
+        geo.reset()
+
+        offset = np.asarray(offset)
+        nb_cells = np.asarray(nb_cells)
+
+        logger.info('Start defining the pantograph geometry')
+
+        Lx = 4*a
+        Ly = 6*a+2*b
+        gen_vect = np.array(((Lx,0.), (0.,Ly)))
+
+        e1 = np.array((a, 0., 0.))
+        e2 = np.array((0., a, 0.))
+        p = np.array((k, 0., 0.))
+        b_ = b/a*e2
+        E1 = geo.Point(e1)
+        E2 = geo.Point(e2)
+        E1m = geo.Point(-1*e1)
+        E2m = geo.Point(-1*e2)
+        O = np.zeros((3,))
+        L = geo.Point(2*(e1+e2))
+        Lm = geo.Point(2*(e1-e2))
+        M = geo.Point(e1 + 1.5*e2 + b_/2)
+        I = geo.Point(2*(e1 + 1.5*e2 + b_/2))
+
+        contours = list()
+        contours.append([E1, E2, E1m, E2m])
+        contours.append([E1, Lm, geo.Point(3*e1), L])
+        contours.append([E2, L, geo.translation(L, 0.5*b_-p), geo.translation(L, b_), geo.translation(E2, b_), geo.translation(E2, 0.5*b_+p)])
+        pattern_ll = [geo.LineLoop(pt_list, explicit=False) for pt_list in contours]
+
+        pattern_ll += [geo.point_reflection(ll, M) for ll in pattern_ll]
+        pattern_ll += [geo.plane_reflection(ll, I, e1) for ll in pattern_ll]
+        pattern_ll += [geo.plane_reflection(ll, I, e2) for ll in pattern_ll]
+        geo.remove_duplicates(pattern_ll)
+        logger.info('Done removing of the line-loops duplicates')
+
+        for ll in pattern_ll:
+            ll.round_corner_incircle(r)
+        logger.info('Done rounding all corners of pattern line-loops')
+
+        constr_pts = [pt for ll in pattern_ll for pt in ll.vertices]
+        fine_pts = [pt for pt in constr_pts if (pt.coord[0] % 1 < p[0]/2. or pt.coord[0] % 1 > 1. - p[0]/2.)]
+        fine_pts = geo.remove_duplicates(fine_pts)
+        mesh_attract = geo.PhysicalGroup(fine_pts,0,'mesh_attractors')
+        attractors= [mesh_attract]
+        return Fenics2DRVE(pattern_ll, gen_vect, nb_cells, offset, refinement, soft_mat, name)
+
+
+
+        logger.info('Done defining a mesh refinement constraint')
+        
+        
+        geo.PhysicalGroup.set_group_mesh(True)
+        model.mesh.generate(2)
+        gmsh.write(f"{name}.msh")
+        created_phy_gp = copy.deepcopy(geo.PhysicalGroup.all_groups)
+        geo.reset()
+        #modèle :  return Fenics_2D_RVE(GeneratingVectors, mesh ,listOfMaterials, domain = domain, symmetries = np.array((0,0)))
+        return GeoAndMesh1(gen_vect, created_phy_gp, name=name)

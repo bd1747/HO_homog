@@ -669,6 +669,7 @@ class PlaneSurface(object):
         self.ext_contour = ext_contour
         self.holes = holes
         self.tag = None
+        self.boundary = ext_contour.sides + [crv for h in holes for crv in h.sides] #Pour favoriser le duck typing ?
     
     def __eq__(self, other):
         """
