@@ -357,7 +357,7 @@ class Fenics2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais 
         geo.PhysicalGroup.set_group_mesh(True)
         model.mesh.generate(2)
         gmsh.write(f"{self.name}.msh")
-
+        #TODO : import mesh in a fenics object
 
     @staticmethod
     def pantograph(a,b,k, junction_r, nb_cells=(1, 1), offset=(0., 0.), soft_mat=False, name=''):
@@ -431,18 +431,61 @@ class Fenics2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais 
         attractors= [mesh_attract]
         return Fenics2DRVE(pattern_ll, gen_vect, nb_cells, offset, attractors, soft_mat, name)
 
-
-
-        # logger.info('Done defining a mesh refinement constraint')
+    @staticmethod
+    def auxetic_square(a, L, t, junction_r, nb_cells=(1, 1), offset=(0., 0.), soft_mat=False, name=''):
+        """
+        Contrat :
         
+        Parameters
+        ----------
+        L : float
+            Length of the sides of the square cell.
+        a : float
+            Length of the slits beetween squares.
+        t : float
+            Size of ????#TODO : à déterminer
+        nb_cells : tuple or 1D array
+            nb of cells in each direction of repetition
+        offset : tuple or 1D array
+            Relative position inside a cell of the point that will coincide with the origin of the global domain
+
+        Returns
+        -------
+        Instance of the Fenics2DRVE class.
+        """
+
+        name = name if name else "aux_square" 
+        model.add(name)
+        geo.reset()
+
+        offset = np.asarray(offset)
+        nb_cells = np.asarray(nb_cells)
+
+        logger.info('Start defining the pantograph geometry')
+        gen_vect = np.array(((L,0.), (0.,L)))
+        b = (L - a)/2.
+        e1 = np.array((L, 0., 0.))
+        e2 = np.array((0., L, 0.))
+        I = geo.Point(1/2.*(e1+e2))
+        M = geo.Point(1/4.*(e1+e2))
         
-        # geo.PhysicalGroup.set_group_mesh(True)
-        # model.mesh.generate(2)
-        # gmsh.write(f"{name}.msh")
-        # created_phy_gp = copy.deepcopy(geo.PhysicalGroup.all_groups)
-        # geo.reset()
-        # #modèle :  return Fenics_2D_RVE(GeneratingVectors, mesh ,listOfMaterials, domain = domain, symmetries = np.array((0,0)))
-        # return GeoAndMesh1(gen_vect, created_phy_gp, name=name)
+        ends = [[(b, -t/2.), (a+b, t/2.)], [(-t/2., -a/2.), (t/2., a/2.)]]
+        contours = list()
+        for pt_l in ends:
+            vtcs = [pt_l[0], (pt_l[1][0], pt_l[0][1]), pt_l[1], (pt_l[0][0], pt_l[1][1])]
+            contours.append([geo.Point(np.array(c)) for c in vtcs])
+        pattern_ll = [geo.LineLoop(pt_list, explicit=False) for pt_list in contours]
+        pattern_ll += [geo.point_reflection(ll, M) for ll in pattern_ll]
+        pattern_ll += [geo.plane_reflection(ll, I, e1) for ll in pattern_ll]
+        pattern_ll += [geo.plane_reflection(ll, I, e2) for ll in pattern_ll]
+        geo.remove_duplicates(pattern_ll)
+        logger.info('Done removing of the line-loops duplicates')
+
+        attract_lines = [geo.Line(geo.Point(np.array(pts[0])), geo.Point(np.array(pts[1]))) for pts in ends]
+        mesh_attract = geo.PhysicalGroup(attract_lines,1,'mesh_attractors')
+        attractors = [mesh_attract]
+
+        return Fenics2DRVE(pattern_ll, gen_vect, nb_cells, offset, attractors, soft_mat, name)
 
 if __name__ == "__main__":
     geo.init_geo_tools()
@@ -450,3 +493,8 @@ if __name__ == "__main__":
     panto_test.main_mesh_refinement((0.1,0.5),(0.03,0.3),False)
     panto_test.mesh_generate()
     os.system(f"gmsh {panto_test.name}.msh &")
+
+    t = 0.05
+    L = 1
+    a = L-3*t
+    aux_sqr_test = Fenics2DRVE.auxetic_square(a, L, t, 0.2)
