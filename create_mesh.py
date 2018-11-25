@@ -68,7 +68,7 @@ def duplicate_pattern(cell_ll, nb_cells, gen_vect):
             for i in range(1, int(nb_cells[k])):
                 new_contours += [geo.translation(ll, i*gen_vect_3D[k]) for ll in repeated_ll]
             repeated_ll += new_contours
-    geo.remove_duplicates(repeated_ll)
+    repeated_ll = geo.remove_duplicates(repeated_ll)
     return repeated_ll
 
 def offset_pattern(cell_ll, offset_vect, gen_vect):
@@ -417,7 +417,7 @@ class Fenics2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais 
         pattern_ll += [geo.point_reflection(ll, M) for ll in pattern_ll]
         pattern_ll += [geo.plane_reflection(ll, I, e1) for ll in pattern_ll]
         pattern_ll += [geo.plane_reflection(ll, I, e2) for ll in pattern_ll]
-        geo.remove_duplicates(pattern_ll)
+        pattern_ll = geo.remove_duplicates(pattern_ll)
         logger.info('Done removing of the line-loops duplicates')
 
         for ll in pattern_ll:

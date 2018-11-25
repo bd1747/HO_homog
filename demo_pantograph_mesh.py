@@ -69,7 +69,7 @@ pattern_ll = [geo.LineLoop(pt_list, explicit=False) for pt_list in contours]
 pattern_ll += [geo.point_reflection(ll, M) for ll in pattern_ll]
 pattern_ll += [geo.plane_reflection(ll, I, e1) for ll in pattern_ll]
 pattern_ll += [geo.plane_reflection(ll, I, e2) for ll in pattern_ll]
-geo.remove_duplicates(pattern_ll)
+pattern_ll = geo.remove_duplicates(pattern_ll)
 logger.info('Done removing of the line-loops duplicates')
 
 for ll in pattern_ll:
