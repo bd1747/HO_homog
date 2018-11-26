@@ -964,6 +964,12 @@ class PhysicalGroup(object):
         self.tag = model.addPhysicalGroup(self.dim, tags)
         if self.name:
             model.setPhysicalName(self.dim, self.tag, self.name)
+        logger.info(f"Physical group {self.tag} of dim {self.dim} add to gmsh")
+        # logger.info("Synchronize call after addPhysicalGroup") #! Tentative de debug
+        # phy_before = model.getPhysicalGroups()
+        # factory.synchronize()
+        # phy_after = model.getPhysicalGroups()
+        # logger.info(f"Physical entities in model before synchronization : {phy_before} and after : {phy_after}")
 
     def add_to_group(self, entities):
         """

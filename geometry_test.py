@@ -527,24 +527,44 @@ def test_physical_group():
     surf_with_hole = geo.PlaneSurface(rect_ll, [hole_ll])
 
     all_surf = [surf_1, surf_2, surf_with_hole]
-    print("Model : %s \n Add PlaneSurface instances to a gmsh model. \n Surfaces tag :"%name)
+    logger.info(f"In model {name}, PlaneSurface instances added to the gmsh model.")
     for s in all_surf:
         s.add_gmsh()
-        print(s.tag)
-
+    logger.info(f"Python objects, surfaces tag : {[s.tag for s in all_surf]}")
+    logger.info(f"Entities in model {name} before synchronize() call : {model.getEntities()}")
     factory.synchronize()
+    logger.info(f"After synchronize() call : \n Points : {model.getEntities(0)} \n Curves : {model.getEntities(1)} \n Surfaces : {model.getEntities(2)}")
     surf_group = geo.PhysicalGroup([surf_1, surf_with_hole], 2, 'surf_group')
-    line_group = geo.PhysicalGroup(ll_2.sides, 1, 'line_group')
     surf_group.add_gmsh()
+    factory.synchronize()
+    logger.info("Operations : synchronize() -> def surf_group -> adding surf_group to the model -> synchronize()")
+    logger.info(f"Physical groups in model after : {model.getPhysicalGroups()}")
+    
+    #* OK, Here is no need of a second sync or a second physical group added in the model.
+    
+    factory.synchronize()
+    logger.info(f"Physical groups in model after a second synchronize() : {model.getPhysicalGroups()}")
     # surf_group.add_to_group(surf_2) #* Raise an AttributeError, OK
+    line_group = geo.PhysicalGroup(ll_2.sides, 1, 'line_group')
     line_group.add_to_group(ll_1.sides)
     line_group.add_gmsh()
+    factory.synchronize()
+    logger.info("Ops : def line_group -> adding line_group to the model -> synchronize()")
+    logger.info(f"Physical groups in model after that : {model.getPhysicalGroups()}")
+    pts_group = geo.PhysicalGroup([pt for crv in ll_2.sides for pt in crv.def_pts] , 0, 'pts_group')
+    pts_group.add_gmsh()
+    factory.synchronize()
+    logger.info("Ops : def pts_group -> adding pts_group to the model -> synchronize()")
+    logger.info(f"Physical groups in model after that : {model.getPhysicalGroups()}")
     surf_group.set_color([22,160,133,255])
     line_group.set_color([234,97,83,255])
     factory.synchronize() #* Important before meshing
     data = model.getPhysicalGroups()
     logger.info(f"All physical groups in '{name}' model : {data} Names : {[model.getPhysicalName(*dimtag) for dimtag in data]}")
+    prev_val = gmsh.option.getNumber("General.Verbosity")
+    gmsh.option.setNumber("General.Verbosity", 3)
     gmsh.model.mesh.generate(2)
+    gmsh.option.setNumber("General.Verbosity", prev_val)
     gmsh.write("%s.brep"%name)
     gmsh.write("%s.msh"%name)
     os.system("gmsh %s.brep &" %name)
@@ -649,10 +669,10 @@ if __name__ == '__main__':
     # test_bool_ops()
     # test_gather()
     # test_remove_ll_duplicates()
-    # test_physical_group()
+    test_physical_group()
     # test_reflections()
     # test_gather_line()
-    test_mesh_only_phy_groups()
+    # test_mesh_only_phy_groups()
 
     #* Bloc de fin
     plt.show() #* Il faut fermer toutes les fenêtres avant de passer à la GUI gmsh. (pertinent en mode non interactive)
