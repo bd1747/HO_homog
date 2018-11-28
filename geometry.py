@@ -11,26 +11,36 @@ sources :
 """
 
 import copy
+import logging
 import math
 import operator
 import os
+import sys
 import warnings
-import logging
+import inspect
 
 import matplotlib.patches
 import matplotlib.pyplot as plt
 import numpy as np
 
-import gmsh
+try:
+    import gmsh
+except ModuleNotFoundError:
+    sys.path.insert(0,'/usr/lib/gmsh-4.0.6-Linux64-sdk/lib')
+    import gmsh
 
 logger = logging.getLogger(__name__) #http://sametmax.com/ecrire-des-logs-en-python/
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 # nice shortcuts
 model = gmsh.model
 factory = model.occ
 
 warnings.simplefilter("always") #? Doc: https://docs.python.org/3.6/library/warnings.html
+
+#info about gmsh module
+logger.info(f"gmsh module path {inspect.getfile(gmsh)}")
+logger.info(f"gmsh lib real path {os.path.dirname(os.path.realpath(gmsh.__file__))}")
 
 #TODO : regarder ou mettre ces commandes
 # gmsh.initialize() #? A mettre dans un fichier init ????
@@ -130,7 +140,7 @@ def init_geo_tools():
     """
     gmsh.initialize()
     gmsh.option.setNumber("General.Terminal", 1)
-    gmsh.option.setNumber("General.Verbosity", 4)
+    gmsh.option.setNumber("General.Verbosity", 5)
     logger.info(f"Initial value of Geometry.AutoCoherence option, before set it to 0 : {gmsh.option.getNumber('Geometry.AutoCoherence')}")
     gmsh.option.setNumber("Geometry.AutoCoherence",0)
     gmsh.option.setNumber("Mesh.ColorCarousel", 2) #0=by element type, 1=by elementary entity, 2=by physical entity, 3=by partition
@@ -962,15 +972,22 @@ class PhysicalGroup(object):
                 item.add_gmsh()
             tags.append(item.tag)
         self.tag = model.addPhysicalGroup(self.dim, tags)
+        #! TEMPORAIRE, un appel à synchronize devrait pouvoir être enlevé.
+        logger.info(f"Physical group {self.tag} of dim {self.dim} added to gmsh")
+        phy_before = model.getPhysicalGroups()
+        factory.synchronize()
+        phy_after = model.getPhysicalGroups()
+        logger.info(f"call of factory.synchronize(). Physical groups in the model before : {phy_before} and after : {phy_after}")
+        factory.synchronize()
+        logger.info(f"And after a second call of factory.synchronize() : {model.getPhysicalGroups()}")
         if self.name:
             model.setPhysicalName(self.dim, self.tag, self.name)
-        logger.info(f"Physical group {self.tag} of dim {self.dim} add to gmsh")
         # logger.info("Synchronize call after addPhysicalGroup") #! Tentative de debug
         # phy_before = model.getPhysicalGroups()
         # factory.synchronize()
         # phy_after = model.getPhysicalGroups()
         # logger.info(f"Physical entities in model before synchronization : {phy_before} and after : {phy_after}")
-
+    
     def add_to_group(self, entities):
         """
         Add a geometrical entity or a list of geometrical entities to an existing physical group.
@@ -1168,7 +1185,7 @@ def round_corner(inp_pt, pt_amt, pt_avl, r, junction_raduis=False, plot=False):
 
 def remove_duplicates(ent_list): #! Fonctionne très bien aussi pour d'autres types d'objets géométriques (Points par exemple)
     """ 
-    Remove all duplicates from a list of geometrical entities. 
+    Remove all duplicates from a list of geometrical entities.
     
     Designed to be used with instances of one of the geometrical classes
     (Point, Curve, LineLoop and Surface).
@@ -1285,4 +1302,4 @@ def translation_basis(pt_coord, vect):
     vect = np.asarray(vect)
     return pt_coord + vect
 translation = geo_transformation_factory(translation_basis)
-#? Avis d'Arthur sur cette façon de définir les opérations géométriques ? 
+#? Avis d'Arthur sur cette façon de définir les opérations géométriques ?

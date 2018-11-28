@@ -306,10 +306,10 @@ if __name__ == '__main__':
     # test_MathEval()
     # test_Min()
     # test_Threshold()
-    # test_refine_function()
+    test_refine_function()
     # test_Restrict()
     # test_fctn_restrict()
 
     # test_translation2matrix()
-    test_periodic()
+    # test_periodic()
     # test_order_curves()

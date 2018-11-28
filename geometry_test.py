@@ -6,13 +6,19 @@ Created on Mon Oct 15 11:00:18 2018
 """
 
 import os
-import gmsh
+import sys
 import geometry as geo
 import math
 import numpy as np
 import matplotlib.pyplot as plt
 import copy
 import logging
+
+try:
+    import gmsh
+except ModuleNotFoundError:
+    sys.path.insert(0,'/usr/lib/gmsh-4.0.6-Linux64-sdk/lib')
+    import gmsh
 
 # nice shortcuts
 model = gmsh.model
@@ -30,6 +36,8 @@ SR2 = math.sqrt(2.)
 # plt.ion() #* interactive mode
 plt.ioff()
 geo.init_geo_tools()
+print(gmsh.option.getNumber('Mesh.CharacteristicLengthExtendFromBoundary'))
+gmsh.option.setNumber('Mesh.CharacteristicLengthExtendFromBoundary',1)
 
 print("matplotlib pyplot interactive mode : %s" %(plt.isinteractive()))
 
