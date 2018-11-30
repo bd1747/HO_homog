@@ -26,8 +26,9 @@ import numpy as np
 try:
     import gmsh
 except ModuleNotFoundError:
-    sys.path.insert(0,'/usr/lib/gmsh-4.0.6-Linux64-sdk/lib')
-    import gmsh
+    print('error')
+    # sys.path.insert(0,'/usr/lib/gmsh-4.0.6-Linux64-sdk/lib')
+    # import gmsh
 
 logger = logging.getLogger(__name__) #http://sametmax.com/ecrire-des-logs-en-python/
 logger.setLevel(logging.INFO)
@@ -145,8 +146,10 @@ def init_geo_tools():
     gmsh.option.setNumber("Geometry.AutoCoherence",0)
     gmsh.option.setNumber("Mesh.ColorCarousel", 2) #0=by element type, 1=by elementary entity, 2=by physical entity, 3=by partition
     gmsh.option.setNumber("Mesh.MeshOnlyVisible", 0)
-    logging.info(f"Initial value of Mesh.CharacteristicLengthExtendFromBoundary option : {gmsh.option.getNumber('Mesh.CharacteristicLengthExtendFromBoundary')}. Option set to 0")
-    gmsh.option.setNumber('Mesh.CharacteristicLengthExtendFromBoundary',0) # Extend computation of mesh element sizes from the boundaries into the surffaces/volumes. Default value: 1
+    pre_val = gmsh.option.getNumber('Mesh.CharacteristicLengthExtendFromBoundary')
+    val = 1
+    gmsh.option.setNumber('Mesh.CharacteristicLengthExtendFromBoundary',val)
+    logging.info(f"Initial value of Mesh.CharacteristicLengthExtendFromBoundary option : {pre_val}. Option set to {val}")
     #TODO : Should be in the init file of the mesh_tools module.
     Point.all_pts_in_script = []
     # PhysicalEntity.count = 1

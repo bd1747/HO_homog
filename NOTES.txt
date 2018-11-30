@@ -1,0 +1,17 @@
+Install gmsh sdk : 
+pip3 install gmsh-sdk
+path : /usr/local/lib/python3/dist-packages/gmsh-4.0.5-Linux64-sdk/lib/gmsh.py
+
+
+http://apprendre-python.com/page-python-path-pythonpath
+
+https://askubuntu.com/questions/857528/python-3-cannot-import-third-party-packages
+Solution:
+My Python3 installation was looking into site-packages and ignoring dist-packages, so I added a path file to make it look inside dist-packages as well.
+cd /usr/local/lib/python3.5/site-packages
+sudo vim dist-packages.pth
+(Press i to go into insert mode inside Vim)
+../dist-packages
+:x (and Press Enter/Return)
+
+ICI : .../python3/dist-packages mis dans /home/baptiste/.local/lib/python3.6/site-packages

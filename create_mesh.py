@@ -13,6 +13,7 @@ from logging.handlers import RotatingFileHandler
 import matplotlib.pyplot as plt
 import numpy as np
 from more_itertools import one
+from more_itertools import flatten
 
 import geometry as geo
 import gmsh
@@ -249,6 +250,9 @@ class Fenics2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais 
         # attractors : instances of Point or Curve #? Ou dict {'points':[],'curves':[]} ? # ou list of physical groups ?
             Geometrical elements of the cell around which mesh refinement constraints will be set.
         """
+        self.name = name
+        model.add(self.name)
+        model.setCurrent(self.name)
 
         if offset.any():
             nb_pattern = [math.ceil(val+1) if offset[i] != 0 else math.ceil(val) for i,val in enumerate(nb_cells)]
@@ -288,11 +292,14 @@ class Fenics2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais 
         if soft_mat:
             soft_s_phy.add_gmsh()
         for attract_gp in attractors:
+            print(attract_gp.__dict__)
             attract_gp.add_gmsh()
         factory.synchronize()
-
         data = model.getPhysicalGroups()
         logger.info('All physical groups in the model ' + repr(data)
+                    + ' Names : ' + repr([model.getPhysicalName(*dimtag) for dimtag in data]))
+        data = model.getPhysicalGroups(0)
+        logger.info('Physical groups of dim=0 in the model ' + repr(data)
                     + ' Names : ' + repr([model.getPhysicalName(*dimtag) for dimtag in data]))
         logger.info('Done generating the gmsh geometrical model')
         gmsh.write("%s.brep"%name)
@@ -308,7 +315,6 @@ class Fenics2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais 
         msh.set_periodicity_pairs(micro_bndry[1], micro_bndry[3])
         logger.info('Done defining a mesh periodicity constraint')
 
-        self.name = name
         self.gen_vect = gen_vect
         self.nb_cells = nb_cells
         self.macro_vect = macro_vect
@@ -319,6 +325,8 @@ class Fenics2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais 
         model.setCurrent(self.name)
         attractors = {'points':[],'curves':[]}
         for attract_gp in self.attractors:
+            logger.info(f'ATTRACT group {attract_gp.__dict__}')
+            logger.info(f' IN MAIN_MESH_REFINEMENT Physical groups {model.getPhysicalGroups()}')
             if attract_gp.dim == 0:
                 attractors['points'] += attract_gp.entities
             elif attract_gp.dim == 1:
@@ -354,6 +362,8 @@ class Fenics2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais 
     def mesh_generate(self):
         model.setCurrent(self.name)
         self.mesh_fields = msh.set_background_mesh(self.mesh_fields)
+        data = model.getPhysicalGroups()
+        logger.info(f'Physical groups just before mesh : {data}')
         geo.PhysicalGroup.set_group_mesh(True)
         model.mesh.generate(2)
         gmsh.write(f"{self.name}.msh")
@@ -381,8 +391,7 @@ class Fenics2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais 
         Instance of the Fenics2DRVE class.
         """
 
-        name = name if name else "pantograph" 
-        model.add(name)
+        name = name if name else "pantograph"
         geo.reset()
 
         offset = np.asarray(offset)
@@ -402,7 +411,6 @@ class Fenics2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais 
         E2 = geo.Point(e2)
         E1m = geo.Point(-1*e1)
         E2m = geo.Point(-1*e2)
-        O = np.zeros((3,))
         L = geo.Point(2*(e1+e2))
         Lm = geo.Point(2*(e1-e2))
         M = geo.Point(e1 + 1.5*e2 + b_/2)
@@ -425,6 +433,11 @@ class Fenics2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais 
         logger.info('Done rounding all corners of pattern line-loops')
 
         constr_pts = [pt for ll in pattern_ll for pt in ll.vertices]
+        fine_pts = [pt for pt in constr_pts if (pt.coord[0] % 1 < p[0]/2. or pt.coord[0] % 1 > 1. - p[0]/2.)]
+        fine_pts = geo.remove_duplicates(fine_pts)
+        mesh_attract = geo.PhysicalGroup(fine_pts,0,'mesh_attractors')
+        #! Pour debug
+        constr_lns = [ ll.vertices for ll in pattern_ll]
         fine_pts = [pt for pt in constr_pts if (pt.coord[0] % 1 < p[0]/2. or pt.coord[0] % 1 > 1. - p[0]/2.)]
         fine_pts = geo.remove_duplicates(fine_pts)
         mesh_attract = geo.PhysicalGroup(fine_pts,0,'mesh_attractors')
@@ -454,7 +467,7 @@ class Fenics2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais 
         Instance of the Fenics2DRVE class.
         """
 
-        name = name if name else "aux_square" 
+        name = name if name else "aux_square"
         model.add(name)
         geo.reset()
 
@@ -469,32 +482,97 @@ class Fenics2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais 
         I = geo.Point(1/2.*(e1+e2))
         M = geo.Point(1/4.*(e1+e2))
         
-        ends = [[(b, -t/2.), (a+b, t/2.)], [(-t/2., -a/2.), (t/2., a/2.)]]
+
+
+        diag_pts = [[(b, -t/2.), (a+b, t/2.)], [(-t/2., -a/2.), (t/2., a/2.)]]
+        middle_pts = [[(b, 0.), (a+b, 0.)], [(0., -a/2.), (0., a/2.)]]
         contours = list()
-        for pt_l in ends:
-            vtcs = [pt_l[0], (pt_l[1][0], pt_l[0][1]), pt_l[1], (pt_l[0][0], pt_l[1][1])]
-            contours.append([geo.Point(np.array(c)) for c in vtcs])
+        for s,e in diag_pts:
+            coords = [s, (e[0], s[1]), e, (s[0], e[1])]
+            contours.append([geo.Point(np.array(c)) for c in coords])
+        refine_lines = [geo.Line(
+                        geo.Point(np.array(s)),
+                        geo.Point(np.array(e))) for s,e in middle_pts]
+
+#TODO : regarder si il existe un moyen d'appliquer une fonction à nested listes ?
+#TODO : placer un asarray dans la def de __init__ pour Point
+
+
+        # ends = [[(b, -t/2.), (a+b, t/2.)], [(-t/2., -a/2.), (t/2., a/2.)]]
+        # contours = list()
+        # for pt_l in ends:
+        #     vtcs = [pt_l[0], (pt_l[1][0], pt_l[0][1]), pt_l[1], (pt_l[0][0], pt_l[1][1])] #*Je peux appliquer l’unpacking dans la boucle pour rendre cette opération plus élégante : http://sametmax.com/quest-ce-que-lunpacking-en-python-et-a-quoi-ca-sert/
+        #     contours.append([geo.Point(np.array(c)) for c in vtcs])
+        # for c in contours:
+        #     for pt in c:
+        #         pt.plot('green')
+        # plt.pause(2)
         pattern_ll = [geo.LineLoop(pt_list, explicit=False) for pt_list in contours]
+        # for ll in pattern_ll:
+        #     for pt in ll.vertices:
+        #         pt.plot('yellow')
+        #     plt.pause(2)
         pattern_ll += [geo.point_reflection(ll, M) for ll in pattern_ll]
+        refine_lines += [geo.point_reflection(ll, M) for ll in refine_lines]
+        # for ll in pattern_ll:
+        #     for pt in ll.vertices:
+        #         pt.plot('purple')
+        #     plt.pause(2)
         pattern_ll += [geo.plane_reflection(ll, I, e1) for ll in pattern_ll]
+        refine_lines += [geo.plane_reflection(ll, I, e1) for ll in refine_lines]
+        # for ll in pattern_ll:
+        #     for pt in ll.vertices:
+        #         pt.plot('grey')
+        #     plt.pause(2)
         pattern_ll += [geo.plane_reflection(ll, I, e2) for ll in pattern_ll]
-        geo.remove_duplicates(pattern_ll)
+        refine_lines += [geo.plane_reflection(ll, I, e2) for ll in refine_lines]
+        # for ll in pattern_ll:
+        #     for pt in ll.vertices:
+        #         pt.plot('brown')
+        #     plt.pause(2)
+        # plt.show()
+        pattern_ll = geo.remove_duplicates(pattern_ll)
+        refine_lines = geo.remove_duplicates(refine_lines)
         logger.info('Done removing of the line-loops duplicates')
 
-        attract_lines = [geo.Line(geo.Point(np.array(pts[0])), geo.Point(np.array(pts[1]))) for pts in ends]
-        mesh_attract = geo.PhysicalGroup(attract_lines,1,'mesh_attractors')
+        plt.figure()
+        for ln in refine_lines:
+            ln.plot()
+        plt.show()
+        # attract_lines = [geo.Line(geo.Point(np.array(pts[0])), geo.Point(np.array(pts[1]))) for pts in ends]
+        fine_pts = [pt for ln in refine_lines for pt in ln.def_pts]
+        fine_pts = geo.remove_duplicates(fine_pts)
+        mesh_attract = geo.PhysicalGroup(fine_pts,0,'mesh_attractors')
+        # mesh_attract = geo.PhysicalGroup(refine_lines,1,'mesh_attractors')
         attractors = [mesh_attract]
-
+#! TESTER
         return Fenics2DRVE(pattern_ll, gen_vect, nb_cells, offset, attractors, soft_mat, name)
 
 if __name__ == "__main__":
     geo.init_geo_tools()
-    panto_test = Fenics2DRVE.pantograph(1,1,0.3,0.1,(2,3),False,'panto_test')
+    a = 1
+    b, k = a, a/3
+    panto_test = Fenics2DRVE.pantograph(a, b, k, 0.1, nb_cells=(1,1), soft_mat=False, name='panto_test')
     panto_test.main_mesh_refinement((0.1,0.5),(0.03,0.3),False)
+    gmsh.fltk.run()
     panto_test.mesh_generate()
-    os.system(f"gmsh {panto_test.name}.msh &")
+    # os.system(f"gmsh {panto_test.name}.msh &")
 
-    t = 0.05
-    L = 1
+    L, t = 1, 0.05
     a = L-3*t
-    aux_sqr_test = Fenics2DRVE.auxetic_square(a, L, t, 0.2)
+    aux_sqr_test = Fenics2DRVE.auxetic_square(a, L, t, 0.2, nb_cells=(1,1))
+    # os.system(f"gmsh {aux_sqr_test.name}.brep &")
+    # print(aux_sqr_test.attractors)
+    # for gp in aux_sqr_test.attractors:
+    #     for e in gp.entities :
+    #         e.plot("orange")
+    # aux_sqr_test.main_mesh_refinement((0.1,0.3),(0.01,0.1),False)
+    # # gmsh.fltk.run()
+    # aux_sqr_test.mesh_generate()
+    # gmsh.option.setNumber('Mesh.SurfaceFaces',1) #Display faces of surface mesh?
+    # data = model.getPhysicalGroups()
+    # logger.info('All physical groups in the model ' + repr(data)
+    #     + ' Names : ' + repr([model.getPhysicalName(*dimtag) for dimtag in data]))
+    # gmsh.fltk.run()
+    # os.system(f"gmsh {aux_sqr_test.name}.msh &")
+    # gmsh.finalize()
