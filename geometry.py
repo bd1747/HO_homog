@@ -561,7 +561,8 @@ class LineLoop(object):
     def reverse(self):
         self.sides.reverse()
         for elmt in self.sides:
-            elmt.def_pts[0], elmt.def_pts[-1] = elmt.def_pts[-1], elmt.def_pts[0]
+            elmt.def_pts.reverse()
+        self.vertices.reverse()
 
     def offset(self, t):
         """ Opération d'offset appliqué automatique sur tout les sommets définissant la LineLoop.
@@ -766,6 +767,77 @@ class AbstractSurface(object):
         
         self.boundary = def_crv
 
+    @staticmethod
+    def bool_cut(body, tool):
+        """
+        Boolean operation of cutting performed on surfaces.
+
+        Remove the aeras taken by the tool entities from the body surface.
+        Removing a set of geometrical entities 'tools' at once is possible.
+        The removeObject and removeTool parameters of the gmsh API function are set to False in order to keep the consistency between the python geometrical instances and the gmsh geometrical model as far as possible.
+
+        Parameters
+        ----------
+        body : instance of PlaneSurface
+            Main operand of the cut operation.
+        tool : instance of PlaneSurface or list of instances of it
+            Several tool areas can be removed to the body surface at once. To do this, the tool parameter must be a list.
+        NOT ENABLED ANYMORE remove_body : bool, optional
+                            Delete the body surface from the gmsh model after the boolean operation.
+                            If True, the tag of the resulting surface might be equal to the one of the deleted body.
+        NOT ENABLED ANYMORE remove_tool : bool, optional
+                            Delete the tool surface from the gmsh model after the boolean operation, or all the tools if several tools are used.
+        
+        Return
+        ----------
+        cut_surf : Instance of PlaneSurface
+            A Python object that represents the surface that is obtained with the boolean operation.
+            This will be a degenerate instance with only a tag attribut and a boundary attribut that can be evaluate later.
+        """
+        if not body.tag:
+            body.add_gmsh()
+        if isinstance(tool, PlaneSurface):
+            tool = [tool]
+        assert isinstance(tool, list)
+        for t in tool:
+            if not t.tag:
+                t.add_gmsh()
+        output = factory.cut([(2,body.tag)], [(2,t.tag) for t in tool], removeObject=False, removeTool=False)
+        logger.debug(f"Output of boolean operation 'cut' on surfaces : {output}")
+        new_surf = list()
+        for entity in output[0]:
+            if entity[0]==2:
+                new_surf.append(AbstractSurface(entity[1]))
+            else:
+                logger.warn(f"Some entities that result from a cut boolean operation are not surfaces and therefore are not returned. \n Complete output from the API function :{output}")
+        return new_surf
+
+    @staticmethod
+    def bool_intersect(body, tool):
+        """
+        Boolean operation of intersection performed on surfaces.
+
+        See the bool_cut_S() doc for more informations.
+
+        """
+        if not body.tag:
+            body.add_gmsh()
+        if isinstance(tool, PlaneSurface):
+            tool = [tool]
+        assert isinstance(tool, list)
+        for t in tool:
+            if not t.tag:
+                t.add_gmsh()
+        output = factory.intersect([(2,body.tag)], [(2,t.tag) for t in tool], removeObject=False, removeTool=False)
+        logger.debug(f"Output of boolean operation 'intersection' on surfaces : {output}")
+        new_surf = list()
+        for entity in output[0]:
+            if entity[0]==2:
+                new_surf.append(AbstractSurface(entity[1]))
+            else:
+                logger.warn(f"Some entities that result from a intersection boolean operation are not surfaces and therefore are not returned. \n Complete output from the API function :{output}")
+        return new_surf
+
 
 #TODO : Not tested yet
 # def combine_AbstractSurface(surfs):
@@ -793,74 +865,6 @@ class AbstractSurface(object):
 #     pass
 
 
-def bool_cut_S(body, tool):
-    """
-    Boolean operation of cutting performed on surfaces.
-
-    Remove the aeras taken by the tool entities from the body surface.
-    Removing a set of geometrical entities 'tools' at once is possible.
-    The removeObject and removeTool parameters of the gmsh API function are set to False in order to keep the consistency between the python geometrical instances and the gmsh geometrical model as far as possible.
-
-    Parameters
-    ----------
-    body : instance of PlaneSurface
-        Main operand of the cut operation.
-    tool : instance of PlaneSurface or list of instances of it
-        Several tool areas can be removed to the body surface at once. To do this, the tool parameter must be a list.
-    NOT ENABLED ANYMORE remove_body : bool, optional
-                        Delete the body surface from the gmsh model after the boolean operation.
-                        If True, the tag of the resulting surface might be equal to the one of the deleted body.
-    NOT ENABLED ANYMORE remove_tool : bool, optional
-                        Delete the tool surface from the gmsh model after the boolean operation, or all the tools if several tools are used.
-    
-    Return
-    ----------
-    cut_surf : Instance of PlaneSurface
-        A Python object that represents the surface that is obtained with the boolean operation.
-        This will be a degenerate instance with only a tag attribut and a boundary attribut that can be evaluate later.
-    """
-    if not body.tag:
-        body.add_gmsh()
-    if isinstance(tool, PlaneSurface):
-        tool = [tool]
-    assert isinstance(tool, list)
-    for t in tool:
-        if not t.tag:
-            t.add_gmsh()
-    output = factory.cut([(2,body.tag)], [(2,t.tag) for t in tool], removeObject=False, removeTool=False)
-    logger.debug(f"Output of boolean operation 'cut' on surfaces : {output}")
-    new_surf = list()
-    for entity in output[0]:
-        if entity[0]==2:
-            new_surf.append(AbstractSurface(entity[1]))
-        else:
-            logger.warn(f"Some entities that result from a cut boolean operation are not surfaces and therefore are not returned. \n Complete output from the API function :{output}")
-    return new_surf
-
-def bool_intersect_S(body, tool):
-    """
-    Boolean operation of intersection performed on surfaces.
-
-    See the bool_cut_S() doc for more informations.
-
-    """
-    if not body.tag:
-        body.add_gmsh()
-    if isinstance(tool, PlaneSurface):
-        tool = [tool]
-    assert isinstance(tool, list)
-    for t in tool:
-        if not t.tag:
-            t.add_gmsh()
-    output = factory.intersect([(2,body.tag)], [(2,t.tag) for t in tool], removeObject=False, removeTool=False)
-    logger.debug(f"Output of boolean operation 'intersection' on surfaces : {output}")
-    new_surf = list()
-    for entity in output[0]:
-        if entity[0]==2:
-            new_surf.append(AbstractSurface(entity[1]))
-        else:
-            logger.warn(f"Some entities that result from a intersection boolean operation are not surfaces and therefore are not returned. \n Complete output from the API function :{output}")
-    return new_surf
 
 
 def gather_boundary_fragments(curves, main_crv):
@@ -908,9 +912,9 @@ def macro_line_fragments(curves, main_line):
     for ln in curves + [main_line]:
         if not ln.tag:
             ln.add_gmsh()
+            logger.debug(f"In gather_boundary_fragments, curve {ln.tag} added to the model")
         if not ln.def_pts:
             ln.get_boundary()
-            logger.debug(f"In gather_boundary_fragments, curve {ln.tag} added to the model")
     main_start = main_line.def_pts[0].coord
     main_dir = main_line.def_pts[-1].coord - main_line.def_pts[0].coord
     parts = list()
@@ -1187,7 +1191,7 @@ def round_corner(inp_pt, pt_amt, pt_avl, r, junction_raduis=False, plot=False):
 
 
 def remove_duplicates(ent_list): #! Fonctionne très bien aussi pour d'autres types d'objets géométriques (Points par exemple)
-    """ 
+    """
     Remove all duplicates from a list of geometrical entities.
     
     Designed to be used with instances of one of the geometrical classes

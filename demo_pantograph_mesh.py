@@ -67,10 +67,18 @@ contours.append([E2, L, geo.translation(L,b/2-p), geo.translation(L,b), geo.tran
 pattern_ll = [geo.LineLoop(pt_list, explicit=False) for pt_list in contours]
 
 pattern_ll += [geo.point_reflection(ll, M) for ll in pattern_ll]
-pattern_ll += [geo.plane_reflection(ll, I, e1) for ll in pattern_ll]
-pattern_ll += [geo.plane_reflection(ll, I, e2) for ll in pattern_ll]
+sym_ll = [geo.plane_reflection(ll, I, e1) for ll in pattern_ll]
+for ll in sym_ll:
+    ll.reverse()
+pattern_ll += sym_ll
+sym_ll = [geo.plane_reflection(ll, I, e2) for ll in pattern_ll]
+for ll in sym_ll:
+    ll.reverse()
+pattern_ll += sym_ll
 pattern_ll = geo.remove_duplicates(pattern_ll)
-logger.info('Done removing of the line-loops duplicates')
+logger.info(f"Done removing of the line-loops duplicates. pattern_ll length : {len(pattern_ll)}")
+# 13 no-redundant LineLoop to define the pantographe microstructure geometry in one cell.
+
 
 for ll in pattern_ll:
     ll.round_corner_incircle(r)
@@ -82,11 +90,12 @@ macro_s = geo.PlaneSurface(macro_ll)
 
 logger.info('Start boolean operations on surfaces')
 pattern_s = [geo.PlaneSurface(ll) for ll in pattern_ll]
-rve_s = geo.bool_cut_S(macro_s, pattern_s)
+rve_s = geo.AbstractSurface.bool_cut(macro_s, pattern_s)
 rve_s = rve_s[0]
 logger.info('Done boolean operations on surfaces')
 rve_s_phy = geo.PhysicalGroup([rve_s], 2, "partition_plein")
 factory.synchronize()
+
 rve_s_phy.add_gmsh()
 factory.synchronize()
 data = model.getPhysicalGroups()
@@ -107,15 +116,24 @@ logger.info('Done defining a mesh refinement constraint')
 macro_bndry = macro_ll.sides
 rve_s.get_boundary(recursive=True)
 micro_bndry = [geo.macro_line_fragments(rve_s.boundary, M_ln) for M_ln in macro_bndry]
-for i, crvs in enumerate(micro_bndry):
-    msh.order_curves(crvs,
-                    macro_bndry[i%2].def_pts[-1].coord - macro_bndry[i%2].def_pts[0].coord,
-                    orientation=True)
+factory.synchronize() #* Voilà le coupable ! En tout cas, sans ça ne fonctionne pas et avec oui: le rafinement ce fait comme souhaité.
+dirct = [(M_ln.def_pts[-1].coord - M_ln.def_pts[0].coord) for M_ln in macro_bndry]
+logger.debug('value and type of dirct items : ' + repr([(i, type(i)) for i in dirct]))
+for  i, crvs in enumerate(micro_bndry):
+    msh.order_curves(crvs, dirct[i%2], orientation=True)
+logger.debug("length of micro_bndry list : " + str(len(micro_bndry)))
+
 msh.set_periodicity_pairs(micro_bndry[0], micro_bndry[2])
 msh.set_periodicity_pairs(micro_bndry[1], micro_bndry[3])
-logger.info('Done defining a mesh periodicity constraint')
-geo.PhysicalGroup.set_group_mesh(True)
-model.mesh.generate(2)
-gmsh.write(f"{name}.msh")
-os.system(f"gmsh {name}.msh &")
+
+factory.remove([(1, l.tag) for l in macro_ll.sides])
+for  l in macro_ll.sides:
+        l.tag = None
+
+logger.debug('Mesh.SaveAll option value before change : ' + str(gmsh.option.getNumber('Mesh.SaveAll')))
+gmsh.option.setNumber('Mesh.SaveAll',0)
+logger.debug('Mesh.SaveAll option value after change : ' + str(gmsh.option.getNumber('Mesh.SaveAll')))
+gmsh.model.mesh.generate(2)
+gmsh.write("%s.msh"%name)
+os.system("gmsh %s.msh &" %name)
 gmsh.fltk.run()
