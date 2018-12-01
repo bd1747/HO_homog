@@ -48,8 +48,8 @@ b = b/a*e2
 
 E1 = geo.Point(e1)
 E2 = geo.Point(e2)
-E1m = geo.Point(-e1)
-E2m = geo.Point(-e2)
+E1m = geo.Point(-1*e1)
+E2m = geo.Point(-1*e2)
 O = np.zeros((3,))
 L = geo.Point(2*(e1+e2))
 Lm = geo.Point(2*(e1-e2))
