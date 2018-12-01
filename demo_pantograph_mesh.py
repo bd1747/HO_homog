@@ -36,6 +36,7 @@ logger.info('Start defining the pantograph geometry')
 a = 1
 b = 1
 k = 0.3
+r = a/20
 
 Lx = 4*a
 Ly = 6*a+2*b
@@ -75,7 +76,7 @@ pattern_ll = geo.remove_duplicates(pattern_ll)
 logger.info(f"Done removing of the line-loops duplicates. pattern_ll length : {len(pattern_ll)}")
 # 13 no-redundant LineLoop to define the pantographe microstructure geometry in one cell.
 
-r = a/20
+
 for ll in pattern_ll:
     ll.round_corner_incircle(r)
 logger.info('Done rounding all corners of pattern line-loops')
@@ -90,25 +91,8 @@ rve_s = geo.AbstractSurface.bool_cut(macro_s, pattern_s)
 rve_s = rve_s[0]
 logger.info('Done boolean operations on surfaces')
 rve_s_phy = geo.PhysicalGroup([rve_s], 2, "partition_plein")
-# logger.info('Add all the required geometrical entities to the geometrical model')
-
-# #Suppression à la main des outils...
-# data = gmsh.model.getEntities(2)
-# # data += gmsh.model.getEntities(1)
-# logger.debug('surfaces and curves before remove : ' + repr(data))
-# # factory.remove([(2, s.tag) for s in pattern_s] + [(2,macro_s.tag)])
-# factory.remove([(2, s.tag) for s in pattern_s])
-# factory.remove([(1, l.tag) for ll in pattern_ll for l in ll.sides])
-# for s in pattern_s:
-#     for  l in s.ext_contour.sides:
-#         l.tag = None
-#     s.tag = None
-# macro_s.tag = None
-# factory.synchronize()
-# data = gmsh.model.getEntities(2)
-# # data += gmsh.model.getEntities(1)
-# logger.debug('surfaces and curves after remove : ' + repr(data))
 factory.synchronize()
+
 rve_s_phy.add_gmsh()
 factory.synchronize()
 data = model.getPhysicalGroups()
