@@ -545,7 +545,8 @@ class LineLoop(object):
     def reverse(self):
         self.sides.reverse()
         for elmt in self.sides:
-            elmt.def_pts[0], elmt.def_pts[-1] = elmt.def_pts[-1], elmt.def_pts[0]
+            elmt.def_pts.reverse()
+        self.vertices.reverse()
 
     def offset(self, t):
         """ Opération d'offset appliqué automatique sur tout les sommets définissant la LineLoop.
@@ -1161,8 +1162,8 @@ def round_corner(inp_pt, pt_amt, pt_avl, r, junction_raduis=False, plot=False):
 
 
 def remove_duplicates(ent_list): #! Fonctionne très bien aussi pour d'autres types d'objets géométriques (Points par exemple)
-    """ 
-    Remove all duplicates from a list of geometrical entities. 
+    """
+    Remove all duplicates from a list of geometrical entities.
     
     Designed to be used with instances of one of the geometrical classes
     (Point, Curve, LineLoop and Surface).

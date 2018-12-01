@@ -63,10 +63,17 @@ contours.append([E2, L, geo.translation(L,b/2-p), geo.translation(L,b), geo.tran
 pattern_ll = [geo.LineLoop(pt_list, explicit=False) for pt_list in contours]
 
 pattern_ll += [geo.point_reflection(ll, M) for ll in pattern_ll]
-pattern_ll += [geo.plane_reflection(ll, I, e1) for ll in pattern_ll]
-pattern_ll += [geo.plane_reflection(ll, I, e2) for ll in pattern_ll]
-geo.remove_duplicates(pattern_ll)
-logger.info('Done removing of the line-loops duplicates')
+sym_ll = [geo.plane_reflection(ll, I, e1) for ll in pattern_ll]
+for ll in sym_ll:
+    ll.reverse()
+pattern_ll += sym_ll
+sym_ll = [geo.plane_reflection(ll, I, e2) for ll in pattern_ll]
+for ll in sym_ll:
+    ll.reverse()
+pattern_ll += sym_ll
+pattern_ll = geo.remove_duplicates(pattern_ll)
+logger.info(f"Done removing of the line-loops duplicates. pattern_ll length : {len(pattern_ll)}")
+# 13 no-redundant LineLoop to define the pantographe microstructure geometry in one cell.
 
 r = a/20
 for ll in pattern_ll:
