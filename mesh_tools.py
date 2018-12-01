@@ -333,7 +333,7 @@ def translation2matrix(v, dist=None):
     transform_matx[:,3] += v_
     return transform_matx.flatten().tolist()
 
-def set_periodicity_pairs(slaves, masters, translation_v=None):
+def set_periodicity_pairs(slaves, masters, translation_v=np.array(())):
     """
     A rédiger #TODO
 
@@ -349,10 +349,8 @@ def set_periodicity_pairs(slaves, masters, translation_v=None):
     if translation_v.any():
         vect = translation_v
     else:
-        vect =-1*(slaves[0].def_pts[0].coord - masters[0].def_pts[0].coord)
-        print(vect)
-    vect_imp =-1*(slaves[0].def_pts[0].coord - masters[0].def_pts[0].coord)
-    print(vect_imp)
+        vect = (slaves[0].def_pts[0].coord - masters[0].def_pts[0].coord)
+    # logger.debug(f"translation vector in set_periodicity_pairs : {vect}")
     model.mesh.setPeriodic(geo_dim, [s.tag for s in slaves], [m.tag for m in masters], translation2matrix(vect))
 
 def sort_function_factory(dir_v):

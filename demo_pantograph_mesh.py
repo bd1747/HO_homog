@@ -137,18 +137,9 @@ for  i, crvs in enumerate(micro_bndry):
     msh.order_curves(crvs, dirct[i%2], orientation=True)
 logger.debug("length of micro_bndry list : " + str(len(micro_bndry)))
 
-# for crv in micro_bndry[2]: #!INUTILE si on prend le même vecteur pour les 2 tris 
-#     crv.reverse()
-# for crv in micro_bndry[3]:
-#     crv.reverse()
-vect_t1 = macro_bndry[2].def_pts[0].coord - macro_bndry[0].def_pts[-1].coord
-vect_t2 = macro_bndry[3].def_pts[0].coord - macro_bndry[1].def_pts[-1].coord
-for crvs in micro_bndry:
-    print(len(crvs), crvs)
-# msh.set_periodicity_pairs(micro_bndry[0], micro_bndry[2], vect_t1)
-# msh.set_periodicity_pairs(micro_bndry[1], micro_bndry[3], vect_t2)
-# logger.info('Done defining a mesh periodicity constraint')
-#! Bug à trouver...
+msh.set_periodicity_pairs(micro_bndry[0], micro_bndry[2])
+msh.set_periodicity_pairs(micro_bndry[1], micro_bndry[3])
+
 factory.remove([(1, l.tag) for l in macro_ll.sides])
 for  l in macro_ll.sides:
         l.tag = None
