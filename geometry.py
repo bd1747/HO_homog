@@ -895,9 +895,9 @@ def macro_line_fragments(curves, main_line):
     for ln in curves + [main_line]:
         if not ln.tag:
             ln.add_gmsh()
+            logger.debug(f"In gather_boundary_fragments, curve {ln.tag} added to the model")
         if not ln.def_pts:
             ln.get_boundary()
-            logger.debug(f"In gather_boundary_fragments, curve {ln.tag} added to the model")
     main_start = main_line.def_pts[0].coord
     main_dir = main_line.def_pts[-1].coord - main_line.def_pts[0].coord
     parts = list()

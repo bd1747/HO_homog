@@ -12,6 +12,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 import gmsh
 import os
+import matplotlib.pyplot as plt
 
 # nice shortcuts
 model = gmsh.model
@@ -112,9 +113,9 @@ f = msh.set_mesh_refinement([r, a], [r/2, a/3], attractors={'points':fine_pts}, 
 msh.set_background_mesh(f)
 logger.info('Done defining a mesh refinement constraint')
 macro_bndry = macro_ll.sides
-micro_bndry = list()
 rve_s.get_boundary(recursive=True)
-micro_bndry = [geo.gather_boundary_fragments(rve_s.boundary, M_ln) for M_ln in macro_bndry]
+micro_bndry = [geo.macro_line_fragments(rve_s.boundary, M_ln) for M_ln in macro_bndry]
+factory.synchronize() #* Voilà le coupable ! En tout cas, sans ça ne fonctionne pas et avec oui: le rafinement ce fait comme souhaité.
 dirct = [(M_ln.def_pts[-1].coord - M_ln.def_pts[0].coord) for M_ln in macro_bndry]
 logger.debug('value and type of dirct items : ' + repr([(i, type(i)) for i in dirct]))
 for  i, crvs in enumerate(micro_bndry):

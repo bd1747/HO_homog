@@ -444,19 +444,27 @@ def test_gather_line():
     boundary_W = geo.macro_line_fragments(final_s.boundary, line_W)
     boundary_S = geo.macro_line_fragments(final_s.boundary, line_S)
     boundary_E = geo.macro_line_fragments(final_s.boundary, line_E)
+    factory.synchronize()
     plt.figure()
     plt.axis('equal')
+    line_lists = [boundary_N, boundary_W, boundary_S, boundary_E]
     colors = ['red', 'green', 'orange', 'blue']
-    for l_list,c in zip([boundary_N, boundary_W, boundary_S, boundary_E], colors):
+    names = ['N','W','S','E']
+    gps = list()
+    for l_list, col, n in zip(line_lists, colors, names):
+        gp_l = geo.PhysicalGroup(l_list, 1, n)
+        gp_l.add_gmsh()
+        gps.append(gp_l)
         for l in l_list:
-            l.plot(c)
+            l.plot(col)
     factory.synchronize()
 
+    gmsh.option.setNumber('Mesh.SaveAll', 1)
     gmsh.model.mesh.generate(2)
-    gmsh.write("%s.brep"%name)
-    gmsh.write("%s.msh"%name)
-    os.system("gmsh %s.brep &" %name)
-    os.system("gmsh %s.msh &" %name)
+    gmsh.write(f"{name}.brep")
+    gmsh.write(f"{name}.msh")
+    os.system(f"gmsh {name}.brep &" )
+    os.system(f"gmsh {name}.msh &")
 
 def test_remove_ll_duplicates():
     """
@@ -646,15 +654,16 @@ if __name__ == '__main__':
     # test_LineLoop()
     # test_PlaneSurface()
     # test_ll_modif()
-    test_bool_ops()
+    # test_bool_ops()
     # test_gather()
     # test_remove_ll_duplicates()
     # test_physical_group()
     # test_reflections()
-    # test_gather_line()
+    test_gather_line()
     # test_mesh_only_phy_groups()
 
     #* Bloc de fin
+    gmsh.fltk.run()
     plt.show() #* Il faut fermer toutes les fenêtres avant de passer à la GUI gmsh. (pertinent en mode non interactive)
     # gmsh.fltk.run() #! A revoir, ça génère des "kernel died" dans Spyder, pas idéal
     # # gmsh.fltk.initialize()
