@@ -79,7 +79,7 @@ macro_s = geo.PlaneSurface(macro_ll)
 
 logger.info('Start boolean operations on surfaces')
 pattern_s = [geo.PlaneSurface(ll) for ll in pattern_ll]
-rve_s = geo.bool_cut_S(macro_s, pattern_s, remove_body=False, remove_tool=False)
+rve_s = geo.AbstractSurface.bool_cut(macro_s, pattern_s)
 rve_s = rve_s[0]
 logger.info('Done boolean operations on surfaces')
 rve_s_phy = geo.PhysicalGroup([rve_s], 2, "partition_plein")
@@ -149,6 +149,7 @@ for  l in macro_ll.sides:
 logger.debug('Mesh.SaveAll option value before change : ' + str(gmsh.option.getNumber('Mesh.SaveAll')))
 gmsh.option.setNumber('Mesh.SaveAll',0)
 logger.debug('Mesh.SaveAll option value after change : ' + str(gmsh.option.getNumber('Mesh.SaveAll')))
-# gmsh.model.mesh.generate(2)
-# gmsh.write("%s.msh"%name)
-# os.system("gmsh %s.msh &" %name)
+gmsh.model.mesh.generate(2)
+gmsh.write("%s.msh"%name)
+os.system("gmsh %s.msh &" %name)
+gmsh.fltk.run()

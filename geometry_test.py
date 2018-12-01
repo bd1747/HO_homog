@@ -280,10 +280,10 @@ def test_bool_ops():
     print(f"""Tags before boolean operations : 
             surf_1 : {surf_1.tag}; surf_2 : {surf_2.tag}; surf_rect : {surf_rect.tag}; 
             surf_hole_1 : {surf_hole_1.tag}; surf_hole_2 : {surf_hole_2.tag}""")
-    surf_with_hole = geo.bool_cut_S(surf_rect, [surf_hole_1, surf_hole_2])
+    surf_with_hole = geo.AbstractSurface.bool_cut(surf_rect, [surf_hole_1, surf_hole_2])
     print(surf_with_hole)
     surf_with_hole = surf_with_hole[0]
-    surf_inter = geo.bool_intersect_S(surf_1, surf_2)
+    surf_inter = geo.AbstractSurface.bool_intersect(surf_1, surf_2)
     print(surf_inter)
     surf_inter = surf_inter[0]
     factory.synchronize()
@@ -371,7 +371,7 @@ def test_gather():
     rect_s = geo.PlaneSurface(rect_ll)
     hole_s = [geo.PlaneSurface(ll) for ll in hole_ll]
     #final_s = geo.bool_cut_S(rect_s, hole_s, remove_body=True, remove_tool=True) #!ERREUR CAR LA SUPPRESSION DES ELEMENTS BOSCULE LE SYSTEME DE TAG
-    final_s = geo.bool_cut_S(rect_s, hole_s)
+    final_s = geo.AbstractSurface.bool_cut(rect_s, hole_s)
     factory.synchronize()
     print("length of final_s : ", len(final_s))
     final_s = final_s[0]
@@ -430,7 +430,7 @@ def test_gather_line():
     hole_ll = [geo.LineLoop(h, explicit=False) for h in holes]
     rect_s = geo.PlaneSurface(rect_ll)
     hole_s = [geo.PlaneSurface(ll) for ll in hole_ll]
-    final_s = geo.bool_cut_S(rect_s, hole_s)
+    final_s = geo.AbstractSurface.bool_cut(rect_s, hole_s)
     factory.synchronize()
     print("length of final_s : ", len(final_s))
     final_s = final_s[0]
@@ -646,13 +646,13 @@ if __name__ == '__main__':
     # test_LineLoop()
     # test_PlaneSurface()
     # test_ll_modif()
-    # test_bool_ops()
+    test_bool_ops()
     # test_gather()
     # test_remove_ll_duplicates()
     # test_physical_group()
     # test_reflections()
     # test_gather_line()
-    test_mesh_only_phy_groups()
+    # test_mesh_only_phy_groups()
 
     #* Bloc de fin
     plt.show() #* Il faut fermer toutes les fenêtres avant de passer à la GUI gmsh. (pertinent en mode non interactive)
