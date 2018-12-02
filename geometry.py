@@ -973,6 +973,7 @@ class PhysicalGroup(object):
             PhysicalGroup.all_groups[self.dim] = [self]
 
     def add_gmsh(self):
+        factory.synchronize()
         if self.tag:
             return self.tag
         tags = list()
@@ -980,6 +981,7 @@ class PhysicalGroup(object):
             if not item.tag:
                 item.add_gmsh()
             tags.append(item.tag)
+        factory.synchronize()
         self.tag = model.addPhysicalGroup(self.dim, tags)
         #! TEMPORAIRE, un appel à synchronize devrait pouvoir être enlevé.
         logger.info(f"Physical group {self.tag} of dim {self.dim} added to gmsh")

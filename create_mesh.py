@@ -19,6 +19,8 @@ import geometry as geo
 import gmsh
 import mesh_tools as msh
 
+#TODO : placer un asarray dans la def de __init__ pour Point
+
 # nice shortcuts
 model = gmsh.model
 factory = model.occ
@@ -90,7 +92,7 @@ class Fenics2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais 
         Contrat : Créer un couple maillage + matériaux pour des RVE 2D, plans, comportant au plus 2 matériaux constitutifs et pouvant contenir plusieurs cellules.
         #! La cellule est un parallélogramme.
 
-        #! Pour le moment, seule la géométrie est crée.
+        #! Pour le moment, seule la géométrie est créée.
 
         Parameters
         ----------
@@ -161,10 +163,10 @@ class Fenics2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais 
                     + ' Names : ' + repr([model.getPhysicalName(*dimtag) for dimtag in data]))
         logger.info('Done generating the gmsh geometrical model')
         gmsh.write("%s.brep"%name)
-
         macro_bndry = macro_ll.sides
         rve_s.get_boundary(recursive=True)
         micro_bndry = [geo.macro_line_fragments(rve_s.boundary, M_ln) for M_ln in macro_bndry]
+        factory.synchronize() #* Nécessaire, sinon pas de rafinement du maillage. Cause de non-fonctionnement pas encore recherchée.
         for i, crvs in enumerate(micro_bndry):
              msh.order_curves(crvs,
                 macro_bndry[i%2].def_pts[-1].coord - macro_bndry[i%2].def_pts[0].coord,
@@ -333,7 +335,7 @@ class Fenics2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais 
         offset = np.asarray(offset)
         nb_cells = np.asarray(nb_cells)
 
-        logger.info('Start defining the pantograph geometry')
+        logger.info('Start defining the auxetic_square geometry')
         gen_vect = np.array(((L,0.), (0.,L)))
         b = (L - a)/2.
         e1 = np.array((L, 0., 0.))
@@ -346,50 +348,26 @@ class Fenics2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais 
         diag_pts = [[(b, -t/2.), (a+b, t/2.)], [(-t/2., -a/2.), (t/2., a/2.)]]
         middle_pts = [[(b, 0.), (a+b, 0.)], [(0., -a/2.), (0., a/2.)]]
         contours = list()
-        for s,e in diag_pts:
-            coords = [s, (e[0], s[1]), e, (s[0], e[1])]
+        for start,end in diag_pts:
+            coords = [start, (end[0], start[1]), end, (start[0], end[1])]
             contours.append([geo.Point(np.array(c)) for c in coords])
         refine_lines = [geo.Line(
                         geo.Point(np.array(s)),
                         geo.Point(np.array(e))) for s,e in middle_pts]
 
-#TODO : regarder si il existe un moyen d'appliquer une fonction à nested listes ?
-#TODO : placer un asarray dans la def de __init__ pour Point
-
-
-        # ends = [[(b, -t/2.), (a+b, t/2.)], [(-t/2., -a/2.), (t/2., a/2.)]]
-        # contours = list()
-        # for pt_l in ends:
-        #     vtcs = [pt_l[0], (pt_l[1][0], pt_l[0][1]), pt_l[1], (pt_l[0][0], pt_l[1][1])] #*Je peux appliquer l’unpacking dans la boucle pour rendre cette opération plus élégante : http://sametmax.com/quest-ce-que-lunpacking-en-python-et-a-quoi-ca-sert/
-        #     contours.append([geo.Point(np.array(c)) for c in vtcs])
-        # for c in contours:
-        #     for pt in c:
-        #         pt.plot('green')
-        # plt.pause(2)
         pattern_ll = [geo.LineLoop(pt_list, explicit=False) for pt_list in contours]
-        # for ll in pattern_ll:
-        #     for pt in ll.vertices:
-        #         pt.plot('yellow')
-        #     plt.pause(2)
         pattern_ll += [geo.point_reflection(ll, M) for ll in pattern_ll]
         refine_lines += [geo.point_reflection(ll, M) for ll in refine_lines]
-        # for ll in pattern_ll:
-        #     for pt in ll.vertices:
-        #         pt.plot('purple')
-        #     plt.pause(2)
-        pattern_ll += [geo.plane_reflection(ll, I, e1) for ll in pattern_ll]
-        refine_lines += [geo.plane_reflection(ll, I, e1) for ll in refine_lines]
-        # for ll in pattern_ll:
-        #     for pt in ll.vertices:
-        #         pt.plot('grey')
-        #     plt.pause(2)
-        pattern_ll += [geo.plane_reflection(ll, I, e2) for ll in pattern_ll]
+        sym_ll = [geo.plane_reflection(ll, I, e1) for ll in pattern_ll]
+        for ll in sym_ll:
+            ll.reverse()
+        pattern_ll += sym_ll
+        refine_lines += [geo.plane_reflection(ll, I, e1) for ll in refine_lines] #TODO : faire une méthode reverse pour les curves ?
+        sym_ll = [geo.plane_reflection(ll, I, e2) for ll in pattern_ll]
+        for ll in sym_ll:
+            ll.reverse()
+        pattern_ll += sym_ll
         refine_lines += [geo.plane_reflection(ll, I, e2) for ll in refine_lines]
-        # for ll in pattern_ll:
-        #     for pt in ll.vertices:
-        #         pt.plot('brown')
-        #     plt.pause(2)
-        # plt.show()
         pattern_ll = geo.remove_duplicates(pattern_ll)
         refine_lines = geo.remove_duplicates(refine_lines)
         logger.info('Done removing of the line-loops duplicates')

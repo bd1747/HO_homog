@@ -129,7 +129,7 @@ micro_bndry = [geo.macro_line_fragments(rve_s.boundary, M_ln) for M_ln in macro_
 factory.synchronize() #* Voilà le coupable ! En tout cas, sans ça ne fonctionne pas et avec oui: le rafinement ce fait comme souhaité.
 dirct = [(M_ln.def_pts[-1].coord - M_ln.def_pts[0].coord) for M_ln in macro_bndry]
 logger.debug('value and type of dirct items : ' + repr([(i, type(i)) for i in dirct]))
-for  i, crvs in enumerate(micro_bndry):
+for i, crvs in enumerate(micro_bndry):
     msh.order_curves(crvs, dirct[i%2], orientation=True)
 logger.debug("length of micro_bndry list : " + str(len(micro_bndry)))
 
