@@ -145,6 +145,7 @@ def init_geo_tools():
     logger.info(f"Initial value of Geometry.AutoCoherence option, before set it to 0 : {gmsh.option.getNumber('Geometry.AutoCoherence')}")
     gmsh.option.setNumber("Geometry.AutoCoherence",0)
     gmsh.option.setNumber("Mesh.ColorCarousel", 2) #0=by element type, 1=by elementary entity, 2=by physical entity, 3=by partition
+    gmsh.option.setNumber("Mesh.SaveAll", 1)
     gmsh.option.setNumber("Mesh.MeshOnlyVisible", 0)
     pre_val = gmsh.option.getNumber('Mesh.CharacteristicLengthExtendFromBoundary')
     val = 0

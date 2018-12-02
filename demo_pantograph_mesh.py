@@ -139,10 +139,11 @@ msh.set_periodicity_pairs(micro_bndry[1], micro_bndry[3])
 factory.remove([(1, l.tag) for l in macro_ll.sides])
 for  l in macro_ll.sides:
         l.tag = None
-
-logger.debug('Mesh.SaveAll option value before change : ' + str(gmsh.option.getNumber('Mesh.SaveAll')))
-gmsh.option.setNumber('Mesh.SaveAll',0)
-logger.debug('Mesh.SaveAll option value after change : ' + str(gmsh.option.getNumber('Mesh.SaveAll')))
+pre_val = gmsh.option.getNumber('Mesh.SaveAll')
+val = 0
+gmsh.option.setNumber('Mesh.SaveAll',val)
+logging.info(f"Option Mesh.SaveAll set to {val}. Initial value : {pre_val}.")
+geo.PhysicalGroup.set_group_mesh(1)
 gmsh.model.mesh.generate(2)
 gmsh.write("%s.msh"%name)
 os.system("gmsh %s.msh &" %name)
