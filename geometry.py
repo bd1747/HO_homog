@@ -147,10 +147,11 @@ def init_geo_tools():
     gmsh.option.setNumber("Mesh.ColorCarousel", 2) #0=by element type, 1=by elementary entity, 2=by physical entity, 3=by partition
     gmsh.option.setNumber("Mesh.MeshOnlyVisible", 0)
     pre_val = gmsh.option.getNumber('Mesh.CharacteristicLengthExtendFromBoundary')
-    val = 1
+    val = 0
     gmsh.option.setNumber('Mesh.CharacteristicLengthExtendFromBoundary',val)
     logging.info(f"Initial value of Mesh.CharacteristicLengthExtendFromBoundary option : {pre_val}. Option set to {val}")
     #TODO : Should be in the init file of the mesh_tools module.
+    #TODO : Faire une fonction pour set une option de gmsh et voir la valeur précédente. (avec un logging.debug)
     Point.all_pts_in_script = []
     # PhysicalEntity.count = 1
     # PhysicalEntity.tagDejaPris = set()
