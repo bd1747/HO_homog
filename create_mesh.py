@@ -277,12 +277,12 @@ class Fenics2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais 
         logger.info('Start boolean operations on surfaces')
         phy_surf = list()
         pattern_s = [geo.PlaneSurface(ll) for ll in pattern_ll]
-        rve_s = geo.bool_cut_S(macro_s, pattern_s)
+        rve_s = geo.AbstractSurface.bool_cut(macro_s, pattern_s)
         rve_s = rve_s[0]
         rve_s_phy = geo.PhysicalGroup([rve_s], 2, "microstruct_domain")
         phy_surf.append(rve_s_phy)
         if soft_mat:
-            soft_s = geo.bool_intersect_S(macro_s, pattern_s)
+            soft_s = geo.AbstractSurface.bool_intersect(macro_s, pattern_s)
             soft_s = soft_s[0]
             soft_s_phy = geo.PhysicalGroup([rve_s], 2, "soft_domain")
             phy_surf.append(soft_s_phy)
