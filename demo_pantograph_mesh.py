@@ -13,6 +13,7 @@ from logging.handlers import RotatingFileHandler
 import gmsh
 import os
 import matplotlib.pyplot as plt
+from more_itertools import flatten
 
 # nice shortcuts
 model = gmsh.model
@@ -110,8 +111,17 @@ constr_pts = [pt for ll in pattern_ll for pt in ll.vertices]
 fine_pts = [pt for pt in constr_pts if (pt.coord[0] % 1 < p[0]/2. or pt.coord[0] % 1 > 1. - p[0]/2.)]
 fine_pts = geo.remove_duplicates(fine_pts)
 
-f = msh.set_mesh_refinement([r, a], [r/2, a/3], attractors={'points':fine_pts}, sigmoid_interpol=True)
+f = msh.set_mesh_refinement([r, a], [r/4, a/3], attractors={'points':fine_pts}, sigmoid_interpol=True)
 msh.set_background_mesh(f)
+# logger.info('Test de rafinement du maillage autour des lignes du bord de la microstructure')
+# fine_lns = list(flatten([ll.sides for ll in pattern_ll]))
+# g = msh.set_mesh_refinement([r, a/3], [r/3, a/3], attractors={'curves':fine_lns}, sigmoid_interpol=True)
+# msh.set_background_mesh(g)
+if not gmsh.option.getNumber('Mesh.CharacteristicLengthExtendFromBoundary') == 0:
+    pre_val = gmsh.option.getNumber('Mesh.CharacteristicLengthExtendFromBoundary')
+    val = 0
+    gmsh.option.setNumber('Mesh.CharacteristicLengthExtendFromBoundary',val)
+    logging.info(f"Option Mesh.CharacteristicLengthExtendFromBoundary set to {val}. Initial value : {pre_val}.")
 logger.info('Done defining a mesh refinement constraint')
 macro_bndry = macro_ll.sides
 rve_s.get_boundary(recursive=True)
