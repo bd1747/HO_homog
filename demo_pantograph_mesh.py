@@ -110,7 +110,9 @@ logger.info('Start defining a mesh refinement constraint')
 constr_pts = [pt for ll in pattern_ll for pt in ll.vertices]
 fine_pts = [pt for pt in constr_pts if (pt.coord[0] % 1 < p[0]/2. or pt.coord[0] % 1 > 1. - p[0]/2.)]
 fine_pts = geo.remove_duplicates(fine_pts)
-
+for pt in fine_pts:
+    pt.add_gmsh()
+factory.synchronize()
 f = msh.set_mesh_refinement([r, a], [r/4, a/3], attractors={'points':fine_pts}, sigmoid_interpol=True)
 msh.set_background_mesh(f)
 # logger.info('Test de rafinement du maillage autour des lignes du bord de la microstructure')
@@ -126,7 +128,6 @@ logger.info('Done defining a mesh refinement constraint')
 macro_bndry = macro_ll.sides
 rve_s.get_boundary(recursive=True)
 micro_bndry = [geo.macro_line_fragments(rve_s.boundary, M_ln) for M_ln in macro_bndry]
-factory.synchronize() #* Voilà le coupable ! En tout cas, sans ça ne fonctionne pas et avec oui: le rafinement ce fait comme souhaité.
 dirct = [(M_ln.def_pts[-1].coord - M_ln.def_pts[0].coord) for M_ln in macro_bndry]
 logger.debug('value and type of dirct items : ' + repr([(i, type(i)) for i in dirct]))
 for i, crvs in enumerate(micro_bndry):
