@@ -1273,7 +1273,7 @@ def geo_transformation_factory(pt_coord_fctn):
                 new_ent = Line(*pts)
             if isinstance(geo_ent, Arc):
                 new_ent = Arc(*pts)
-        if isinstance(geo_ent, LineLoop):
+        if isinstance(geo_ent, LineLoop): #TODO : rajouter le déterminant pour réorienter les lineloop
             if geo_ent.sides:
                 crv = [transformation(crv, *args, **kwargs) for crv in geo_ent.sides]
                 new_ent = LineLoop(crv, explicit=True)

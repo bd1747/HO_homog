@@ -85,7 +85,7 @@ def offset_pattern(cell_ll, offset_vect, gen_vect):
 class FenicsPart(object):
     pass
 
-class Fenics2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais plus de 2 matériaux constitutifs ? Imaginer une autre sous-classe semblable qui permet de définir plusieurs sous-domaines à partir d'une liste d'ensembles de LineLoop (chaque ensemble correspondant à un type d'inclusions ?)
+class Fenics2DRVE(FenicsPart): #? Et si il y a pas seulement du mou et du vide mais plus de 2 matériaux constitutifs ? Imaginer une autre sous-classe semblable qui permet de définir plusieurs sous-domaines à partir d'une liste d'ensembles de LineLoop (chaque ensemble correspondant à un type d'inclusions ?)
     
     def __init__(self, pattern_ll, gen_vect, nb_cells, offset, attractors, soft_mat, name):
         """
@@ -166,7 +166,6 @@ class Fenics2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais 
         macro_bndry = macro_ll.sides
         rve_s.get_boundary(recursive=True)
         micro_bndry = [geo.macro_line_fragments(rve_s.boundary, M_ln) for M_ln in macro_bndry]
-        factory.synchronize() #* Nécessaire, sinon pas de rafinement du maillage. Cause de non-fonctionnement pas encore recherchée.
         for i, crvs in enumerate(micro_bndry):
              msh.order_curves(crvs,
                 macro_bndry[i%2].def_pts[-1].coord - macro_bndry[i%2].def_pts[0].coord,
@@ -175,7 +174,7 @@ class Fenics2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais 
         msh.set_periodicity_pairs(micro_bndry[1], micro_bndry[3])
         logger.info('Done defining a mesh periodicity constraint')
 
-        self.gen_vect = gen_vect
+        self.gen_vect = gen_vect #TODO : stocker les vrais vecteurs pour le RVE, ajuster si il est composé de plusieurs cellules. 
         self.nb_cells = nb_cells
         self.macro_vect = macro_vect
         self.attractors = attractors
@@ -191,17 +190,42 @@ class Fenics2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais 
                 attractors['points'] += attract_gp.entities
             elif attract_gp.dim == 1:
                 attractors['curves'] += attract_gp.entities
-        rve_s = one(self.phy_surf[0].entities)
-        restrict_domain = {'surfaces':[rve_s]}
-        if not rve_s.boundary:
-            factory.synchronize()
-            rve_s.get_boundary(recursive=False)
-        restrict_domain['curves'] = rve_s.boundary #? Duck typing, même les PlaneSurface ont un attribut boundary
+        # rve_s = one(self.phy_surf[0].entities)
+        # restrict_domain = {'surfaces':[rve_s]}
+        restrict_domain = {'surfaces':self.phy_surf[0].entities}
+        # if not rve_s.boundary:
+        #     factory.synchronize()
+        #     rve_s.get_boundary(recursive=False)
+
+        # restrict_domain['curves'] = rve_s.boundary #? Duck typing, même les PlaneSurface ont un attribut boundary
+        restrict_domain = {'surfaces':self.phy_surf[0].entities,'curves':self.phy_surf[0].entities[0].boundary} #! Essai
+        plt.figure()
+        for ln in self.phy_surf[0].entities[0].boundary:
+            ln.plot()
+        plt.show()
         field = msh.set_mesh_refinement(d_min_max, lc_min_max, attractors, nb_pts_discretization, sigmoid_interpol, restrict_domain)
-        try:
-            self.mesh_fields.append(field)
-        except AttributeError:
-            self.mesh_fields = [field]
+        msh.set_background_mesh(field)
+        print(model.getEntities(1))
+        print(model.getEntities(2)) #TODO: à comparer à ce qu'il y a dans restrict.
+        gmsh.option.setNumber('Mesh.CharacteristicLengthExtendFromBoundary',0)
+        factory.synchronize()
+        geo.PhysicalGroup.set_group_mesh(False)
+        model.mesh.generate(1)
+        model.mesh.generate(2)
+        gmsh.write(f"{self.name}.msh")
+        os.system(f"gmsh {self.name}.msh &") #! Avec ce restrict_domain ça ne fonctionne pas. 
+        field = msh.set_mesh_refinement(d_min_max, lc_min_max, attractors, nb_pts_discretization=20, sigmoid_interpol=True)
+        msh.set_background_mesh(field)
+        model.mesh.generate(1)
+        model.mesh.generate(2)
+        gmsh.write(f"{self.name}.msh")
+        os.system(f"gmsh {self.name}.msh &") #! Sans le restrict_domain ça ne fonctionne.
+
+        #! Pour debug self.mesh_fields = field
+        # try:
+        #     self.mesh_fields.append(field)
+        # except AttributeError:
+        #     self.mesh_fields = [field]
     
     def soft_mesh_refinement(self, d_min_max, lc_min_max, nb_pts_discretization=10, sigmoid_interpol=False):
         model.setCurrent(self.name)
@@ -226,6 +250,7 @@ class Fenics2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais 
         logger.info(f'Physical groups just before mesh : {data}')
         geo.PhysicalGroup.set_group_mesh(True)
         model.mesh.generate(2)
+        geo.PhysicalGroup.set_group_visibility(False)
         gmsh.write(f"{self.name}.msh")
         #TODO : import mesh in a fenics object
 
@@ -252,7 +277,7 @@ class Fenics2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais 
         """
 
         name = name if name else "pantograph"
-        geo.reset()
+        # geo.reset()
 
         offset = np.asarray(offset)
         nb_cells = np.asarray(nb_cells)
@@ -301,7 +326,13 @@ class Fenics2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais 
         constr_pts = [pt for ll in pattern_ll for pt in ll.vertices]
         fine_pts = [pt for pt in constr_pts if (pt.coord[0] % 1 < p[0]/2. or pt.coord[0] % 1 > 1. - p[0]/2.)]
         fine_pts = geo.remove_duplicates(fine_pts)
-        mesh_attract = geo.PhysicalGroup(fine_pts, 0, 'mesh_attractors')
+        # mesh_attract = geo.PhysicalGroup(fine_pts, 0, 'mesh_attractors')
+        # attractors= [mesh_attract]
+
+        #! DEBUG
+        #? Essai de rafinement autour de droites, ce qui échoue avec auxetic_square
+        fine_lns = list(flatten([ll.sides for ll in pattern_ll]))
+        mesh_attract = geo.PhysicalGroup(fine_lns, 1, 'mesh_attractors')
         attractors= [mesh_attract]
         return Fenics2DRVE(pattern_ll, gen_vect, nb_cells, offset, attractors, soft_mat, name)
 
@@ -372,44 +403,38 @@ class Fenics2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais 
         refine_lines = geo.remove_duplicates(refine_lines)
         logger.info('Done removing of the line-loops duplicates')
 
-        plt.figure()
-        for ln in refine_lines:
-            ln.plot()
-        plt.show()
-        # attract_lines = [geo.Line(geo.Point(np.array(pts[0])), geo.Point(np.array(pts[1]))) for pts in ends]
-        fine_pts = [pt for ln in refine_lines for pt in ln.def_pts]
-        fine_pts = geo.remove_duplicates(fine_pts)
-        mesh_attract = geo.PhysicalGroup(fine_pts,0,'mesh_attractors')
-        # mesh_attract = geo.PhysicalGroup(refine_lines,1,'mesh_attractors')
+        #! DEBUG, copie de ce qui est fait pour pantographe.
+        #*OK 
+        constr_pts = [pt for ll in pattern_ll for pt in ll.vertices]
+        fine_pts = geo.remove_duplicates(constr_pts)
+        mesh_attract = geo.PhysicalGroup(fine_pts, 0, 'mesh_attractors')
         attractors = [mesh_attract]
-#! TESTER
+        #****
+        # for ll in pattern_ll:
+        #     ll.vertices_2_sides()
+        # fine_lns = list(flatten([ll.sides for ll in pattern_ll]))
+        # mesh_attract = geo.PhysicalGroup(fine_lns, 1, 'mesh_attractors')
+        # attractors = [mesh_attract] #! ECHEC ! Impossible de raffiner le long de lignes en utilisant cette class FENICS2DRVE
         return Fenics2DRVE(pattern_ll, gen_vect, nb_cells, offset, attractors, soft_mat, name)
 
 if __name__ == "__main__":
     geo.init_geo_tools()
-    a = 1
-    b, k = a, a/3
-    panto_test = Fenics2DRVE.pantograph(a, b, k, 0.1, nb_cells=(1,1), soft_mat=False, name='panto_test')
-    panto_test.main_mesh_refinement((0.1,0.5),(0.03,0.3),False)
-    gmsh.fltk.run()
-    panto_test.mesh_generate()
+    # a = 1
+    # b, k = a, a/3
+    # panto_test = Fenics2DRVE.pantograph(a, b, k, 0.1, nb_cells=(2,2), soft_mat=False, name='panto_test')
+    # panto_test.main_mesh_refinement((0.1,0.5),(0.03,0.3),False)
+    # panto_test.mesh_generate()
     # os.system(f"gmsh {panto_test.name}.msh &")
+    # gmsh.fltk.run()
 
     L, t = 1, 0.05
     a = L-3*t
-    aux_sqr_test = Fenics2DRVE.auxetic_square(a, L, t, 0.2, nb_cells=(1,1))
-    # os.system(f"gmsh {aux_sqr_test.name}.brep &")
-    # print(aux_sqr_test.attractors)
-    # for gp in aux_sqr_test.attractors:
-    #     for e in gp.entities :
-    #         e.plot("orange")
-    # aux_sqr_test.main_mesh_refinement((0.1,0.3),(0.01,0.1),False)
-    # # gmsh.fltk.run()
-    # aux_sqr_test.mesh_generate()
+    aux_sqr_test = Fenics2DRVE.auxetic_square(a, L, t, 0.2, nb_cells=(2,2), soft_mat=False, name='aux_square_test')
+    os.system(f"gmsh {aux_sqr_test.name}.brep &")
+    aux_sqr_test.main_mesh_refinement((0.1,0.3), (0.01,0.05), False)
+    aux_sqr_test.mesh_generate()
     # gmsh.option.setNumber('Mesh.SurfaceFaces',1) #Display faces of surface mesh?
-    # data = model.getPhysicalGroups()
-    # logger.info('All physical groups in the model ' + repr(data)
-    #     + ' Names : ' + repr([model.getPhysicalName(*dimtag) for dimtag in data]))
-    # gmsh.fltk.run()
-    # os.system(f"gmsh {aux_sqr_test.name}.msh &")
-    # gmsh.finalize()
+    os.system(f"gmsh {aux_sqr_test.name}.msh &")
+
+    gmsh.fltk.run()
+    gmsh.finalize()
