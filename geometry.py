@@ -600,12 +600,12 @@ class LineLoop(object):
         Une liste de rayons de cercles inscrits peut être indiquée, liste de longueur 1 pour un rayon uniforme.
         Dans le cas où la longueur de la liste de rayon est ni 1 ni égale au nombre de sommets, un modulo est utilisé.
         """
-        if  isinstance(radii, list):
+        if isinstance(radii, list):
             effect_R = [radii[i % len(radii)] for i in range(len(self.vertices))]
         else:
             effect_R = [radii]*(len(self.vertices))
         if self.info_offset:
-            effect_R = map(operator.sub, effect_R, self.offset_dpcmt)
+            effect_R = [R - offset_d for R, offset_d in zip(effect_R, self.offset_dpcmt)] #! ESSAI
         result_1D = list()
         for i in range(len(self.vertices)):
             result_1D.append(round_corner(self.vertices[i - 1], self.vertices[i - 2],
