@@ -33,7 +33,7 @@ file_handler = RotatingFileHandler('activity.log', 'a', 1000000, 1)
 file_handler.setLevel(logging.DEBUG)
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler) #Pour écriture d'un fichier log
-formatter = logging.Formatter('%(levelname)s :: %(message)s') 
+formatter = logging.Formatter('%(levelname)s :: %(message)s')
 stream_handler = logging.StreamHandler()
 stream_handler.setLevel(logging.INFO)
 stream_handler.setFormatter(formatter)
@@ -51,7 +51,7 @@ def duplicate_pattern(cell_ll, nb_cells, gen_vect):
         Number of cells in each direction.
     gen_vect : array
         The generating vectors that are related to the given microstruture.
-    
+
     Returns
     -------
     repeated_ll : list
@@ -91,7 +91,7 @@ class Fenics2DRVE(FenicsPart):
     Contrat : Créer un couple maillage + matériaux pour des RVE 2D, plans, comportant au plus 2 matériaux constitutifs et pouvant contenir plusieurs cellules.
     """
     pass
-    
+
 
 class Gmsh2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais plus de 2 matériaux constitutifs ? Imaginer une autre sous-classe semblable qui permet de définir plusieurs sous-domaines à partir d'une liste d'ensembles de LineLoop (chaque ensemble correspondant à un type d'inclusions ?)
 
@@ -134,7 +134,7 @@ class Gmsh2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais pl
         macro_vtx = [O, rve_vect[0], rve_vect[0] + rve_vect[1] , rve_vect[1]]
         macro_ll = geo.LineLoop([geo.Point(c) for c in macro_vtx])
         macro_s = geo.PlaneSurface(macro_ll)
-        
+
         for attract_gp in attractors:
             if attract_gp.dim != 0:
                 raise TypeError(
@@ -172,7 +172,7 @@ class Gmsh2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais pl
                     ent.add_gmsh()
                     need_sync = True
         if need_sync:
-        factory.synchronize()
+            factory.synchronize()
         for gp in attractors + phy_surf + [rve_bound_phy]:
             gp.add_gmsh()
         factory.synchronize()
@@ -254,10 +254,10 @@ class Gmsh2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais pl
         gmsh.write(f"{self.name}.msh")
 
     @staticmethod
-    def pantograph(a,b,k, junction_r, nb_cells=(1, 1), offset=(0., 0.), soft_mat=False, name=''):
+    def pantograph(a, b, k, junction_r, nb_cells=(1, 1), offset=(0., 0.), soft_mat=False, name=''):
         """
         Contrat :
-        
+
         Parameters
         ----------
         a,b and k : floats
@@ -268,11 +268,10 @@ class Gmsh2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais pl
             nb of cells in each direction of repetition
         offset : tuple or 1D array
             Relative position inside a cell of the point that will coincide with the origin of the global domain
-        #! Et les paramètres de raffinement du maillage ?
 
         Returns
         -------
-        Instance of the Fenics2DRVE class.
+        Instance of the Gmsh2DRVE class.
         """
 
         name = name if name else "pantograph"
@@ -285,7 +284,7 @@ class Gmsh2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais pl
 
         Lx = 4*a
         Ly = 6*a+2*b
-        gen_vect = np.array(((Lx,0.), (0.,Ly)))
+        cell_vect = np.array(((Lx,0.), (0.,Ly)))
 
         e1 = np.array((a, 0., 0.))
         e2 = np.array((0., a, 0.))
@@ -325,21 +324,16 @@ class Gmsh2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais pl
         constr_pts = [pt for ll in pattern_ll for pt in ll.vertices]
         fine_pts = [pt for pt in constr_pts if (pt.coord[0] % 1 < p[0]/2. or pt.coord[0] % 1 > 1. - p[0]/2.)]
         fine_pts = geo.remove_duplicates(fine_pts)
-        # mesh_attract = geo.PhysicalGroup(fine_pts, 0, 'mesh_attractors')
-        # attractors= [mesh_attract]
-
-        #! DEBUG
-        #? Essai de rafinement autour de droites, ce qui échoue avec auxetic_square
-        fine_lns = list(flatten([ll.sides for ll in pattern_ll]))
-        mesh_attract = geo.PhysicalGroup(fine_lns, 1, 'mesh_attractors')
+        mesh_attract = geo.PhysicalGroup(fine_pts, 0, 'mesh_attractors')
         attractors= [mesh_attract]
-        return Fenics2DRVE(pattern_ll, gen_vect, nb_cells, offset, attractors, soft_mat, name)
+
+        return Gmsh2DRVE(pattern_ll, cell_vect, nb_cells, offset, attractors, soft_mat, name)
 
     @staticmethod
-    def auxetic_square(a, L, t, junction_r, nb_cells=(1, 1), offset=(0., 0.), soft_mat=False, name=''):
+    def auxetic_square(a, L, t, nb_cells=(1, 1), offset=(0., 0.), soft_mat=False, name=''):
         """
         Contrat :
-        
+
         Parameters
         ----------
         L : float
@@ -347,7 +341,7 @@ class Gmsh2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais pl
         a : float
             Length of the slits beetween squares.
         t : float
-            Size of ????#TODO : à déterminer
+            Width of the slits beetween squares.
         nb_cells : tuple or 1D array
             nb of cells in each direction of repetition
         offset : tuple or 1D array
@@ -355,12 +349,12 @@ class Gmsh2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais pl
 
         Returns
         -------
-        Instance of the Fenics2DRVE class.
+        Instance of the Gmsh2DRVE class.
         """
 
         name = name if name else "aux_square"
         model.add(name)
-        geo.reset()
+        # geo.reset()
 
         offset = np.asarray(offset)
         nb_cells = np.asarray(nb_cells)
@@ -372,68 +366,147 @@ class Gmsh2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais pl
         e2 = np.array((0., L, 0.))
         I = geo.Point(1/2.*(e1+e2))
         M = geo.Point(1/4.*(e1+e2))
-        
 
+        e3 = np.array((0., 0., 1.))
 
-        diag_pts = [[(b, -t/2.), (a+b, t/2.)], [(-t/2., -a/2.), (t/2., a/2.)]]
-        middle_pts = [[(b, 0.), (a+b, 0.)], [(0., -a/2.), (0., a/2.)]]
-        contours = list()
-        for start,end in diag_pts:
-            coords = [start, (end[0], start[1]), end, (start[0], end[1])]
-            contours.append([geo.Point(np.array(c)) for c in coords])
-        refine_lines = [geo.Line(
-                        geo.Point(np.array(s)),
-                        geo.Point(np.array(e))) for s,e in middle_pts]
+        center_pts = [[(b, 0.), (a+b, 0.)], [(0., -a/2.), (0., a/2.)]]
+        center_pts = [[geo.Point(np.array(coord)) for coord in gp] for gp in center_pts]
+        center_lines = [geo.Line(*pts) for pts in center_pts]
+        center_lines += [geo.point_reflection(ln, M) for ln in center_lines]
+        center_lines += [geo.plane_reflection(ln, I, e1) for ln in center_lines]
+        center_lines += [geo.plane_reflection(ln, I, e2) for ln in center_lines]
+        center_lines = geo.remove_duplicates(center_lines)
 
+        for ln in center_lines:
+            ln.ortho_dir = np.cross(e3, ln.direction())
+        pattern_ll = list()
+        for ln in center_lines:
+            vertices = [
+                geo.translation(ln.def_pts[0], t/2*ln.ortho_dir),
+                geo.translation(ln.def_pts[1], t/2*ln.ortho_dir),
+                geo.translation(ln.def_pts[1], -t/2*ln.ortho_dir),
+                geo.translation(ln.def_pts[0], -t/2*ln.ortho_dir)
+                ]
+            pattern_ll.append(geo.LineLoop(vertices))
+        tmp_nb_bef = len(pattern_ll)
+        pattern_ll = geo.remove_duplicates(pattern_ll)
+        tmp_nb_aft = len(pattern_ll)
+        logger.info(f"Number of line-loops removed from pattern-ll : {tmp_nb_bef - tmp_nb_aft}."
+            +f"Final number of pattern line-loops for auxetic square : {tmp_nb_aft}")
+        for ll in pattern_ll:
+            ll.round_corner_explicit(t/2)
+            filter_sides = list() #* Pour ne pas essayer d'ajouter au model gmsh des lignes de longueur nulle. (Error : could not create line)
+            for crv in ll.sides:
+                if not crv.def_pts[0] == crv.def_pts[-1]:
+                    filter_sides.append(crv)
+            ll.sides = filter_sides
+
+        fine_pts = geo.remove_duplicates(flatten([ln.def_pts for ln in center_lines]))
+        mesh_attract = geo.PhysicalGroup(fine_pts, 0, 'mesh_attractors')
+        attractors = [mesh_attract]
+
+        return Gmsh2DRVE(pattern_ll, gen_vect, nb_cells, offset, attractors, soft_mat, name)
+
+    @staticmethod
+    def beam_pantograph(a, b, w, junction_r=0, nb_cells=(1, 1), offset=(0., 0.), soft_mat=False, name=''):
+        """
+        junction_r : float, optional
+        if = 0 or False, the angles will not be rounded.
+
+        """
+        name = name if name else "beam_pantograph"
+        offset = np.asarray(offset)
+        nb_cells = np.asarray(nb_cells)
+
+        logger.info('Start defining the beam pantograph geometry')
+        Lx = 4*a
+        Ly = 6*a+2*b
+        cell_vect = np.array(((Lx,0.), (0.,Ly)))
+
+        e1 = np.array((a, 0., 0.))
+        e2 = np.array((0., a, 0.))
+        b_ = b/a*e2
+        E1 = geo.Point(e1)
+        E2 = geo.Point(e2)
+        E1m = geo.Point(-1*e1)
+        E2m = geo.Point(-1*e2)
+        L = geo.Point(2*(e1+e2))
+        Lm = geo.Point(2*(e1-e2))
+        M = geo.Point(e1 + 1.5*e2 + b_/2)
+        I = geo.Point(2*(e1 + 1.5*e2 + b_/2))
+
+        contours = [
+            [E1, E2, E1m, E2m],
+            [E1, Lm, geo.Point(3*e1), L],
+            [E1, L, E2],
+            [E2, L, geo.translation(L, b_), geo.translation(E2, b_)]
+            ]
         pattern_ll = [geo.LineLoop(pt_list, explicit=False) for pt_list in contours]
+
         pattern_ll += [geo.point_reflection(ll, M) for ll in pattern_ll]
-        refine_lines += [geo.point_reflection(ll, M) for ll in refine_lines]
         sym_ll = [geo.plane_reflection(ll, I, e1) for ll in pattern_ll]
         for ll in sym_ll:
             ll.reverse()
         pattern_ll += sym_ll
-        refine_lines += [geo.plane_reflection(ll, I, e1) for ll in refine_lines] #TODO : faire une méthode reverse pour les curves ?
         sym_ll = [geo.plane_reflection(ll, I, e2) for ll in pattern_ll]
         for ll in sym_ll:
             ll.reverse()
         pattern_ll += sym_ll
-        refine_lines += [geo.plane_reflection(ll, I, e2) for ll in refine_lines]
         pattern_ll = geo.remove_duplicates(pattern_ll)
-        refine_lines = geo.remove_duplicates(refine_lines)
-        logger.info('Done removing of the line-loops duplicates')
+        constr_pts = [copy.deepcopy(pt) for ll in pattern_ll for pt in ll.vertices]
+        for ll in pattern_ll:
+            ll.offset(w)
+        if junction_r:
+            for ll in pattern_ll:
+                ll.round_corner_incircle(junction_r)
 
-        #! DEBUG, copie de ce qui est fait pour pantographe.
-        #*OK 
-        constr_pts = [pt for ll in pattern_ll for pt in ll.vertices]
         fine_pts = geo.remove_duplicates(constr_pts)
         mesh_attract = geo.PhysicalGroup(fine_pts, 0, 'mesh_attractors')
-        attractors = [mesh_attract]
-        #****
-        # for ll in pattern_ll:
-        #     ll.vertices_2_sides()
-        # fine_lns = list(flatten([ll.sides for ll in pattern_ll]))
-        # mesh_attract = geo.PhysicalGroup(fine_lns, 1, 'mesh_attractors')
-        # attractors = [mesh_attract] #! ECHEC ! Impossible de raffiner le long de lignes en utilisant cette class FENICS2DRVE
-        return Fenics2DRVE(pattern_ll, gen_vect, nb_cells, offset, attractors, soft_mat, name)
+        attractors= [mesh_attract]
+
+        return Gmsh2DRVE(pattern_ll, cell_vect, nb_cells, offset, attractors, soft_mat, name)
+
 
 if __name__ == "__main__":
     geo.init_geo_tools()
-    # a = 1
-    # b, k = a, a/3
-    # panto_test = Fenics2DRVE.pantograph(a, b, k, 0.1, nb_cells=(2,2), soft_mat=False, name='panto_test')
-    # panto_test.main_mesh_refinement((0.1,0.5),(0.03,0.3),False)
-    # panto_test.mesh_generate()
-    # os.system(f"gmsh {panto_test.name}.msh &")
-    # gmsh.fltk.run()
+
+    a = 1
+    b, k = a, a/3
+    panto_test = Gmsh2DRVE.pantograph(a, b, k, 0.1, nb_cells=(2,3), soft_mat=False, name='panto_test')
+    panto_test.main_mesh_refinement((0.1,0.5),(0.03,0.3),False)
+    panto_test.mesh_generate()
+    os.system(f"gmsh {panto_test.name}.msh &")
+
 
     L, t = 1, 0.05
     a = L-3*t
-    aux_sqr_test = Fenics2DRVE.auxetic_square(a, L, t, 0.2, nb_cells=(2,2), soft_mat=False, name='aux_square_test')
+    aux_sqr_test = Gmsh2DRVE.auxetic_square(a, L, t, nb_cells=(4,3), soft_mat=False, name='aux_square_test')
     os.system(f"gmsh {aux_sqr_test.name}.brep &")
     aux_sqr_test.main_mesh_refinement((0.1,0.3), (0.01,0.05), False)
     aux_sqr_test.mesh_generate()
-    # gmsh.option.setNumber('Mesh.SurfaceFaces',1) #Display faces of surface mesh?
     os.system(f"gmsh {aux_sqr_test.name}.msh &")
 
+    a = 1
+    b = a
+    w = a/50
+    r = 4*w
+    beam_panto_test = Gmsh2DRVE.beam_pantograph(a, b, w, r, nb_cells=(1, 1), offset=(0., 0.), soft_mat=False, name='beam_panto_test')
+    os.system(f"gmsh {beam_panto_test.name}.brep &")
+    beam_panto_test.main_mesh_refinement((5*w, a/2),(w/5, w), True)
+    beam_panto_test.mesh_generate()
+    os.system(f"gmsh {beam_panto_test.name}.msh &")
+
+    gmsh.option.setNumber('Mesh.SurfaceFaces',1) #Display faces of surface mesh?
     gmsh.fltk.run()
-    gmsh.finalize()
+
+
+
+# msh.set_background_mesh(field)
+
+#         gmsh.option.setNumber('Mesh.CharacteristicLengthExtendFromBoundary',0)
+
+#         geo.PhysicalGroup.set_group_mesh(True)
+#         model.mesh.generate(1)
+#         model.mesh.generate(2)
+#         gmsh.write(f"{self.name}.msh")
+#         os.system(f"gmsh {self.name}.msh &")
