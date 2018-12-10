@@ -202,64 +202,41 @@ class Gmsh2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais pl
         self.attractors = attractors
         self.phy_surf = phy_surf
 
-    def main_mesh_refinement(self, d_min_max, lc_min_max, nb_pts_discretization=10, sigmoid_interpol=False):
+    def main_mesh_refinement(self, d_min_max, lc_min_max, sigmoid_interpol=False):
         model.setCurrent(self.name)
-        attractors = {'points':[],'curves':[]}
+        attractors = {'points':[]}
+        logger.debug(f"When main_mesh_refinement(...) is called, physical groups in model : {model.getPhysicalGroups()}")
         for attract_gp in self.attractors:
-            logger.info(f'ATTRACT group {attract_gp.__dict__}')
-            logger.info(f' IN MAIN_MESH_REFINEMENT Physical groups {model.getPhysicalGroups()}')
+            logger.debug(f"Physical group of attractors used in main_mesh_refinement : {attract_gp.__dict__}")
             if attract_gp.dim == 0:
                 attractors['points'] += attract_gp.entities
-            elif attract_gp.dim == 1:
-                attractors['curves'] += attract_gp.entities
-        # rve_s = one(self.phy_surf[0].entities)
-        # restrict_domain = {'surfaces':[rve_s]}
-        restrict_domain = {'surfaces':self.phy_surf[0].entities}
-        # if not rve_s.boundary:
-        #     factory.synchronize()
-        #     rve_s.get_boundary(recursive=False)
+            else :
+                raise TypeError('Only points can be used as attractors.')
+        rve_s = one(self.phy_surf[0].entities)
+        restrict_domain = {
+            'surfaces':[rve_s],
+            'curves':rve_s.boundary
+            }
+        field = msh.set_mesh_refinement(d_min_max, lc_min_max, attractors, 1,
+                                        sigmoid_interpol, restrict_domain)
+        try:
+            self.mesh_fields.append(field)
+        except AttributeError:
+            self.mesh_fields = [field]
 
-        # restrict_domain['curves'] = rve_s.boundary #? Duck typing, même les PlaneSurface ont un attribut boundary
-        restrict_domain = {'surfaces':self.phy_surf[0].entities,'curves':self.phy_surf[0].entities[0].boundary} #! Essai
-        plt.figure()
-        for ln in self.phy_surf[0].entities[0].boundary:
-            ln.plot()
-        plt.show()
-        field = msh.set_mesh_refinement(d_min_max, lc_min_max, attractors, nb_pts_discretization, sigmoid_interpol, restrict_domain)
-        msh.set_background_mesh(field)
-        print(model.getEntities(1))
-        print(model.getEntities(2)) #TODO: à comparer à ce qu'il y a dans restrict.
-        gmsh.option.setNumber('Mesh.CharacteristicLengthExtendFromBoundary',0)
-        factory.synchronize()
-        geo.PhysicalGroup.set_group_mesh(False)
-        model.mesh.generate(1)
-        model.mesh.generate(2)
-        gmsh.write(f"{self.name}.msh")
-        os.system(f"gmsh {self.name}.msh &") #! Avec ce restrict_domain ça ne fonctionne pas. 
-        field = msh.set_mesh_refinement(d_min_max, lc_min_max, attractors, nb_pts_discretization=20, sigmoid_interpol=True)
-        msh.set_background_mesh(field)
-        model.mesh.generate(1)
-        model.mesh.generate(2)
-        gmsh.write(f"{self.name}.msh")
-        os.system(f"gmsh {self.name}.msh &") #! Sans le restrict_domain ça ne fonctionne.
-
-        #! Pour debug self.mesh_fields = field
-        # try:
-        #     self.mesh_fields.append(field)
-        # except AttributeError:
-        #     self.mesh_fields = [field]
-    
-    def soft_mesh_refinement(self, d_min_max, lc_min_max, nb_pts_discretization=10, sigmoid_interpol=False):
+    def soft_mesh_refinement(self, d_min_max, lc_min_max, sigmoid_interpol=False):
         model.setCurrent(self.name)
-        attractors = {'points':[],'curves':[]}
+        attractors = {'points':[]}
         for attract_gp in self.attractors:
+            logger.debug(f"Physical group of attractors used in soft_mesh_refinement : {attract_gp.__dict__}")
             if attract_gp.dim == 0:
                 attractors['points'] += attract_gp.entities
-            elif attract_gp.dim == 1:
-                attractors['curves'] += attract_gp.entities
+            else :
+                raise TypeError('Only points can be used as attractors.')
         soft_s = one(self.phy_surf[1].entities)
         restrict_domain = {'surfaces':[soft_s]}
-        field = msh.set_mesh_refinement(d_min_max, lc_min_max, attractors, nb_pts_discretization, sigmoid_interpol, restrict_domain)
+        field = msh.set_mesh_refinement(d_min_max, lc_min_max, attractors, 1,
+                                        sigmoid_interpol, restrict_domain)
         try:
             self.mesh_fields.append(field)
         except AttributeError:
@@ -269,12 +246,12 @@ class Gmsh2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais pl
         model.setCurrent(self.name)
         self.mesh_fields = msh.set_background_mesh(self.mesh_fields)
         data = model.getPhysicalGroups()
-        logger.info(f'Physical groups just before mesh : {data}')
+        logger.info(f'Physical groups in model just before generating mesh : {data}')
         geo.PhysicalGroup.set_group_mesh(True)
+        model.mesh.generate(1)
         model.mesh.generate(2)
         geo.PhysicalGroup.set_group_visibility(False)
         gmsh.write(f"{self.name}.msh")
-        #TODO : import mesh in a fenics object
 
     @staticmethod
     def pantograph(a,b,k, junction_r, nb_cells=(1, 1), offset=(0., 0.), soft_mat=False, name=''):
