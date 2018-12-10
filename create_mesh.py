@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from more_itertools import one
 from more_itertools import flatten
+import copy
 
 import geometry as geo
 import gmsh
@@ -85,20 +86,25 @@ def offset_pattern(cell_ll, offset_vect, gen_vect):
 class FenicsPart(object):
     pass
 
-class Fenics2DRVE(FenicsPart): #? Et si il y a pas seulement du mou et du vide mais plus de 2 matériaux constitutifs ? Imaginer une autre sous-classe semblable qui permet de définir plusieurs sous-domaines à partir d'une liste d'ensembles de LineLoop (chaque ensemble correspondant à un type d'inclusions ?)
+class Fenics2DRVE(FenicsPart):
+    """
+    Contrat : Créer un couple maillage + matériaux pour des RVE 2D, plans, comportant au plus 2 matériaux constitutifs et pouvant contenir plusieurs cellules.
+    """
+    pass
     
-    def __init__(self, pattern_ll, gen_vect, nb_cells, offset, attractors, soft_mat, name):
+
+class Gmsh2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais plus de 2 matériaux constitutifs ? Imaginer une autre sous-classe semblable qui permet de définir plusieurs sous-domaines à partir d'une liste d'ensembles de LineLoop (chaque ensemble correspondant à un type d'inclusions ?)
+
+    def __init__(self, pattern_ll, cell_vect, nb_cells, offset, attractors, soft_mat, name):
         """
         Contrat : Créer un couple maillage + matériaux pour des RVE 2D, plans, comportant au plus 2 matériaux constitutifs et pouvant contenir plusieurs cellules.
         #! La cellule est un parallélogramme.
-
-        #! Pour le moment, seule la géométrie est créée.
 
         Parameters
         ----------
         pattern_ll : list
             Instances of LineLoop that define the contours of the microstructure.
-        gen_vect : 2D array
+        cell_vect : 2D array
             dimensions of the unit cell and directions of periodicity.
             (given in a 2D cartesian coordinate system)
         nb_cells : 1D array
@@ -107,7 +113,8 @@ class Fenics2DRVE(FenicsPart): #? Et si il y a pas seulement du mou et du vide m
             Relative position inside a cell of the point that will coincide with the origin of the global domain.
         # refinement : instance of a Field subclass
         #     Scalar field that defines an element size constraint for the mesh generation.
-        # attractors : instances of Point or Curve #? Ou dict {'points':[],'curves':[]} ? # ou list of physical groups ?
+        attractors : list of instances of PhysicalGroups
+            Physical groups that represent groups of points that will be used as attractors in the definition of the element characteristic length field. #? Ou dict {'points':[],'curves':[]} ? # ou list of physical groups ?
             Geometrical elements of the cell around which mesh refinement constraints will be set.
         """
         self.name = name
@@ -117,22 +124,27 @@ class Fenics2DRVE(FenicsPart): #? Et si il y a pas seulement du mou et du vide m
         if offset.any():
             nb_pattern = [math.ceil(val+1) if offset[i] != 0 else math.ceil(val) for i,val in enumerate(nb_cells)]
             nb_pattern = np.array(nb_pattern, dtype=np.int8) #? Par confort de travailler avec un array ensuite (test np.equal). Est-ce gênant ?
-            pattern_ll = offset_pattern(pattern_ll, offset, gen_vect)
+            pattern_ll = offset_pattern(pattern_ll, offset, cell_vect)
         else:
             nb_pattern = np.int8(np.ceil(nb_cells))
         if not np.equal(nb_pattern, 1).all():
-                duplicate_pattern(pattern_ll, nb_pattern, gen_vect)
-        macro_vect = gen_vect*nb_cells[:,np.newaxis]
+                duplicate_pattern(pattern_ll, nb_pattern, cell_vect)
+        rve_vect = cell_vect*nb_cells[:,np.newaxis]
         O = np.zeros((3,))
-        macro_vtx = [O, macro_vect[0], macro_vect[0] + macro_vect[1] , macro_vect[1]]
+        macro_vtx = [O, rve_vect[0], rve_vect[0] + rve_vect[1] , rve_vect[1]]
         macro_ll = geo.LineLoop([geo.Point(c) for c in macro_vtx])
         macro_s = geo.PlaneSurface(macro_ll)
         
         for attract_gp in attractors:
+            if attract_gp.dim != 0:
+                raise TypeError(
+                """Use of curves as attractors for the refinement of the mesh
+                is not yet fully supported in our python library for gmsh.""")
+        for attract_gp in attractors:
             if offset.any():
-                attract_gp.entities = offset_pattern(attract_gp.entities, offset, gen_vect)
+                attract_gp.entities = offset_pattern(attract_gp.entities, offset, cell_vect)
             if not np.equal(nb_pattern, 1).all():
-                duplicate_pattern(attract_gp.entities, nb_pattern, gen_vect)
+                duplicate_pattern(attract_gp.entities, nb_pattern, cell_vect)
 
         logger.info('Start boolean operations on surfaces')
         phy_surf = list()
@@ -148,35 +160,45 @@ class Fenics2DRVE(FenicsPart): #? Et si il y a pas seulement du mou et du vide m
             phy_surf.append(soft_s_phy)
         logger.info('Done boolean operations on surfaces')
         factory.synchronize()
-        rve_s_phy.add_gmsh()
-        if soft_mat:
-            soft_s_phy.add_gmsh()
-        for attract_gp in attractors:
-            print(attract_gp.__dict__)
-            attract_gp.add_gmsh()
+
+        rve_s.get_boundary(recursive=True)
+        rve_bound_phy = geo.PhysicalGroup(rve_s.boundary, 1, "main_domain_bound")
         factory.synchronize()
+
+        need_sync = False
+        for attract_gp in attractors:
+            for ent in attract_gp.entities:
+                if not ent.tag:
+                    ent.add_gmsh()
+                    need_sync = True
+        if need_sync:
+        factory.synchronize()
+        for gp in attractors + phy_surf + [rve_bound_phy]:
+            gp.add_gmsh()
+        factory.synchronize()
+
         data = model.getPhysicalGroups()
-        logger.info('All physical groups in the model ' + repr(data)
-                    + ' Names : ' + repr([model.getPhysicalName(*dimtag) for dimtag in data]))
-        data = model.getPhysicalGroups(0)
-        logger.info('Physical groups of dim=0 in the model ' + repr(data)
-                    + ' Names : ' + repr([model.getPhysicalName(*dimtag) for dimtag in data]))
+        details = [f"Physical group id : {dimtag[1]}, "
+                   + f"dimension : {dimtag[0]}, "
+                   + f"name : {model.getPhysicalName(*dimtag)}, "
+                   + f"nb of entitities {len(model.getEntitiesForPhysicalGroup(*dimtag))} \n"
+                   for dimtag in data]
+        logger.info(f"All physical groups in the model : {data}")
+        logger.info(f"Physical groups details : \n {details}")
         logger.info('Done generating the gmsh geometrical model')
         gmsh.write("%s.brep"%name)
+
         macro_bndry = macro_ll.sides
-        rve_s.get_boundary(recursive=True)
         micro_bndry = [geo.macro_line_fragments(rve_s.boundary, M_ln) for M_ln in macro_bndry]
+        macro_dir = [macro_bndry[i].def_pts[-1].coord - macro_bndry[i].def_pts[0].coord for i in range(len(macro_bndry)//2)]
         for i, crvs in enumerate(micro_bndry):
-             msh.order_curves(crvs,
-                macro_bndry[i%2].def_pts[-1].coord - macro_bndry[i%2].def_pts[0].coord,
-                orientation=True)
+            msh.order_curves(crvs, macro_dir[i%2], orientation=True)
         msh.set_periodicity_pairs(micro_bndry[0], micro_bndry[2])
         msh.set_periodicity_pairs(micro_bndry[1], micro_bndry[3])
         logger.info('Done defining a mesh periodicity constraint')
 
-        self.gen_vect = gen_vect #TODO : stocker les vrais vecteurs pour le RVE, ajuster si il est composé de plusieurs cellules. 
+        self.gen_vect = rve_vect
         self.nb_cells = nb_cells
-        self.macro_vect = macro_vect
         self.attractors = attractors
         self.phy_surf = phy_surf
 
