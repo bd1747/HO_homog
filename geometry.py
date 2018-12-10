@@ -371,12 +371,12 @@ class Line(Curve):
         prt_str += "start point tag : %i , end point tag : %i" %(self.def_pts[0].tag, self.def_pts[1].tag)
         return prt_str
 
-    def longueur(self):
+    def length(self):
         return np.linalg.norm(self.def_pts[0].coord - self.def_pts[1].coord)
 
-    def direct(self):
+    def direction(self):
         """ Renvoie un vecteur unitaire correspondant à la direction de la ligne"""
-        return 1 / self.longueur() * (self.def_pts[1].coord - self.def_pts[0].coord)
+        return 1 / self.length() * (self.def_pts[1].coord - self.def_pts[0].coord)
 
     def plot(self, color="black"):
         """En 2D seulement. Tracer la ligne dans un plot matplotlib. """
@@ -1263,7 +1263,7 @@ def geo_transformation_factory(pt_coord_fctn):
         geo_ent : instance of a geometrical class Point, Curve and its subclass or LineLoop
         """
         if geo_ent.tag:
-            raise NotImplementedError("For now a geometrical properties of a geometrical entity cannot be modified if this entity has already been added to the gmsh geometry model.") 
+            raise NotImplementedError("For now a geometrical properties of a geometrical entity cannot be modified if this entity has already been added to the gmsh geometry model.")
         if isinstance(geo_ent, Point):
             coord = pt_coord_fctn(geo_ent.coord, *args, **kwargs)
             new_ent = Point(coord)
