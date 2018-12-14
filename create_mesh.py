@@ -75,10 +75,28 @@ def duplicate_pattern(cell_ll, nb_cells, gen_vect):
     repeated_ll = geo.remove_duplicates(repeated_ll)
     return repeated_ll
 
-def offset_pattern(cell_ll, offset_vect, gen_vect):
-    t_vect = -1 * np.array([val % gen_vect[i][i] for i,val in enumerate(offset_vect)])
-        #GeneratingVector[i][i] pour récupérer la longueur de la cellule selon la direction i.
-        #L'opératation modulo avec des floats est possible. Résultat du signe du second terme.
+def offset_pattern(cell_ll, offset, cell_vect):
+    """
+    Translation of the lineloops that define the microstructure geometry of a unit cell. 
+
+    Parameters
+    ----------
+    cell_ll : list of instances of LineLoop
+    offset : 1D array
+        relative coordinates with respect to the unit-cell generating vectors of the point that will be moved to the origin
+    gen_vect : 2D array
+        The generating vectors that are related to the given unit-cell.
+    """
+    if cell_vect.shape != (3,3):
+        cell_vect_3D = np.zeros((3,3))
+        cell_vect_3D[:cell_vect.shape[0],:cell_vect.shape[1]] = cell_vect
+    else :
+        cell_vect_3D = cell_vect
+    offset_vect_relat = np.zeros(3)
+    for i, val in enumerate(offset):
+        offset_vect_relat[i] = val % 1.
+    offset_vect_abs = np.dot(cell_vect_3D, offset_vect_relat)
+    t_vect = -1 * offset_vect_abs
     shifted_ll = [geo.translation(ll, t_vect) for ll in cell_ll]
     return shifted_ll
 
@@ -470,12 +488,21 @@ class Gmsh2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais pl
 if __name__ == "__main__":
     geo.init_geo_tools()
 
+    # a = 1
+    # b, k = a, a/3
+    # panto_test = Gmsh2DRVE.pantograph(a, b, k, 0.1, nb_cells=(2,3), soft_mat=False, name='panto_test')
+    # panto_test.main_mesh_refinement((0.1,0.5),(0.03,0.3),False)
+    # panto_test.mesh_generate()
+    # os.system(f"gmsh {panto_test.name}.msh &")
+
+
+
     a = 1
     b, k = a, a/3
-    panto_test = Gmsh2DRVE.pantograph(a, b, k, 0.1, nb_cells=(2,3), soft_mat=False, name='panto_test')
-    panto_test.main_mesh_refinement((0.1,0.5),(0.03,0.3),False)
-    panto_test.mesh_generate()
-    os.system(f"gmsh {panto_test.name}.msh &")
+    panto_test_offset = Gmsh2DRVE.pantograph(a, b, k, 0.1, nb_cells=(2,3), offset=(0.25,0.25), soft_mat=False, name='panto_test_offset')
+    panto_test_offset.main_mesh_refinement((0.1,0.5),(0.03,0.3),False)
+    panto_test_offset.mesh_generate()
+    os.system(f"gmsh {panto_test_offset.name}.msh &")
 
 
     L, t = 1, 0.05
