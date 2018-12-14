@@ -1,4 +1,5 @@
 .vscode/
+old_lib/
 *.pyc
 *.brep
 *.msh

@@ -303,10 +303,10 @@ class Curve(object):
 
     """
     all_instances = []
-    def __init__(self, def_pts_list):
+    def __init__(self, def_pts_list, gmsh_api_add_function):
         self.def_pts = def_pts_list
         self.tag = None
-        self.gmsh_constructor = None
+        self.gmsh_constructor = gmsh_api_add_function
         Curve.all_instances.append(self)
     
     def __eq__(self, other):
@@ -362,8 +362,7 @@ class Line(Curve):
     #TODO : Créer une méthode pour inverser le sens de la ligne ?
 
     def __init__(self, start_pt, end_pt):
-        Curve.__init__(self, [start_pt, end_pt])
-        self.gmsh_constructor = factory.addLine
+        Curve.__init__(self, [start_pt, end_pt], factory.addLine)
 
     def __str__(self):
         """Affichage plus clair des coordonnées des points de départ et d'arrivée."""
@@ -401,8 +400,7 @@ class Arc(Curve):
         d1 = np.linalg.norm(start_pt.coord - center_pt.coord)
         d2 = np.linalg.norm(end_pt.coord - center_pt.coord)
         np.testing.assert_almost_equal(d1, d2, decimal=10)
-        Curve.__init__(self, [start_pt, center_pt, end_pt])
-        self.gmsh_constructor = factory.addCircleArc
+        Curve.__init__(self, [start_pt, center_pt, end_pt], factory.addCircleArc)
         self.radius = (d1 + d2) / 2
 
     def __str__(self):
@@ -439,6 +437,10 @@ class Arc(Curve):
 class AbstractCurve(Curve):
     """
     """
+    @staticmethod
+    def empty_constructor(*args):
+        warnings.warn("Adding an AbstractCurve instance to the gmsh geometrical model is not a supported feature. These python objects actually represent unknown geometrical entities that already exist in the gmsh model.",UserWarning)
+    
     def __init__(self, tag):
         """
         Créer une représentation d'une courbe existant dans le modèle Gmsh.
@@ -446,7 +448,7 @@ class AbstractCurve(Curve):
         #! A corriger Lors de l'instantiation, les points extrémités peuvent être donnés, soient explicitement, soit par leurs tags.
 
         """
-        Curve.__init__(self, [])
+        Curve.__init__(self, [], AbstractCurve.empty_constructor)
         self.tag = tag
     
     def get_boundary(self, get_coords=True):
@@ -460,7 +462,6 @@ class AbstractCurve(Curve):
         
         """
         def_pts = []
-        #! Pour debug print ("tag in get_boundary method of AbstractCurve", self.tag)
         boundary = model.getBoundary((1, self.tag), False, False, False)
         # print("getBoundary results, for AbstractCurve %i : "%self.tag, boundary)
         for pt_dimtag in boundary:
