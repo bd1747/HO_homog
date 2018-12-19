@@ -15,6 +15,7 @@ import numpy as np
 from more_itertools import one
 from more_itertools import flatten
 import copy
+import dolfin as fe
 
 import geometry as geo
 import gmsh
@@ -108,8 +109,24 @@ class Fenics2DRVE(FenicsPart):
     """
     Contrat : Créer un couple maillage + matériaux pour des RVE 2D, plans, comportant au plus 2 matériaux constitutifs et pouvant contenir plusieurs cellules.
     """
-    pass
+    def __init__(self, mesh, ):
+        self.mesh = mesh
 
+
+    @staticmethod
+    def gmsh_2_Fenics_2DRVE(gmsh_2D_RVE):
+        """
+        Generate an instance of Fenics2DRVE from a instance of the Gmsh2DRVE class.
+
+        """
+        print(os.getcwd())
+        mesh = fe.Mesh()
+        os.system(f'dolfin-convert {gmsh_2D_RVE.mesh_abs_path} {gmsh_2D_RVE.name}.xml')
+        mesh = fe.Mesh(f'{gmsh_2D_RVE.name}.xml')
+        plt.figure()
+        fe.plot(mesh, "2D mesh")
+        plt.show()
+        return Fenics2DRVE(mesh)
 
 class Gmsh2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais plus de 2 matériaux constitutifs ? Imaginer une autre sous-classe semblable qui permet de définir plusieurs sous-domaines à partir d'une liste d'ensembles de LineLoop (chaque ensemble correspondant à un type d'inclusions ?)
 
@@ -219,13 +236,14 @@ class Gmsh2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais pl
         self.nb_cells = nb_cells
         self.attractors = attractors
         self.phy_surf = phy_surf
+        self.mesh_abs_path = ''
 
     def main_mesh_refinement(self, d_min_max, lc_min_max, sigmoid_interpol=False):
         model.setCurrent(self.name)
         attractors = {'points':[]}
         logger.debug(f"When main_mesh_refinement(...) is called, physical groups in model : {model.getPhysicalGroups()}")
         for attract_gp in self.attractors:
-            logger.debug(f"Physical group of attractors used in main_mesh_refinement : {attract_gp.__dict__}")
+            # logger.debug(f"Physical group of attractors used in main_mesh_refinement : {attract_gp.__dict__}")
             if attract_gp.dim == 0:
                 attractors['points'] += attract_gp.entities
             else :
@@ -246,7 +264,7 @@ class Gmsh2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais pl
         model.setCurrent(self.name)
         attractors = {'points':[]}
         for attract_gp in self.attractors:
-            logger.debug(f"Physical group of attractors used in soft_mesh_refinement : {attract_gp.__dict__}")
+            # logger.debug(f"Physical group of attractors used in soft_mesh_refinement : {attract_gp.__dict__}")
             if attract_gp.dim == 0:
                 attractors['points'] += attract_gp.entities
             else :
@@ -269,7 +287,9 @@ class Gmsh2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais pl
         model.mesh.generate(1)
         model.mesh.generate(2)
         geo.PhysicalGroup.set_group_visibility(False)
+        logger.debug(f"value of Mesh.SaveAll option before writting {self.name}.msh : {gmsh.option.getNumber('Mesh.SaveAll')}")
         gmsh.write(f"{self.name}.msh")
+        self.mesh_abs_path = os.path.abspath(f"{self.name}.msh")
 
     @staticmethod
     def pantograph(a, b, k, junction_r, nb_cells=(1, 1), offset=(0., 0.), soft_mat=False, name=''):
@@ -490,43 +510,53 @@ if __name__ == "__main__":
 
     # a = 1
     # b, k = a, a/3
-    # panto_test = Gmsh2DRVE.pantograph(a, b, k, 0.1, nb_cells=(2,3), soft_mat=False, name='panto_test')
+    # panto_test = Gmsh2DRVE.pantograph(a, b, k, 0.1, nb_cells=(2, 3), soft_mat=False, name='panto_test')
     # panto_test.main_mesh_refinement((0.1,0.5),(0.03,0.3),False)
     # panto_test.mesh_generate()
     # os.system(f"gmsh {panto_test.name}.msh &")
 
+    # a = 1
+    # b, k = a, a/3
+    # panto_test_offset = Gmsh2DRVE.pantograph(a, b, k, 0.1, nb_cells=(2,3), offset=(0.25,0.25), soft_mat=False, name='panto_test_offset')
+    # panto_test_offset.main_mesh_refinement((0.1,0.5),(0.03,0.3),False)
+    # panto_test_offset.mesh_generate()
+    # os.system(f"gmsh {panto_test_offset.name}.msh &")
 
+
+    # L, t = 1, 0.05
+    # a = L-3*t
+    # aux_sqr_test = Gmsh2DRVE.auxetic_square(a, L, t, nb_cells=(4,3), soft_mat=False, name='aux_square_test')
+    # os.system(f"gmsh {aux_sqr_test.name}.brep &")
+    # aux_sqr_test.main_mesh_refinement((0.1,0.3), (0.01,0.05), False)
+    # aux_sqr_test.mesh_generate()
+    # os.system(f"gmsh {aux_sqr_test.name}.msh &")
+
+    # a = 1
+    # b = a
+    # w = a/50
+    # r = 4*w
+    # beam_panto_test = Gmsh2DRVE.beam_pantograph(a, b, w, r, nb_cells=(1, 1), offset=(0., 0.), soft_mat=False, name='beam_panto_test')
+    # os.system(f"gmsh {beam_panto_test.name}.brep &")
+    # beam_panto_test.main_mesh_refinement((5*w, a/2),(w/5, w), True)
+    # beam_panto_test.mesh_generate()
+    # os.system(f"gmsh {beam_panto_test.name}.msh &")
 
     a = 1
     b, k = a, a/3
-    panto_test_offset = Gmsh2DRVE.pantograph(a, b, k, 0.1, nb_cells=(2,3), offset=(0.25,0.25), soft_mat=False, name='panto_test_offset')
-    panto_test_offset.main_mesh_refinement((0.1,0.5),(0.03,0.3),False)
-    panto_test_offset.mesh_generate()
-    os.system(f"gmsh {panto_test_offset.name}.msh &")
-
-
-    L, t = 1, 0.05
-    a = L-3*t
-    aux_sqr_test = Gmsh2DRVE.auxetic_square(a, L, t, nb_cells=(4,3), soft_mat=False, name='aux_square_test')
-    os.system(f"gmsh {aux_sqr_test.name}.brep &")
-    aux_sqr_test.main_mesh_refinement((0.1,0.3), (0.01,0.05), False)
-    aux_sqr_test.mesh_generate()
-    os.system(f"gmsh {aux_sqr_test.name}.msh &")
-
-    a = 1
-    b = a
-    w = a/50
-    r = 4*w
-    beam_panto_test = Gmsh2DRVE.beam_pantograph(a, b, w, r, nb_cells=(1, 1), offset=(0., 0.), soft_mat=False, name='beam_panto_test')
-    os.system(f"gmsh {beam_panto_test.name}.brep &")
-    beam_panto_test.main_mesh_refinement((5*w, a/2),(w/5, w), True)
-    beam_panto_test.mesh_generate()
-    os.system(f"gmsh {beam_panto_test.name}.msh &")
+    panto_test = Gmsh2DRVE.pantograph(a, b, k, 0.1, nb_cells=(1, 1), soft_mat=False, name='panto_test_2')
+    panto_test.main_mesh_refinement((0.1,0.5),(0.03,0.3),False)
+    panto_test.mesh_generate()
+    try :
+        os.system(f"gmsh {panto_test.name}.msh &")
+        Fenics2DRVE.gmsh_2_Fenics_2DRVE(panto_test)
+        logging.critical('Conversion and import as a Mesh() object done.')
+        logging.info(f"Mesh.SaveAll value : {gmsh.option.getNumber('Mesh.SaveAll')}")
+    except RuntimeError:
+        logging.critical('Conversion and import as a Mesh() object has failed.')
+        logging.info(f"Mesh.SaveAll value : {gmsh.option.getNumber('Mesh.SaveAll')}")
 
     gmsh.option.setNumber('Mesh.SurfaceFaces',1) #Display faces of surface mesh?
     gmsh.fltk.run()
-
-
 
 # msh.set_background_mesh(field)
 

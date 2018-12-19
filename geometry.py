@@ -134,6 +134,30 @@ def geometry_kernel(script, choix=1): #! Obsolète. Travail directement que avec
     cmd_str = 'SetFactory("%s");\n' % GEOMETRY_KERNELS[choix]
     script.write(cmd_str)
 
+def set_gmsh_option(option, val):
+    """
+    Set a gmsh option to the given value and print a log message.
+
+    Parameters
+    ----------
+    option : string
+    val : string or number
+        Type of valid val depend of the option.
+        See the gmsh reference manual for more information.
+
+    """
+    if isinstance(val, (int, float)):
+        setter = gmsh.option.setNumber
+        getter = gmsh.option.getNumber
+    elif isinstance(val, int):
+        setter = gmsh.option.setString
+        getter = gmsh.option.getString
+    else:
+        raise TypeError("Wrong type of parameter for a gmsh option.")
+    preval = getter(option)
+    setter(option, val)
+    logger.info(f"The option {option} has been set to {val}. its previous value before change was : {preval}")
+    
 def init_geo_tools():
     """
     The Gmsh Python API must be initialized before using any functions.
@@ -145,12 +169,11 @@ def init_geo_tools():
     logger.info(f"Initial value of Geometry.AutoCoherence option, before set it to 0 : {gmsh.option.getNumber('Geometry.AutoCoherence')}")
     gmsh.option.setNumber("Geometry.AutoCoherence",0)
     gmsh.option.setNumber("Mesh.ColorCarousel", 2) #0=by element type, 1=by elementary entity, 2=by physical entity, 3=by partition
-    gmsh.option.setNumber("Mesh.SaveAll", 1)
     gmsh.option.setNumber("Mesh.MeshOnlyVisible", 0)
-    pre_val = gmsh.option.getNumber('Mesh.CharacteristicLengthExtendFromBoundary')
-    val = 0
-    gmsh.option.setNumber('Mesh.CharacteristicLengthExtendFromBoundary',val)
-    logging.info(f"Initial value of Mesh.CharacteristicLengthExtendFromBoundary option : {pre_val}. Option set to {val}")
+    set_gmsh_option("Mesh.SaveAll", 1)
+    set_gmsh_option('Mesh.CharacteristicLengthExtendFromBoundary', 0)
+    set_gmsh_option('Mesh.MshFileVersion', 2.2)
+    
     #TODO : Should be in the init file of the mesh_tools module.
     #TODO : Faire une fonction pour set une option de gmsh et voir la valeur précédente. (avec un logging.debug)
     Point.all_pts_in_script = []
@@ -1067,7 +1090,6 @@ class PhysicalGroup(object):
         if val:
             cls.set_group_visibility(1)
             gmsh.option.setNumber("Mesh.MeshOnlyVisible", 1)
-            gmsh.option.setNumber("Mesh.SaveAll", 0)
         else:
             cls.set_group_visibility(0)
             gmsh.option.setNumber("Mesh.MeshOnlyVisible", 0)
