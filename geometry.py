@@ -156,7 +156,7 @@ def set_gmsh_option(option, val):
         raise TypeError("Wrong type of parameter for a gmsh option.")
     preval = getter(option)
     setter(option, val)
-    logger.info(f"The option {option} has been set to {val}. its previous value before change was : {preval}")
+    logger.info(f"The option {option} has been set to {val}. The previous value before change was : {preval}")
     
 def init_geo_tools():
     """
