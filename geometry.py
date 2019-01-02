@@ -26,9 +26,9 @@ import numpy as np
 try:
     import gmsh
 except ModuleNotFoundError:
-    print('error')
-    # sys.path.insert(0,'/usr/lib/gmsh-4.0.6-Linux64-sdk/lib')
-    # import gmsh
+    warnings.warn("Gmsh API not found. The path to the folder that contains gmsh.py indicated in geometry.py will be add to the PYTHONPATH, then another import attempt will be done.", UserWarning)
+    sys.path.insert(0,'/usr/lib/gmsh-4.0.6-Linux64-sdk/lib')
+    import gmsh
 
 logger = logging.getLogger(__name__) #http://sametmax.com/ecrire-des-logs-en-python/
 logger.setLevel(logging.INFO)
