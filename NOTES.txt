@@ -15,3 +15,16 @@ sudo vim dist-packages.pth
 :x (and Press Enter/Return)
 
 ICI : .../python3/dist-packages mis dans /home/baptiste/.local/lib/python3.6/site-packages
+
+
+
+
+The MeshValueCollection class can be used to store data associated with a subset of the entities of a mesh of a given topological dimension. It differs from the MeshFunction class in two ways. First, data does not need to be associated with all entities (only a subset). Second, data is associated with entities through the corresponding cell index and local entity number (relative to the cell), not by global entity index, which means that data may be stored robustly to file.
+
+
+A regarder pour la projection :
+https://fenicsproject.org/docs/dolfin/2018.1.0/python/demos/nonmatching-interpolation/demo_nonmatching-interpolation.py.html
+
+
+INFO sur les colormap : 
+https://jakevdp.github.io/PythonDataScienceHandbook/04.07-customizing-colorbars.html
