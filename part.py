@@ -5,27 +5,32 @@ Created on 17/11/2018
 
 """
 
+import copy
 import logging
 import math
 import os
 from logging.handlers import RotatingFileHandler
+from more_itertools import flatten, one
 
 import matplotlib.pyplot as plt
 import numpy as np
-from more_itertools import one
-from more_itertools import flatten
-import copy
+
 import dolfin as fe
+import gmsh
 
 import geometry as geo
-import gmsh
+import materials as mat
 import mesh_tools as msh
+
+from subprocess import run
 
 #TODO : placer un asarray dans la def de __init__ pour Point
 
 # nice shortcuts
 model = gmsh.model
 factory = model.occ
+
+plt.ioff()
 
 logger = logging.getLogger() #http://sametmax.com/ecrire-des-logs-en-python/
 logger.setLevel(logging.INFO)
@@ -100,6 +105,43 @@ def offset_pattern(cell_ll, offset, cell_vect):
     t_vect = -1 * offset_vect_abs
     shifted_ll = [geo.translation(ll, t_vect) for ll in cell_ll]
     return shifted_ll
+
+
+def facet_plot2d(facet_func,mesh, mesh_edges=True, markers=None, exclude_val=(0,), **kargs):
+    """
+    Source : https://bitbucket.org/fenics-project/dolfin/issues/951/plotting-facetfunctions-in-matplotlib-not
+    """
+    x_list, y_list = [],[]
+    if markers == None:
+        for facet in fe.facets(mesh):
+            mp = facet.midpoint()
+            x_list.append(mp.x())
+            y_list.append(mp.y())
+        values = facet_func.array()
+    else:
+        i = 0
+        values = []
+        for facet in fe.facets(mesh):
+            if facet_func[i] in markers:
+                mp = facet.midpoint()
+                x_list.append(mp.x())
+                y_list.append(mp.y())
+                values.append(facet_func[i])
+            i+=1
+    if exclude_val:
+        filtered_data = [], [], []
+        for x, y, val in zip(x_list, y_list, values):
+            if val in exclude_val:
+                continue
+            filtered_data[0].append(x)
+            filtered_data[1].append(y)
+            filtered_data[2].append(val)
+        x_list, y_list, values = filtered_data
+
+    plots = [plt.scatter(x_list, y_list, s=30, c=values, linewidths=1, **kargs)]
+    if mesh_edges:
+        plots.append(fe.plot(facet_func.mesh()))
+    return plots
 
 
 class FenicsPart(object):
