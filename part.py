@@ -106,6 +106,26 @@ def offset_pattern(cell_ll, offset, cell_vect):
     shifted_ll = [geo.translation(ll, t_vect) for ll in cell_ll]
     return shifted_ll
 
+def get_MeshFunction_val(msh_fctn):
+    """
+    Get information about the set of values that a given MeshFunction outputs.
+
+    Parameters
+    ------
+    msh_fctn : instance of MeshFunction
+
+    Returns
+    -------
+    Tuple (nb, vals)
+    nb : int
+        number of different values
+    vals : list
+        list of the different values that the MeshFunction outputs on its definition mesh.
+    """
+
+    val = np.unique(msh_fctn.array())
+    nb = len(val)
+    return (nb, val)
 
 def facet_plot2d(facet_func,mesh, mesh_edges=True, markers=None, exclude_val=(0,), **kargs):
     """
@@ -177,21 +197,16 @@ class Fenics2DRVE(FenicsPart):
         mesh = fe.Mesh(f'{gmsh_2D_RVE.name}.xml')
         subdomains = fe.MeshFunction('size_t', mesh, f'{gmsh_2D_RVE.name}_physical_region.xml')
         facets = fe.MeshFunction('size_t', mesh, f'{gmsh_2D_RVE.name}_facet_region.xml')
-        # subdo_val = get_MeshFunction_val(subdomains)
-        # facets_val = get_MeshFunction_val(facets)
-        # logger.info(f'{subdo_val[0]} physical regions imported. The values of their tags are : f{subdo_val[0]}')
-        # logger.info(f'{facets_val[0]} facet regions imported. The values of their tags are : f{facets_val[1]}')
-        #TODO : fonction get_MeshFunction_val à corriger
+        subdo_val = get_MeshFunction_val(subdomains)
+        facets_val = get_MeshFunction_val(facets)
+        logger.info(f'{subdo_val[0]} physical regions imported. The values of their tags are : {subdo_val[1]}')
+        logger.info(f'{facets_val[0]} facet regions imported. The values of their tags are : {facets_val[1]}')
         plt.figure()
         fe.plot(subdomains)
-        plt.show()
-        facets_val = np.unique(facets.array())
-        facets_nb = len(facets_val)
         plt.figure()
-        facets_plt = facet_plot2d(facets, mesh, cmap=plt.cm.get_cmap('viridis', max(facets_val)-min(facets_val)))
+        facets_plt = facet_plot2d(facets, mesh, cmap=plt.cm.get_cmap('viridis', max(facets_val[1])-min(facets_val[1])))
         clrbar = plt.colorbar(facets_plt[0])
         # clrbar.set_ticks(facets_val)
-        logger.info(f'Nombre de facet regions importées dans FEnics : {facets_nb}')
         plt.show()
         logger.info(f'Import of the mesh : DONE')
         generating_vectors = gmsh_2D_RVE.gen_vect
