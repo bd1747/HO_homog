@@ -151,24 +151,52 @@ class Fenics2DRVE(FenicsPart):
     """
     Contrat : Créer un couple maillage + matériaux pour des RVE 2D, plans, comportant au plus 2 matériaux constitutifs et pouvant contenir plusieurs cellules.
     """
-    def __init__(self, mesh, ):
+    def __init__(self, mesh, generating_vectors, material_dict, subdomains, facet_regions):
+        """
+        Parameters
+        ----------
+        subdomains : dolfin.MeshFunction
+            Indicates the subdomains that have been defined in the mesh.
+        #! L'ordre des facet function à probablement de l'importance pour la suite des opérations
+        """
         self.mesh = mesh
-
-
+        self.gen_vect = generating_vectors
+        self.rve_area = np.linalg.det(self.gen_vect)
+        self.mat_area =  fe.assemble(fe.Constant(1)*fe.dx(mesh))
+        self.mesh_dim = mesh.topology().dim() #dimension d'espace de depart
+        self.materials = material_dict
+        self.subdomains = subdomains
+        self.facet_regions = facet_regions
     @staticmethod
-    def gmsh_2_Fenics_2DRVE(gmsh_2D_RVE):
+    def gmsh_2_Fenics_2DRVE(gmsh_2D_RVE, material_dict):
         """
         Generate an instance of Fenics2DRVE from a instance of the Gmsh2DRVE class.
 
         """
-        print(os.getcwd())
-        mesh = fe.Mesh()
-        os.system(f'dolfin-convert {gmsh_2D_RVE.mesh_abs_path} {gmsh_2D_RVE.name}.xml')
+        run(f'dolfin-convert {gmsh_2D_RVE.mesh_abs_path} {gmsh_2D_RVE.name}.xml', shell=True, check=True)
         mesh = fe.Mesh(f'{gmsh_2D_RVE.name}.xml')
+        subdomains = fe.MeshFunction('size_t', mesh, f'{gmsh_2D_RVE.name}_physical_region.xml')
+        facets = fe.MeshFunction('size_t', mesh, f'{gmsh_2D_RVE.name}_facet_region.xml')
+        # subdo_val = get_MeshFunction_val(subdomains)
+        # facets_val = get_MeshFunction_val(facets)
+        # logger.info(f'{subdo_val[0]} physical regions imported. The values of their tags are : f{subdo_val[0]}')
+        # logger.info(f'{facets_val[0]} facet regions imported. The values of their tags are : f{facets_val[1]}')
+        #TODO : fonction get_MeshFunction_val à corriger
         plt.figure()
-        fe.plot(mesh, "2D mesh")
+        fe.plot(subdomains)
         plt.show()
-        return Fenics2DRVE(mesh)
+        facets_val = np.unique(facets.array())
+        facets_nb = len(facets_val)
+        plt.figure()
+        facets_plt = facet_plot2d(facets, mesh, cmap=plt.cm.get_cmap('viridis', max(facets_val)-min(facets_val)))
+        clrbar = plt.colorbar(facets_plt[0])
+        # clrbar.set_ticks(facets_val)
+        logger.info(f'Nombre de facet regions importées dans FEnics : {facets_nb}')
+        plt.show()
+        logger.info(f'Import of the mesh : DONE')
+        generating_vectors = gmsh_2D_RVE.gen_vect
+        return Fenics2DRVE(mesh, generating_vectors, material_dict, subdomains, facets)
+
 
 class Gmsh2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais plus de 2 matériaux constitutifs ? Imaginer une autre sous-classe semblable qui permet de définir plusieurs sous-domaines à partir d'une liste d'ensembles de LineLoop (chaque ensemble correspondant à un type d'inclusions ?)
 
@@ -250,9 +278,12 @@ class Gmsh2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais pl
                     need_sync = True
         if need_sync:
             factory.synchronize()
-        for gp in attractors + phy_surf + [rve_bound_phy]:
+        # for gp in attractors + phy_surf + [rve_bound_phy]:
+        #     gp.add_gmsh()
+        for gp in phy_surf :
             gp.add_gmsh()
         factory.synchronize()
+        #! AJouter le phytsical group de points semble poser des problèmes
 
         data = model.getPhysicalGroups()
         details = [f"Physical group id : {dimtag[1]}, "
@@ -273,7 +304,12 @@ class Gmsh2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais pl
         msh.set_periodicity_pairs(micro_bndry[0], micro_bndry[2])
         msh.set_periodicity_pairs(micro_bndry[1], micro_bndry[3])
         logger.info('Done defining a mesh periodicity constraint')
-
+        tags = ['per_pair_1_slave', 'per_pair_2_slave', 'per_pair_1_mast', 'per_pair_2_mast' ]
+        per_pair_phy = list()
+        for crvs, tag in zip(micro_bndry, tags):
+            per_pair_phy.append(geo.PhysicalGroup(crvs, 1, tag))
+        for gp in per_pair_phy:
+            gp.add_gmsh()
         self.gen_vect = rve_vect
         self.nb_cells = nb_cells
         self.attractors = attractors
@@ -406,7 +442,6 @@ class Gmsh2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais pl
         fine_pts = geo.remove_duplicates(fine_pts)
         mesh_attract = geo.PhysicalGroup(fine_pts, 0, 'mesh_attractors')
         attractors= [mesh_attract]
-
         return Gmsh2DRVE(pattern_ll, cell_vect, nb_cells, offset, attractors, soft_mat, name)
 
     @staticmethod
