@@ -12,6 +12,7 @@ sources :
 
 import copy
 import logging
+from logging.handlers import RotatingFileHandler
 import math
 import operator
 import os
@@ -31,7 +32,19 @@ except ModuleNotFoundError:
     import gmsh
 
 logger = logging.getLogger(__name__) #http://sametmax.com/ecrire-des-logs-en-python/
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s :: %(levelname)s :: %(name)s :: %(message)s')
+file_handler = RotatingFileHandler('activity.log', 'a', 1000000, 1)
+file_handler.setLevel(logging.DEBUG)
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler) #Pour écriture d'un fichier log
+formatter = logging.Formatter('%(levelname)s :: %(message)s')
+stream_handler = logging.StreamHandler()
+stream_handler.setLevel(logging.INFO)
+stream_handler.setFormatter(formatter)
+logger.addHandler(stream_handler) 
+
+
 
 # nice shortcuts
 model = gmsh.model
@@ -777,7 +790,7 @@ class AbstractSurface(object):
         logger.debug(repr(boundary))
         for crv in boundary:
             if not crv[0] == 1:
-                print("[Warning] Unexpected type of geometrical entity in the boundary of surface %i" %self.tag)
+                logger.warning("Unexpected type of geometrical entity in the boundary of surface %i", self.tag)
                 continue
             for instc in [] : #! Curve.all_instances: TENTATIVE
                 if instc.tag == crv[1] :
@@ -825,6 +838,9 @@ class AbstractSurface(object):
         if isinstance(tool, PlaneSurface):
             tool = [tool]
         assert isinstance(tool, list)
+        if not tool: #* =True if empty list
+            logger.warning(f"No entity in the tool list for boolean cut operation. The 'body' surface is returned.")
+            return [body]
         for t in tool:
             if not t.tag:
                 t.add_gmsh()
@@ -835,7 +851,7 @@ class AbstractSurface(object):
             if entity[0]==2:
                 new_surf.append(AbstractSurface(entity[1]))
             else:
-                logger.warn(f"Some entities that result from a cut boolean operation are not surfaces and therefore are not returned. \n Complete output from the API function :{output}")
+                logger.warning(f"Some entities that result from a cut boolean operation are not surfaces and therefore are not returned. \n Complete output from the API function :{output}")
         return new_surf
 
     @staticmethod
@@ -854,14 +870,24 @@ class AbstractSurface(object):
         for t in tool:
             if not t.tag:
                 t.add_gmsh()
-        output = factory.intersect([(2,body.tag)], [(2,t.tag) for t in tool], removeObject=False, removeTool=False)
-        logger.debug(f"Output of boolean operation 'intersection' on surfaces : {output}")
-        new_surf = list()
-        for entity in output[0]:
-            if entity[0]==2:
-                new_surf.append(AbstractSurface(entity[1]))
+        ops_output = []
+        for t in tool:
+            outpt = factory.intersect([(2,body.tag)], [(2,t.tag)], removeObject=False, removeTool=False)
+            if outpt[0]:
+                ops_output.append(outpt)
+            else: # Tool entirely outside of body or entirely inside.
+                t_copy_dimtag = factory.copy([(2,t.tag)])
+                factory.synchronize() #* Peut être supprimé
+                outpt = factory.intersect([(2,body.tag)], t_copy_dimtag, removeObject=False, removeTool=True)
+                if outpt[0]:
+                    ops_output.append(outpt)
+        new_surf = []
+        for outpt in ops_output:
+            if outpt[0][0][0]==2:
+                new_surf.append(AbstractSurface(outpt[0][0][1]))
             else:
-                logger.warn(f"Some entities that result from a intersection boolean operation are not surfaces and therefore are not returned. \n Complete output from the API function :{output}")
+                warn_msg = "Some entities that result from a intersection boolean operation are not surfaces and therefore are not returned"
+                logger.warning(warn_msg + f"Complete output from the API function :{ops_output}")
         return new_surf
 
 
@@ -1282,9 +1308,13 @@ def geo_transformation_factory(pt_coord_fctn):
 
     """
     def transformation(geo_ent, *args, **kwargs):
-        """ Renvoie un nouvel objet géométrique obtenu par symétrie centrale.
-        geo_ent : instance of a geometrical class Point, Curve and its subclass or LineLoop
         """
+        Renvoie un nouvel objet géométrique obtenu en appliquant la transformation à l'objet et tout ses parents.
+
+        geo_ent : instance of a geometrical class Point, Curve and its subclass or LineLoop
+        
+        """
+
         if geo_ent.tag:
             raise NotImplementedError("For now a geometrical properties of a geometrical entity cannot be modified if this entity has already been added to the gmsh geometry model.")
         if isinstance(geo_ent, Point):

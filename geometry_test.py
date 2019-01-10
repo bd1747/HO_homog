@@ -275,8 +275,8 @@ def test_bool_ops():
     hole_vtcs_1 = [geo.Point(np.array(c), 0.02) for c in [(5-0.1,3), (5,3-0.5), (5+0.1,3), (5,3+0.5)]]
     hole_vtcs_2 = [geo.Point(np.array(c), 0.02) for c in [(5, 3-0.1), (5-0.5, 3), (5, 3+0.1), (5+0.5, 3)]]
     rect_ll = geo.LineLoop(rect_vtcs, explicit=False)
-    hole_ll_1= geo.LineLoop(hole_vtcs_1, explicit=False)
-    hole_ll_2= geo.LineLoop(hole_vtcs_2, explicit=False)
+    hole_ll_1 = geo.LineLoop(hole_vtcs_1, explicit=False)
+    hole_ll_2 = geo.LineLoop(hole_vtcs_2, explicit=False)
 
     surf_1 = geo.PlaneSurface(ll_1)
     surf_2 = geo.PlaneSurface(ll_2)
@@ -294,6 +294,17 @@ def test_bool_ops():
     surf_inter = geo.AbstractSurface.bool_intersect(surf_1, surf_2)
     print(surf_inter)
     surf_inter = surf_inter[0]
+    factory.synchronize()
+
+    #* Intersection, when a surface is inside another one.
+    coords3 = [geo.Point(np.array(c), 0.05) for c in [(10,10), (10,14), (14, 14), (14,10)]]
+    coords4 = [geo.Point(np.array(c), 0.05) for c in [(11,11), (11,13), (13, 13), (13,11)]]
+    surf3 = geo.PlaneSurface(geo.LineLoop(coords3, explicit=False))
+    surf3.add_gmsh()
+    surf4 = geo.PlaneSurface(geo.LineLoop(coords4, explicit=False))
+    surf4.add_gmsh()
+    factory.synchronize()
+    surf_inter34 = geo.AbstractSurface.bool_intersect(surf3, [surf4])
     factory.synchronize()
     data = gmsh.model.getEntities()
     print(f"model name : {name}")
@@ -682,12 +693,12 @@ if __name__ == '__main__':
     # test_LineLoop()
     # test_PlaneSurface()
     # test_ll_modif()
-    # test_bool_ops()
+    test_bool_ops()
     # test_gather()
     # test_remove_ll_duplicates()
-    test_physical_group()
+    # test_physical_group()
     # test_reflections()
-    test_gather_line()
+    # test_gather_line()
     # test_mesh_only_phy_groups()
 
     #* Bloc de fin
