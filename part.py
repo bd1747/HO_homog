@@ -202,7 +202,8 @@ class Fenics2DRVE(FenicsPart):
         logger.info(f'{subdo_val[0]} physical regions imported. The values of their tags are : {subdo_val[1]}')
         logger.info(f'{facets_val[0]} facet regions imported. The values of their tags are : {facets_val[1]}')
         plt.figure()
-        fe.plot(subdomains)
+        subdo_plt = fe.plot(subdomains)
+        plt.colorbar(subdo_plt)
         plt.figure()
         facets_plt = facet_plot2d(facets, mesh, cmap=plt.cm.get_cmap('viridis', max(facets_val[1])-min(facets_val[1])))
         clrbar = plt.colorbar(facets_plt[0])
@@ -270,21 +271,20 @@ class Gmsh2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais pl
         phy_surf = list()
         pattern_s = [geo.PlaneSurface(ll) for ll in pattern_ll]
         rve_s = geo.AbstractSurface.bool_cut(macro_s, pattern_s)
-        rve_s = rve_s[0]
-        rve_s_phy = geo.PhysicalGroup([rve_s], 2, "microstruct_domain")
+        if len(rve_s) == 1:
+            logger.info("The main material domain of the RVE is connected (topological property).")
+        elif len(rve_s)==0:
+            logger.warning("The boolean operation for creating the main material domain of the RVE return 0 surfaces.")
+        else:
+            logger.warning("The main material domain of the RVE obtained by a boolean operation is disconnected (topological property).")
+        rve_s_phy = geo.PhysicalGroup(rve_s, 2, "microstruct_domain")
         phy_surf.append(rve_s_phy)
         if soft_mat:
-            soft_s = geo.AbstractSurface.bool_intersect(macro_s, pattern_s)
-            soft_s = soft_s[0]
-            soft_s_phy = geo.PhysicalGroup([rve_s], 2, "soft_domain")
+            # soft_s = geo.AbstractSurface.bool_intersect(macro_s, pattern_s) #! Abandon, cut rve_s plus efficace car évite la création d'une seconde frontière (éléments 1D)
+            soft_s = geo.AbstractSurface.bool_cut(macro_s, rve_s)
+            soft_s_phy = geo.PhysicalGroup(soft_s, 2, "soft_domain")
             phy_surf.append(soft_s_phy)
         logger.info('Done boolean operations on surfaces')
-        factory.synchronize()
-
-        rve_s.get_boundary(recursive=True)
-        rve_bound_phy = geo.PhysicalGroup(rve_s.boundary, 1, "main_domain_bound")
-        factory.synchronize()
-
         need_sync = False
         for attract_gp in attractors:
             for ent in attract_gp.entities:
@@ -293,12 +293,9 @@ class Gmsh2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais pl
                     need_sync = True
         if need_sync:
             factory.synchronize()
-        # for gp in attractors + phy_surf + [rve_bound_phy]:
-        #     gp.add_gmsh()
         for gp in phy_surf :
             gp.add_gmsh()
         factory.synchronize()
-        #! AJouter le phytsical group de points semble poser des problèmes
 
         data = model.getPhysicalGroups()
         details = [f"Physical group id : {dimtag[1]}, "
@@ -306,13 +303,22 @@ class Gmsh2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais pl
                    + f"name : {model.getPhysicalName(*dimtag)}, "
                    + f"nb of entitities {len(model.getEntitiesForPhysicalGroup(*dimtag))} \n"
                    for dimtag in data]
-        logger.info(f"All physical groups in the model : {data}")
-        logger.info(f"Physical groups details : \n {details}")
+        logger.debug(f"All physical groups in the model : {data}")
+        logger.debug(f"Physical groups details : \n {details}")
         logger.info('Done generating the gmsh geometrical model')
         gmsh.write("%s.brep"%name)
 
         macro_bndry = macro_ll.sides
-        micro_bndry = [geo.macro_line_fragments(rve_s.boundary, M_ln) for M_ln in macro_bndry]
+        if soft_mat:
+            boundary = geo.AbstractSurface.get_surfs_boundary(rve_s+soft_s)
+        else:
+            try:
+                s = one(rve_s)
+                boundary = geo.AbstractSurface.get_surfs_boundary(s)
+            except ValueError:
+                boundary = geo.AbstractSurface.get_surfs_boundary(rve_s)
+        factory.synchronize()
+        micro_bndry = [geo.macro_line_fragments(boundary, M_ln) for M_ln in macro_bndry]
         macro_dir = [macro_bndry[i].def_pts[-1].coord - macro_bndry[i].def_pts[0].coord for i in range(len(macro_bndry)//2)]
         for i, crvs in enumerate(micro_bndry):
             msh.order_curves(crvs, macro_dir[i%2], orientation=True)
@@ -341,10 +347,14 @@ class Gmsh2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais pl
                 attractors['points'] += attract_gp.entities
             else :
                 raise TypeError('Only points can be used as attractors.')
-        rve_s = one(self.phy_surf[0].entities)
+        rve_s = self.phy_surf[0].entities
+        for s in rve_s:
+            if not s.boundary:
+                s.get_boundary()
+        rve_boundary = list(flatten([s.boundary for s in rve_s]))
         restrict_domain = {
-            'surfaces':[rve_s],
-            'curves':rve_s.boundary
+            'surfaces':rve_s,
+            'curves':rve_boundary
             }
         field = msh.set_mesh_refinement(d_min_max, lc_min_max, attractors, 1,
                                         sigmoid_interpol, restrict_domain)
@@ -362,8 +372,15 @@ class Gmsh2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais pl
                 attractors['points'] += attract_gp.entities
             else :
                 raise TypeError('Only points can be used as attractors.')
-        soft_s = one(self.phy_surf[1].entities)
-        restrict_domain = {'surfaces':[soft_s]}
+        soft_s = self.phy_surf[1].entities
+        for s in soft_s:
+            if not s.boundary:
+                s.get_boundary()
+        soft_boundary = list(flatten([s.boundary for s in soft_s]))
+        restrict_domain = {
+            'surfaces':soft_s,
+            'curves':soft_boundary
+            }
         field = msh.set_mesh_refinement(d_min_max, lc_min_max, attractors, 1,
                                         sigmoid_interpol, restrict_domain)
         try:
@@ -378,7 +395,11 @@ class Gmsh2DRVE(object): #? Et si il y a pas seulement du mou et du vide mais pl
         logger.info(f'Physical groups in model just before generating mesh : {data}')
         geo.PhysicalGroup.set_group_mesh(True)
         model.mesh.generate(1)
+        gmsh.model.mesh.removeDuplicateNodes()
+        #logger.info("Gmsh log for removeDuplicateNodes() after generating mesh for 1D entities : %s", log_gmsh)
         model.mesh.generate(2)
+        gmsh.model.mesh.removeDuplicateNodes()
+        # logger.info("Gmsh log for removeDuplicateNodes() after generating mesh for 2D entities : %s", log_gmsh)
         geo.PhysicalGroup.set_group_visibility(False)
         logger.debug(f"value of Mesh.SaveAll option before writting {self.name}.msh : {gmsh.option.getNumber('Mesh.SaveAll')}")
         gmsh.write(f"{self.name}.msh")

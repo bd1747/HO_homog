@@ -179,8 +179,7 @@ def init_geo_tools():
     gmsh.initialize()
     gmsh.option.setNumber("General.Terminal", 1)
     gmsh.option.setNumber("General.Verbosity", 5)
-    logger.info(f"Initial value of Geometry.AutoCoherence option, before set it to 0 : {gmsh.option.getNumber('Geometry.AutoCoherence')}")
-    gmsh.option.setNumber("Geometry.AutoCoherence",0)
+    set_gmsh_option("Geometry.AutoCoherence", 0)
     gmsh.option.setNumber("Mesh.ColorCarousel", 2) #0=by element type, 1=by elementary entity, 2=by physical entity, 3=by partition
     gmsh.option.setNumber("Mesh.MeshOnlyVisible", 0)
     set_gmsh_option("Mesh.SaveAll", 1)
@@ -499,7 +498,6 @@ class AbstractCurve(Curve):
         """
         def_pts = []
         boundary = model.getBoundary((1, self.tag), False, False, False)
-        # print("getBoundary results, for AbstractCurve %i : "%self.tag, boundary)
         for pt_dimtag in boundary:
             if not pt_dimtag[0] == 0:
                 raise TypeError("The boundary of the geometrical entity %i are not points." %self.tag)
@@ -777,34 +775,10 @@ class AbstractSurface(object):
         ----------
         recursive : bool, optional
         If True, the boundaries of the 1-D entities that form the boundary of the AbstractSurface instance are also extracted from the gmsh model. 
-        #? Utile ? Instances of Point are created to represent them.
+        Instances of Point are created to represent them.
 
         """
-        #! Pour debug print(self.__dict__)
-        def_crv = []
-        boundary = model.getBoundary((2, self.tag), False, False, False)
-        # if isinstance(self.tag, list):
-        #     boundary = model.getBoundary([(2, t) for t in self.tag], combine=True, oriented=False, recursive=False)
-        # else:
-        #     boundary = model.getBoundary([(2, self.tag)], False, False, False)
-        logger.debug(repr(boundary))
-        for crv in boundary:
-            if not crv[0] == 1:
-                logger.warning("Unexpected type of geometrical entity in the boundary of surface %i", self.tag)
-                continue
-            for instc in [] : #! Curve.all_instances: TENTATIVE
-                if instc.tag == crv[1] :
-                    def_crv.append(instc)
-                    break
-            else:
-                def_crv.append(AbstractCurve(crv[1]))
-        
-        if recursive:
-            for crv in def_crv:
-                if isinstance(crv, AbstractCurve):
-                    crv.get_boundary()
-        
-        self.boundary = def_crv
+        self.boundary = AbstractSurface.get_surfs_boundary(self, recursive=recursive)
 
     @staticmethod
     def bool_cut(body, tool):
@@ -890,31 +864,72 @@ class AbstractSurface(object):
                 logger.warning(warn_msg + f"Complete output from the API function :{ops_output}")
         return new_surf
 
+    @staticmethod
+    def get_surfs_boundary(surfs, recursive=True):
+        """
+        Get the tags of all the 1D geometry entities that form the boundary of a surface or a group of surfaces.
 
-#TODO : Not tested yet
-# def combine_AbstractSurface(surfs):
-#     """
-#     Combine several AbstractSurface into one. This operation may be useful before request for the boundary of a whole RVE.
+        Parameters
+        ----------
+        recursive : bool, optional
+            If True, the boundaries of the 1D entities are also extracted from the gmsh model.
+            Instances of Point are created to represent them.
 
-#     Parameters
-#     ----------
-#     surfs : list of instances of AbstractSurface or PlaneSurface
-#     """
-#     for s in surfs :
-#         if not s.tag: #May occure if s is there are PlaneSurface instances in the input list.
-#             s.add_gmsh()
-#     combined_s = AbstractSurface([s.tag for s in surfs])
+        """
+        def_crv = []
+        try:
+            for s in surfs:
+                if not s.tag:
+                    s.add_gmsh()
+            dim_tags = [(2, s.tag) for s in surfs]
+        except TypeError:
+            if isinstance(surfs, (PlaneSurface, AbstractSurface)):
+                if not surfs.tag:
+                    surfs.add_gmsh()
+                dim_tags = (2, surfs.tag)
+            else:
+                raise(TypeError)
+        boundary_ = model.getBoundary(dim_tags, combined=True, oriented=False, recursive=False)
+        for dimtag in boundary_:
+            if dimtag[0] != 1:
+                logger.warning("Unexpected type of geometrical entity in the boundary of surfaces %s", dim_tags)
+                continue
+            #For now, we do not try to identify curves that already exist
+            # for instc in [] : #! Curve.all_instances: TENTATIVE
+            #     if instc.tag == crv[1] :
+            #         def_crv.append(instc)
+            #         break
+            # else:
+            #     def_crv.append(AbstractCurve(crv[1]))
+            new_crv = AbstractCurve(dimtag[1])
+            if recursive:
+                new_crv.get_boundary()
+            def_crv.append(new_crv)
+        return def_crv
+
+#     @staticmethod
+#     def combine_AbstractSurface(surfs):
+#         """[summary]
+        
+#         Parameters
+#         ----------
+#         surfs : list
+#             Instances of AbstractSurface or PlaneSurface that have to be gathered. 
+
+#         Returns
+#         -------
+#         AbstractSurface
+#             [description]
+#         """
+
+#         for s in surfs :
+#             if not s.tag: #May occure if there is a PlaneSurface instance in the input list.
+#                 s.add_gmsh()
+#         combined_s = AbstractSurface([s.tag for s in surfs])
+#         return combined_s
+# #TODO : Not tested yet
 
 
-
-
-# def bool_cut(body, tools, tag=-1):
-# """
-# Remove the tool entities from the body entity. Removing a set of geometrical entities 'tools' is possible.
-# Si plusieurs tools : l'input doit être une liste
-# option pour supprimer ou non les tools. 
-# """
-#     pass
 
 
 
