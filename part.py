@@ -14,7 +14,7 @@ from more_itertools import flatten, one
 
 import matplotlib.pyplot as plt
 import numpy as np
-
+import toolbox_FEniCS as fetools
 import dolfin as fe
 import gmsh
 
@@ -64,11 +64,22 @@ class Fenics2DRVE(FenicsPart):
         self.mesh = mesh
         self.gen_vect = generating_vectors
         self.rve_area = np.linalg.det(self.gen_vect)
-        self.mat_area =  fe.assemble(fe.Constant(1)*fe.dx(mesh))
+        self.mat_area = fe.assemble(fe.Constant(1)*fe.dx(mesh))
         self.mesh_dim = mesh.topology().dim() #dimension d'espace de depart
         self.materials = material_dict
         self.subdomains = subdomains
         self.facet_regions = facet_regions
+    
+        self.C_per = mat.mat_per_subdomains(self.subdomains, self.materials, self.mesh_dim)
+    #! A REGARDER !
+    def epsilon(self,u):
+        return mat.epsilon(u)
+    def sigma(self,eps):
+        return mat.sigma(self.C_per, eps)
+    def StrainCrossEnergy(self, sig, eps):
+        return mat.strain_cross_energy(sig, eps, self.mesh, self.rve_area)
+
+
     @staticmethod
     def gmsh_2_Fenics_2DRVE(gmsh_2D_RVE, material_dict, plots=True):
         """
@@ -86,14 +97,14 @@ class Fenics2DRVE(FenicsPart):
         logger.info(f'{facets_val[0]} facet regions imported. The values of their tags are : {facets_val[1]}')
         if plots:
             plt.ion()
-        plt.figure()
-        subdo_plt = fe.plot(subdomains)
-        plt.colorbar(subdo_plt)
-        plt.figure()
+            plt.figure()
+            subdo_plt = fe.plot(subdomains)
+            plt.colorbar(subdo_plt)
+            plt.figure()
             cmap = plt.cm.get_cmap('viridis', max(facets_val[1])-min(facets_val[1]))
             facets_plt = fetools.facet_plot2d(facets, mesh, cmap=cmap)
-        clrbar = plt.colorbar(facets_plt[0])
-        # clrbar.set_ticks(facets_val)
+            clrbar = plt.colorbar(facets_plt[0])
+            # clrbar.set_ticks(facets_val)
             # plt.show()
         logger.info(f'Import of the mesh : DONE')
         

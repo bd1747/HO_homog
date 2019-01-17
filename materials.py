@@ -9,18 +9,34 @@ import copy
 import math
 import matplotlib.pyplot as plt
 import numpy as np
-
+import warnings
 import dolfin as fe
+
+import logging
+from logging.handlers import RotatingFileHandler
+
+logger = logging.getLogger("materials") #http://sametmax.com/ecrire-des-logs-en-python/
+logger.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s :: %(levelname)s :: %(name)s :: %(message)s')
+file_handler = RotatingFileHandler('activity.log', 'a', 1000000, 1)
+file_handler.setLevel(logging.DEBUG)
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler) #Pour écriture d'un fichier log
+formatter = logging.Formatter('%(levelname)s :: %(message)s')
+stream_handler = logging.StreamHandler()
+stream_handler.setLevel(logging.INFO)
+stream_handler.setFormatter(formatter)
+logger.addHandler(stream_handler)
+
+PLANE_IDX = np.array([0, 1, 5])
 
 
 class Material(object):
-    plane_idx = np.array([0, 1, 5])
 
     def __init__(self, E, nu, cas_elast='cp'):
-        """ Définir un nouveau comportement élastique, exclusivement isotrope pour le moment. 
+        """ Définir un nouveau comportement élastique, exclusivement isotrope pour le moment.
          cas_elast : Choisir entre 'cp' contraintes planes, 'dp' déformations planes ou '3D'.
         """
-#        TO DO : stocker les matrices 3D, une clé, et les fe.matrix pour y accéder rapidement
 
         self.E = E
         self.nu = nu
@@ -39,12 +55,12 @@ class Material(object):
         self.set_elast[cas_elast](self)
 
     def set_cp(self):
-        self.S = self.S_3D[Material.plane_idx[:, None], Material.plane_idx]
+        self.S = self.S_3D[PLANE_IDX[:, None], PLANE_IDX]
         self.C = np.linalg.inv(self.S)
         self.cas_elast = 'cp'
 
     def set_dp(self):
-        self.C = self.C_3D[Material.plane_idx[:, None], Material.plane_idx]
+        self.C = self.C_3D[PLANE_IDX[:, None], PLANE_IDX]
         self.S = np.linalg.inv(self.C)
         self.cas_elast = 'dp'
     
@@ -63,38 +79,92 @@ class Material(object):
     def get_C(self):
         """ Renvoie la matrice de raideur 3D, cp ou dp dans un format adapté pour FEniCs."""
         # return fe.Constant(self.C)
-        return self.C  #  Correction pour revenir au code d'Arthur plus rapide (avec MatDomain2)
+        return self.C  #  Correction, plus rapide
+
+
+class StiffnessComponent(fe.UserExpression):
+    """ FEniCS Expression that represent one component of the stiffness tensor on a mesh that contain several subdomains."""
+    def __init__(self, cell_function, mat_dict, i, j, **kwargs):
+        self.cell_function = cell_function
+        self.mat_dict = mat_dict
+        self.i = i
+        self.j = j
+        super().__init__(degree=kwargs["degree"])
+        #? Info : https://docs.python.org/fr/3/library/functions.html#super, 
+        #? and http://folk.uio.no/kent-and/hpl-fem-book/doc/pub/book/pdf/fem-book-4print-2up.pdf
+
+    def eval_cell(self, values, x, cell):
+        subdomain_id = self.cell_function[cell.index]
+        values[0] = self.mat_dict[subdomain_id].get_C()[self.i, self.j]
+
+def mat_per_subdomains(cell_function, mat_dict, topo_dim):
+    """Définir un comportement hétérogène par sous domaine.
+    
+    Parameters
+    ----------
+    cell_function : FEniCS Mesh function
+        Denified on the cells. Indicates the subdomain to which belongs each cell.
+    mat_dict : dictionnary
+        [description]
+    topo_dim : int
+        [description]
+    
+    Returns
+    -------
+    C_per
+        FEniCS matrix that represents the stiffness inside the RVE.
+    """
+    
+    C = []
+    nb_val = int(topo_dim * (topo_dim + 1)/2)
+    for i in range(nb_val):
+        Cj = []
+        for j in range(nb_val):
+            Cj = Cj + [StiffnessComponent(cell_function, mat_dict, i, j, degree=0)]
+        C = C + [Cj]
+    C_per = fe.as_matrix(C)
+    return C_per
 
 
 class MaterialsPerDomains(object):
     """
     Définir un comportement hétérogène par sous domaine.
     """
+    class StiffnessComponent(fe.UserExpression):
+        def __init__(self, cell_function, mat_dict, i, j, **kwargs):
+            warnings.warn("Deprecated. Should use the mat_per_subdomains function instead.", DeprecationWarning)
+            #! LA on rencontre une erreure majeure.
+            #! Message :
+            #! [Previous line repeated 324 more times] RecursionError: maximum recursion depth exceeded
+            #? Solution ? Regarder la solution de substitution à fe.Expression mise en place dans FEniCS 2018
+            self.cell_function = cell_function
+            self.mat_dict = mat_dict
+            self.i = i
+            self.j = j
+            super().__init__(degree=kwargs["degree"])
+            #? Info : https://docs.python.org/fr/3/library/functions.html#super, 
+            #? and http://folk.uio.no/kent-and/hpl-fem-book/doc/pub/book/pdf/fem-book-4print-2up.pdf
 
-    def __init__(self, cell_function, mat_dict, topo_dim, **kwargs):
+        def eval_cell(self, values, x, cell):
+            subdomain_id = self.cell_function[cell.index]
+            values[0] = self.mat_dict[subdomain_id].get_C()[self.i, self.j]
+
+    def __init__(self, cell_function, mat_dict, topo_dim, **kwargs): #Todo : supprimer kwargs ?
         self.cell_function = cell_function
         self.mat_dict = mat_dict
 
         C = []
         print(f"topo dim : {topo_dim} nb de valeurs pour i et j : {topo_dim * (topo_dim + 1)/2}")
-        for i in range(topo_dim * (topo_dim + 1)/2):
+        nb_val = int(topo_dim * (topo_dim + 1)/2)
+        for i in range(nb_val):
             Cj = []
-            for j in range(topo_dim * (topo_dim + 1)/2):
+            for j in range(nb_val):
                 Cj = Cj + [self.StiffnessComponent(self.cell_function, mat_dict, i, j, degree=0)]
             C = C + [Cj]
-        self.C_per = fe.as_matrix(C)
+        logger.debug("C_per before conversion %s", C)
+        self.C_per = fe.as_matrix(C) #TODO : remplacer classe par une fonction
 
 ### TO DO : essayer de sortir cette nested définition de classe de la classe MatDomains2
-    class StiffnessComponent(fe.Expression):
-                def __init__(self, cell_function, mat_dict, i, j, **kwargs):
-                    self.cell_function = cell_function
-                    self.mat_dict = mat_dict
-                    self.i = i
-                    self.j = j
-            
-                def eval_cell(self, values, x, cell):
-                    subdomain_id = self.cell_function[cell.index]
-                    values[0] = self.mat_dict[subdomain_id].get_C()[self.i, self.j]
           
     #     # Assembling the constitutive matrix
     #     Ci = []
