@@ -56,17 +56,7 @@ warnings.simplefilter("always") #? Doc: https://docs.python.org/3.6/library/warn
 logger.info(f"gmsh module path {inspect.getfile(gmsh)}")
 logger.info(f"gmsh lib real path {os.path.dirname(os.path.realpath(gmsh.__file__))}")
 
-#TODO : regarder ou mettre ces commandes
-# gmsh.initialize() #? A mettre dans un fichier init ????
-# #? Uitliser cet argument ? gmsh.initialize(sys.argv) cf script boolean.py
-# gmsh.option.setNumber("General.Terminal", 1) #0 or 1 : print information on the terminal
 
-#TODO : à revoir
-GEOMETRY_KERNELS = ["Built-in", "OpenCASCADE"] #!
-#? Obsolète car travail que avec openCASCADE ? Choix d'utiliser des fonctions de gmsh/model/occ
-#TODO : à revoir
-DEFAULT_LC = 1. #!
-#? Obsolète ?
 
 #TODO : docstring à faire
 def unit_vect(v):
@@ -132,20 +122,6 @@ def dual_base(basis):
     """
     return np.linalg.inv(basis).T
 
-#TODO : doctring à faire
-#TODO : Utiliser une fonction de l'API gmsh ? 
-def geometry_kernel(script, choix=1): #! Obsolète. Travail directement que avec des fonctions géométriques de la classe occ de l'API. 
-    """ Choisir le noyau géométrique utilisé par gmsh.
-
-        0 = Built-in
-        1 = OpenCASCADE
-        La commande doit être écrit en début de script.
-        Pour les opérations booléennes, OpenCASCADE est nécessaire.
-        OpenCASCADE permet aussi une construction géométrique top-bottom.
-
-    """
-    cmd_str = 'SetFactory("%s");\n' % GEOMETRY_KERNELS[choix]
-    script.write(cmd_str)
 
 def set_gmsh_option(option, val):
     """
@@ -176,21 +152,17 @@ def init_geo_tools():
     The Gmsh Python API must be initialized before using any functions.
     In addition, some options are set to custom values.
     """
-    gmsh.initialize()
+    gmsh.initialize() #? Utiliser l'argument sys.argv ? cf script boolean.py
     gmsh.option.setNumber("General.Terminal", 1)
     gmsh.option.setNumber("General.Verbosity", 5)
     set_gmsh_option("Geometry.AutoCoherence", 0)
     gmsh.option.setNumber("Mesh.ColorCarousel", 2) #0=by element type, 1=by elementary entity, 2=by physical entity, 3=by partition
-    gmsh.option.setNumber("Mesh.MeshOnlyVisible", 0)
-    set_gmsh_option("Mesh.SaveAll", 1)
+    gmsh.option.setNumber("Mesh.MeshOnlyVisible", 0) #TODO : Should be in the init file of the mesh_tools module.
     set_gmsh_option('Mesh.CharacteristicLengthExtendFromBoundary', 0)
+    set_gmsh_option("Mesh.SaveAll", 0)
+    set_gmsh_option("Mesh.Binary", 0)
     set_gmsh_option('Mesh.MshFileVersion', 2.2)
-    
-    #TODO : Should be in the init file of the mesh_tools module.
-    #TODO : Faire une fonction pour set une option de gmsh et voir la valeur précédente. (avec un logging.debug)
-    Point.all_pts_in_script = []
-    # PhysicalEntity.count = 1
-    # PhysicalEntity.tagDejaPris = set()
+
 
 def reset():
     """Throw out all information about the created geometry."""
@@ -207,11 +179,6 @@ class Point(object):
     """
 # TODO faire docstring
 
-    all_pts_in_script = []  #TODO : Doit être gardé ? # Utile pour imposer une certaine longueur caractéristique d'éléments en fin de script
-    # https://www.toptal.com/python/python-class-attributes-an-overly-thorough-guide 
-    # "We could even use this design pattern to track all existing instances of a given class, rather than just some associated data."
-    all_instances = [] #! Refactoring nécessaire pour regrouper avec all_pts_in_script
-
     def __init__(self, coord=np.array((0., 0.)), mesh_size=0):
         """Constructeur de notre classe. Coordonnées importéées sous forme d'un np.array"""
         dim = coord.shape[0]
@@ -223,13 +190,12 @@ class Point(object):
         #* Nouveau ! Pour identifier les points "importants" autour des quels il faut raffiner le maillage
         self.fine_msh = False #TODO A définir et voir son utilisation...
         self.mesh_size = mesh_size
-        Point.all_instances.append(self)
 
-    # def __repr__(self):#? Je ne m'en sers pas ou vraiment rarement. On supprime ? 
-    #     """Methode pour afficher les coordonnées du point."""
-    #     return "pt %s : %s \n" % (self.tag, self.coord)
+    def __repr__(self):
+        """Represent a Point object with the coordinates of this point."""
+        return f"Pt {self.tag} ({str(self.coord)}) "
 
-#? Obsolète si on utilise la fonction occ.removeAllDuplicate() ? A priori non.
+
     def __eq__(self, other):
         """
          Opérateur de comparaison == redéfini pour les objets de la classe Point
@@ -243,16 +209,8 @@ class Point(object):
             return True
         else:
             return False
-        #? Pour alléger le code, préférer une rédaction comme ça : ?
-        #? if not isinstance(other, Point):
-        #?     return False
-        #? if np.array_equal(self.coord, other.coord):
-        #?     return True
-        #? elif np.allclose(self.coord, other.coord):
-        #?     return True
-        #? return False
 
-    def __ne__(self, other): #? Est-ce utile ?
+    def __ne__(self, other):
         return not self.__eq__(other)
 
     #TODO Adapter à la 3D avec matplotlib option 3D ?
@@ -266,22 +224,7 @@ class Point(object):
         if self.tag: # That means that the geometrical entity has already been instantiated in the gmsh model.
             return self.tag #The tag is returned for information purposes only.
         self.tag = factory.addPoint(self.coord[0], self.coord[1], self.coord[2], self.mesh_size)
-        # Point.all_pts_in_script.append(self) #?Utile ?
 
-    def rotation(self, centre, angle):
-        #? À Remplacer par rotate ? 
-        #TODO : passer à la 3D
-        #TODO : indiquer axis par coord point et direction et non par un point
-        """Rotation du point autour d'un centre de type Point précisé en argument """
-        c, s = math.cos(angle), math.sin(angle)
-        R = np.array(((c, -s), (s, c)))
-        self.coord = np.dot(R, self.coord - centre.coord) + centre.coord
-    # def rotate(self, axis_pt_coord, axis_dir, angle): #* nouvelle méthode, calque de la staticmethod rotate de l'API
-    #     factory.rotate([(0, self.tag)], axis_pt.coord[0], axis_pt.coord[1], axis_pt.coord[2],axis_dir[0], axis_dir[1], axis_dir[2], angle)
-    #     new_coord = None #! Problème car on a modifié les coordonnées du point dans le modèle gmsh
-    #     # factory.synchronize()
-    #     # new_coord = model.getValue(0,self.tag,[]) #! Opération couteuse ? Est-ce que ça fonctionne avant l'opération synchronize() ?
-    #     # print("Nouvelles coordonnées", new_coord)
 
 #* Pas utilisé pour le moment. Associer à la fonction dilate de l'API.
     # def homothetie(self, centre, k):
@@ -439,7 +382,6 @@ class Arc(Curve):
         self.radius = (d1 + d2) / 2
 
     def __str__(self):
-        # prt_str = "Arc %s \n Pt début : %s Pt fin : %s Centre : %s" %(self.name, str(self.deb), str(self.fin), str(self.centre))
         prt_str = "Circle arc " + self.tag if self.tag else "--" + ", "
         prt_str += "start point tag : %i , center tag : %i , end point tag : %i" %(self.def_pts[0].tag, self.def_pts[1].tag, self.def_pts[2].tag)
         return prt_str
@@ -454,19 +396,6 @@ class Arc(Curve):
         circle = plt.Circle((self.def_pts[1].coord[0],self.def_pts[1].coord[1]), self.radius, color=circle_color, fill=False)
         ax = plt.gca()
         ax.add_patch(circle)
-
-#! Replaced by the add_gmsh method of the base class curve.
-    # def add_gmsh(self):
-    #     """Méthode permettant d'ajouter une ligne de script dans un fichier .geo pour l'arc de cercle,
-    #     et si nécesaire les deux points extrémités et le centre.
-    #     """
-    #     if self.tag: # Geometrical entity has already been instantiated in the gmsh model.
-    #         return self.tag # For information purposes only.
-
-    #     for pt in self.def_pts:
-    #         if not pt.tag:
-    #             pt.add_gmsh()
-    #     self.tag = factory.addCircleArc(self.def_pts[0].tag, self.def_pts[1].tag, self.def_pts[2].tag)
 
 
 class AbstractCurve(Curve):
@@ -501,19 +430,11 @@ class AbstractCurve(Curve):
         for pt_dimtag in boundary:
             if not pt_dimtag[0] == 0:
                 raise TypeError("The boundary of the geometrical entity %i are not points." %self.tag)
-            #! BUG for pt in Point.all_instances:
-            for pt in []: #? TEST
-                if pt.tag == pt_dimtag[1]:
-                    print("One end of the AbstractCurve instance is already represented by an instance of Point!")
-                    def_pts.append(pt)
-                    break
-            else:
-                #! getValue call requires the model to be synchronized !
-                coords = model.getValue(0, pt_dimtag[1], []) if get_coords else []
-                logger.debug(repr(coords))
-                new_pt = Point(np.array(coords))
-                new_pt.tag = pt_dimtag[1]
-                def_pts.append(new_pt)
+            coords = model.getValue(0, pt_dimtag[1], []) if get_coords else []
+            logger.debug(repr(coords))
+            new_pt = Point(np.array(coords))
+            new_pt.tag = pt_dimtag[1]
+            def_pts.append(new_pt)
         self.def_pts = def_pts
 
     def plot(self, color="black"):
@@ -532,7 +453,6 @@ class LineLoop(object):
         La LineLoop est soit défini par des sommets, soit directement défini par une liste d'objets Line/Arcs (explicit = True)
         """
 
-        # self.log = list()  # Savoir quelles opérations ont déjà été faites ?
         self.info_offset = False #! A remplacer par quelque chose de mieux. Comme l'utilisation de l'attribut "vertices"
         if explicit:
             self.sides = elements
@@ -894,44 +814,11 @@ class AbstractSurface(object):
             if dimtag[0] != 1:
                 logger.warning("Unexpected type of geometrical entity in the boundary of surfaces %s", dim_tags)
                 continue
-            #For now, we do not try to identify curves that already exist
-            # for instc in [] : #! Curve.all_instances: TENTATIVE
-            #     if instc.tag == crv[1] :
-            #         def_crv.append(instc)
-            #         break
-            # else:
-            #     def_crv.append(AbstractCurve(crv[1]))
             new_crv = AbstractCurve(dimtag[1])
             if recursive:
                 new_crv.get_boundary()
             def_crv.append(new_crv)
         return def_crv
-
-#     @staticmethod
-#     def combine_AbstractSurface(surfs):
-#         """[summary]
-        
-#         Parameters
-#         ----------
-#         surfs : list
-#             Instances of AbstractSurface or PlaneSurface that have to be gathered. 
-
-#         Returns
-#         -------
-#         AbstractSurface
-#             [description]
-#         """
-
-#         for s in surfs :
-#             if not s.tag: #May occure if there is a PlaneSurface instance in the input list.
-#                 s.add_gmsh()
-#         combined_s = AbstractSurface([s.tag for s in surfs])
-#         return combined_s
-# #TODO : Not tested yet
-
-
-
-
 
 
 def gather_boundary_fragments(curves, main_crv):
@@ -955,9 +842,7 @@ def gather_boundary_fragments(curves, main_crv):
     parts = []
     for c in curves:
         factory.synchronize()
-        # print ("main curve tag : {}, part candidate tag : {}".format(main_crv.tag,c.tag))
         output = factory.intersect([(1,main_crv.tag)], factory.copy([(1,c.tag)]), removeObject=False, removeTool=True) #! Methode détournée qui fonctionne. Dans le test élémentaire, si on prend removeTool=False, avec les courbes à trier, toutes ne sont pas détectées.
-        # print("dans gather boundary, pour la courbe %i, l'output est : "%c.tag , output)
         output_1D = [dimtag[1] for dimtag in output[0] if dimtag[0] == 1]
         if output_1D:
             parts.append(c)
@@ -995,11 +880,7 @@ def macro_line_fragments(curves, main_line):
         parts.append(crv)
     return parts
 
-#TODO : à mieux définir
-    # def delGmsh(self, script, recursive=False):
-    #     delGmsh(self, "Surface", script, recursive)
 
-#TODO : à déplacer dans mesh ?
 class PhysicalGroup(object):
     """
     Create and manage groups of geometrical entities in the gmsh model.
@@ -1058,11 +939,7 @@ class PhysicalGroup(object):
         logger.info(f"And after a second call of factory.synchronize() : {model.getPhysicalGroups()}")
         if self.name:
             model.setPhysicalName(self.dim, self.tag, self.name)
-        # logger.info("Synchronize call after addPhysicalGroup") #! Tentative de debug
-        # phy_before = model.getPhysicalGroups()
-        # factory.synchronize()
-        # phy_after = model.getPhysicalGroups()
-        # logger.info(f"Physical entities in model before synchronization : {phy_before} and after : {phy_after}")
+
     
     def add_to_group(self, entities):
         """
@@ -1134,67 +1011,6 @@ class PhysicalGroup(object):
         else:
             cls.set_group_visibility(0)
             gmsh.option.setNumber("Mesh.MeshOnlyVisible", 0)
-
-#TODO : Faire un choix.
-#? Est ce qu'on met plutôt ce remove sous forme d'une méthode dans chaque classe d'objet géométrique ?
-def remove_gmsh(geo_entity, recursive=False):
-    """
-    """
-    #TODO : Faire docstring
-    if not geo_entity.in_model:
-        return False #? Renvoyer False car aucune opération n'est faite ? Autre output plus pertinent dans le cas où rien n'est fait ? Ou aucun output ?
-    factory.remove([(geo_entity.geo_dim, geo_entity.tag)], recursive=recursive)
-    geo_entity.in_model = False
-    geo_entity.tag = None #! Qu'est ce qu'on fait du tag ?
-    if not recursive:
-        return True
-    if geo_entity.geo_dim == 1: #Si on a affaire à des instances de Line or Arc
-        for pt in geo_entity.def_pts:
-            pt.in_model = False
-            pt.tag = None #! Qu'est ce qu'on fait du tag ?
-    # if geo_entity.geo_dim == 2: #? Bizarrre de s'interessé à geo_dim pour des instances de Surface alors que c'est la seule classe qui correspond à cette valeur de geo_dim. Utiliser geo_dim (pour avoir qqchose d'homogène) ou plutôt isinstance ?
-    #     geo_entity.ext_contour.in_model = False
-    #     geo_entity.ext_contour.tag = None  #! Qu'est ce qu'on fait du tag ?
-    #     for entity_1D in geo_entity.ext_contour :
-    #     if geo_entity.holes:  #* None est équivalent à False
-    #TODO : TO BE CONTINUED....
-    #! Problème à gérer !!!! Si un parent est aussi un parent d'une autre entité géométrique, le recursive remove ne va probablement pas le supprimer !!!!
-    #! REPRENDRE ICI !
-    #? Pour test si un attribut existe https://stackoverflow.com/questions/610883/how-to-know-if-an-object-has-an-attribute-in-python/610923#610923
-
-# def delGmsh(objet, typeObjet, script, recursive=False):
-#     """
-#     écrire dans le script gmsh une ligne de commande permettant de supprimer un objet gmsh de type
-#     """
-
-#     outputline = "Delete { " + typeObjet + "{" + str(objet.idx) + "}; } \n"
-#     if recursive:
-#         outputline = "Recursive " + outputline
-#     script.write(outputline)
-
-
-# def suppr_doublon(inpList):
-#     """
-#     Supprimer les doublons dans une liste, en conservant l'ordre.
-#     Fonction conçue pour fonctionner avec des listes de LineLoop.
-#     """
-#     newList = list()
-
-#     for elmt in inpList:
-#         for dejaPresent in newList:
-#             if elmt == dejaPresent:
-#                 # print "element suppprimé", elmt
-#                 # POUR VOIR CE QUE L'ON SUPPRIME
-#                 # fig=plt.figure()
-#                 # ax=fig.add_subplot(1,1,1)
-#                 # elmt.plot()
-#                 # plt.axis('equal')
-#                 # plt.show()
-#                 break
-#         else:
-#             newList.append(elmt)
-#     # Faire avec : [nv.append(item) for item in liste if not item in nv] ? comment le test d'appartenance fonctionne avec des classes perso ? A TESTER
-#     return newList
 
 
 def round_corner(inp_pt, pt_amt, pt_avl, r, junction_raduis=False, plot=False):
