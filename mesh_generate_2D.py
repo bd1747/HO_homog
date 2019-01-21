@@ -235,6 +235,7 @@ class Gmsh2DRVE(object):
         self.nb_cells = nb_cells
         self.attractors = attractors if attractors else []
         self.phy_surf = phy_surf
+        self.mesh_fields = []
         self.mesh_abs_path = ''
 
     def main_mesh_refinement(self, d_min_max, lc_min_max, sigmoid_interpol=False):
@@ -252,10 +253,7 @@ class Gmsh2DRVE(object):
             }
         field = msh.set_mesh_refinement(d_min_max, lc_min_max, attractors, 10,
                                         sigmoid_interpol, restrict_domain)
-        try:
-            self.mesh_fields.append(field)
-        except AttributeError:
-            self.mesh_fields = [field]
+        self.mesh_fields.append(field)
 
     def soft_mesh_refinement(self, d_min_max, lc_min_max, sigmoid_interpol=False):
         model.setCurrent(self.name)
@@ -271,10 +269,7 @@ class Gmsh2DRVE(object):
             }
         field = msh.set_mesh_refinement(d_min_max, lc_min_max, attractors, 1,
                                         sigmoid_interpol, restrict_domain)
-        try:
-            self.mesh_fields.append(field)
-        except AttributeError:
-            self.mesh_fields = [field]
+        self.mesh_fields.append(field)
 
     def mesh_generate(self, mesh_field=None):
         """Generate a 2D mesh of the model which represent a RVE.
