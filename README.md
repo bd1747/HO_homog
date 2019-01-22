@@ -126,6 +126,7 @@ We use [SemVer](http://semver.org/) for versioning. For the versions available, 
 ## Authors
 
 - **Baptiste Durand** - *PhD student* - Laboratoire NAVIER, UMR 8205 - [@baptiste.durand](https://gitlab.enpc.fr/baptiste.durand) - [baptiste.durand@enpc.fr](mailto:baptiste.durand@enpc.fr)
+- **Arthur Lebée** - *Research* - Laboratoire NAVIER, UMR 8205 - [@arthur.lebee](https://gitlab.enpc.fr/arthur.lebee) - [Researcher page on Laboratoire Navier website](https://navier.enpc.fr/LEBEE-ARTHUR,144)
 
 See also the graphs of all [contributions](https://gitlab.enpc.fr/baptiste.durand/HO_homog/graphs/master) to this project.
 
