@@ -121,10 +121,9 @@ class Fenics2DHomogenization(object):
 
         # bilinear form
         self.a = fe.inner(self.rve.sigma(self.rve.epsilon(self.u)), self.rve.epsilon(self.v))*fe.dx
-        
-        self.solver = fe.LUSolver()
+        self.K = fe.assemble(self.a)
+        self.solver = fe.LUSolver(self.K)
         self.solver.parameters["symmetric"] = True
-        # self.solver.parameters["reuse_factorization"] = True #CAUSE UNE ERREUR
         
         # Areas
         self.one = fe.interpolate(fe.Constant(1),self.X)
@@ -408,10 +407,12 @@ class Fenics2DHomogenization(object):
             L = fe.dot(Fload[i], self.v) * fe.dx + fe.inner(-self.rve.sigma(Epsilon0[i]), self.rve.epsilon(self.v)) * fe.dx
         
             u_s = fe.Function(self.V)
-            # K,res = fe.assemble_system(self.a,L,self.bc)
-            K,res = fe.assemble_system(self.a,L)
-            self.solver.solve(K, u_s.vector(), res)
-        
+            res = fe.assemble(L)
+            # self.bc.apply(res) #TODO à tester. Pas nécessaire pour le moment, la ligne # K,res = fe.assemble_system(self.a,L,self.bc) était commentée.
+            # self.solver.solve(K, u_s.vector(), res) #* Previous method
+            self.solver.solve(u_s.vector(), res)
+            #* More info : https://fenicsproject.org/docs/dolfin/1.5.0/python/programmers-reference/cpp/la/PETScLUSolver.html
+
             u_av = [fe.assemble(u_s[k]*fe.dx)/self.rve.mat_area for k in range(d) ]
         
             u_av = fe.interpolate(fe.Constant(u_av), self.V)

@@ -67,6 +67,19 @@ DictOfLocalizationsU, DictOfLocalizationsSigma, DictOfLocalizationsEpsilon, Dict
 
 #* Step 6 : Postprocessing
 print(DictOfConstitutiveTensors)
+print(DictOfConstitutiveTensors['E']['E'])
+#* [[ 0.0726  0.0379 -0.    ]
+#*  [ 0.0379  0.1638  0.    ]
+#*  [-0.      0.      0.0906]]
+
+print(DictOfConstitutiveTensors['EGbis']['EGbis'])
+#* [[ 0.3799  0.1405 -0.      0.      0.      0.0401]
+#*  [ 0.1405  0.14   -0.      0.      0.      0.0451]
+#*  [-0.     -0.      0.1428  0.0393  0.039  -0.    ]
+#*  [ 0.      0.      0.0393  0.292   0.1822 -0.    ]
+#*  [ 0.      0.      0.039   0.1822  0.2401 -0.    ]
+#*  [ 0.0401  0.0451 -0.     -0.     -0.      0.0676]]
+
 plt.figure()
 fe.plot(fe.project(0.1*hom_model.localization['E']['U'][2],hom_model.V), mode='displacement')
 plt.savefig("loc_EU.pdf")
