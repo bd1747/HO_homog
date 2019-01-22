@@ -12,6 +12,7 @@ import copy
 import logging
 import math
 import os
+from pathlib import Path
 from logging.handlers import RotatingFileHandler
 from more_itertools import flatten, one
 
@@ -271,7 +272,7 @@ class Gmsh2DRVE(object):
                                         sigmoid_interpol, restrict_domain)
         self.mesh_fields.append(field)
 
-    def mesh_generate(self, mesh_field=None):
+    def mesh_generate(self, mesh_field=None, directory: Path = None):
         """Generate a 2D mesh of the model which represent a RVE.
         
         Parameters
@@ -279,6 +280,10 @@ class Gmsh2DRVE(object):
         mesh_field : mesh_tools.Field, optional
             The characteristic length of the elements can be explicitly prescribe by means of this field.
             The default is None. In this case, the fields that have been created with the soft_mesh_refinement and main_mesh_refinement methods are used.
+        directory : pathlib.Path, optional
+            Indicate in which directory the .msh file must be created.
+            If None (default), the .msh file is written in the current working directory.
+            Ex: Path('/media/sf_VM_share/homog')
         """
         
         model.setCurrent(self.name)
@@ -294,8 +299,15 @@ class Gmsh2DRVE(object):
         model.mesh.generate(2)
         gmsh.model.mesh.removeDuplicateNodes()
         geo.PhysicalGroup.set_group_visibility(False)
-        gmsh.write(f"{self.name}.msh")
-        self.mesh_abs_path = os.path.abspath(f"{self.name}.msh")
+        if directory:
+            mesh_path = directory if not directory.suffix() else directory.with_suffix('')
+            if not mesh_path.exist:
+                mesh_path.mkdir(mode=0o777, parents=True)
+        else:
+            mesh_path = Path.cwd()
+        mesh_path = mesh_path.joinpath(f"{self.name}.msh")
+        gmsh.write(str(mesh_path))
+        self.mesh_abs_path = mesh_path
 
     @staticmethod
     def pantograph(a, b, k, junction_r, nb_cells=(1, 1), offset=(0., 0.), soft_mat=False, name=''):
