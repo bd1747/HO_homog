@@ -1,5 +1,6 @@
 .vscode/
 old_lib & drafts/
+issues & misc/
 *.pyc
 *.brep
 *.msh
@@ -20,4 +21,3 @@ libgmsh.so
 periodic.py
 activity.log
 test_convert_import_mesh/
-issues/
