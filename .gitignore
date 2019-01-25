@@ -1,8 +1,9 @@
 .vscode/
-old_lib/
+old_lib & drafts/
 *.pyc
 *.brep
 *.msh
+*.xml
 t1.py
 t10.py
 t10_modif.py

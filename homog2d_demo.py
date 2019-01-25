@@ -22,20 +22,22 @@ geo.init_geo_tools()
 plt.ioff()
 
 #* Logging
-logger = logging.getLogger() #* Accès au root logger
-#source : http://sametmax.com/ecrire-des-logs-en-python/
+logger = logging.getLogger(__name__) #http://sametmax.com/ecrire-des-logs-en-python/
 logger.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s :: %(levelname)s :: %(name)s :: %(message)s',"%Y-%m-%d %H:%M:%S")
-log_path = Path.home().joinpath('Desktop/activity.log')
-file_handler = RotatingFileHandler(str(log_path), 'a', 1000000, 2)
-file_handler.setLevel(logging.INFO)
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler) #Pour écriture d'un fichier log
-formatter = logging.Formatter('%(asctime)s :: %(levelname)s :: %(message)s',"%H:%M")
-stream_handler = logging.StreamHandler()
-stream_handler.setLevel(logging.INFO)
-stream_handler.setFormatter(formatter)
-logger.addHandler(stream_handler)
+if __name__ == "__main__":
+    logger_root = logging.getLogger()
+    logger_root.setLevel(logging.INFO)
+    formatter =logging.Formatter('%(asctime)s :: %(levelname)s :: %(name)s :: %(message)s',"%Y-%m-%d %H:%M:%S")
+    log_path = Path.home().joinpath('Desktop/activity.log')
+    file_handler = RotatingFileHandler(str(log_path), 'a', 1000000, 10)
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(formatter)
+    logger_root.addHandler(file_handler) #Pour écriture d'un fichier log
+    formatter = logging.Formatter('%(asctime)s :: %(levelname)s :: %(message)s',"%H:%M")
+    stream_handler = logging.StreamHandler()
+    stream_handler.setLevel(logging.INFO)
+    stream_handler.setFormatter(formatter)
+    logger_root.addHandler(stream_handler)
 
 geo.set_gmsh_option("General.Verbosity", 2)
 
