@@ -150,6 +150,7 @@ def init_geo_tools():
     set_gmsh_option("Mesh.SaveAll", 0)
     set_gmsh_option("Mesh.Binary", 0)
     set_gmsh_option('Mesh.MshFileVersion', 2.2)
+    set_gmsh_option('Mesh.Algorithm', 1) #* 2D mesh algorithm (1=MeshAdapt, 2=Automatic,...)
 
 
 def reset():
