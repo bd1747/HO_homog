@@ -15,16 +15,19 @@ import gmsh
 
 logger = logging.getLogger(__name__) #http://sametmax.com/ecrire-des-logs-en-python/
 logger.setLevel(logging.INFO)
+if __name__ == "__main__":
+    logger_root = logging.getLogger()
+    logger_root.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s :: %(levelname)s :: %(message)s') # Afficher le temps à chaque message
 file_handler = RotatingFileHandler(f'activity_{__name__}.log', 'a', 1000000)
 file_handler.setLevel(logging.DEBUG)
 file_handler.setFormatter(formatter)
-logger.addHandler(file_handler) #Pour écriture d'un fichier log
+    logger_root.addHandler(file_handler) #Pour écriture d'un fichier log
 formatter = logging.Formatter('%(levelname)s :: %(message)s')
 stream_handler = logging.StreamHandler()
 stream_handler.setLevel(logging.INFO)
 stream_handler.setFormatter(formatter)
-logger.addHandler(stream_handler)
+    logger_root.addHandler(stream_handler)
 
 geo.init_geo_tools()
 
