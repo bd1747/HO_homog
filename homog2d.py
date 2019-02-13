@@ -14,6 +14,8 @@ np.set_printoptions(suppress = True)
     - implementer Stress gradient
 '''
 
+GEO_TOLERANCE = 1e-12
+
 logger = logging.getLogger(__name__)
 #http://sametmax.com/ecrire-des-logs-en-python/
 logger.setLevel(logging.DEBUG)
@@ -42,32 +44,35 @@ class Fenics2DHomogenization(object):
         dualbasis = self.dualbasis
 
         class PeriodicDomain(fe.SubDomain):
+        #? Source : https://comet-fenics.readthedocs.io/en/latest/demo/periodic_homog_elas/periodic_homog_elas.html
+            def __init__(self, tolerance=GEO_TOLERANCE):
+                """ vertices stores the coordinates of the 4 unit cell corners"""
+                fe.SubDomain.__init__(self, tolerance)
+                self.tol = tolerance
 
             def inside(self, x, on_boundary):
                 # return True if on left or bottom boundary AND NOT on one of the two slave edges
                 #Left boundary
-                Left = fe.near(float(x.dot(dualbasis[0])), 0.)
-                # print(float(x.dot(dualbasis[0])))
+                Left = fe.near(float(x.dot(dualbasis[0])), 0., self.tol)
                 #Bottom Boundary
-                Bottom = fe.near(float(x.dot(dualbasis[1])), 0.)
+                Bottom = fe.near(float(x.dot(dualbasis[1])), 0., self.tol)
                 #Slave Right
-                SlaveR = fe.near(float((x - basis[0]).dot(dualbasis[0])), 0.)
+                SlaveR = fe.near(float((x - basis[0]).dot(dualbasis[0])), 0., self.tol)
                 #Slave Top
-                SlaveT = fe.near(float((x - basis[1]).dot(dualbasis[1])), 0.)
+                SlaveT = fe.near(float((x - basis[1]).dot(dualbasis[1])), 0., self.tol)
                 
                 return (Left or Bottom) and not(SlaveR or SlaveT) and on_boundary
         
             def map(self, x, y):
                 #Slave Right
-                SlaveR = fe.near(float((x - basis[0]).dot(dualbasis[0])), 0.)
+                SlaveR = fe.near(float((x - basis[0]).dot(dualbasis[0])), 0., self.tol)
                 #Slave Top
-                SlaveT = fe.near(float((x - basis[1]).dot(dualbasis[1])), 0.)
+                SlaveT = fe.near(float((x - basis[1]).dot(dualbasis[1])), 0., self.tol)
                 
-                if SlaveR and SlaveT:
+                if SlaveR and SlaveT: # if on top-right corner
                     for i in range(topo_dim):
                         y[i] = x[i] - basis[0][i] - basis[1][i]
-    
-                elif SlaveR:
+                elif SlaveR: # if on right boundary
                     for i in range(topo_dim):
                         y[i] = x[i] - basis[0][i]
                 elif SlaveT:
@@ -78,44 +83,56 @@ class Fenics2DHomogenization(object):
                         y[i] = 1000 * (basis[1][i] + basis[0][i])
     
         self.pbc = PeriodicDomain()
-        # Test PeriodicDomain
-    #    coor = self.RVE.mesh.coordinates()
-    #    for i in range(coor.shape[0]):
-    #        print(coor[i],self.pbc.inside(coor[i],True))
-        self.tol = 1e-12
-        # ne semble pas etre pris en compte?? sans cette condition il arrive a inverser... et avec ca ne vaut pas 0 en 0
-        def pinned_point(x, on_boundary):
-            return on_boundary and x[0] < self.tol and x[1] < self.tol
-    
     
         elemType = 'CG'
         order = 2
         #Espace fonctionnel 3D pour la representation de voigt des deformations
-        self.T = fe.VectorElement(elemType, self.rve.mesh.ufl_cell(), order, dim=int(self.topo_dim*(self.topo_dim+1)/2))
-        self.W = fe.FunctionSpace(self.rve.mesh,self.T, constrained_domain=self.pbc)
+        self.T = fe.VectorElement(
+            elemType, self.rve.mesh.ufl_cell(), order,
+            dim=int(self.topo_dim*(self.topo_dim+1)/2)
+            )
+        self.W = fe.FunctionSpace(self.rve.mesh, self.T, constrained_domain=self.pbc)
 
         # Espace fonctionel 1D 
         self.Q = fe.FiniteElement(elemType, self.rve.mesh.ufl_cell(), order)
-        self.X = fe.FunctionSpace(self.rve.mesh,self.Q, constrained_domain=self.pbc)
-        self.one = fe.interpolate(fe.Constant(1),self.X)
+        self.X = fe.FunctionSpace(self.rve.mesh, self.Q, constrained_domain=self.pbc)
         
-        # Espace fonctionel 2D pour le champ de deplacement
-        self.V = fe.VectorFunctionSpace(self.rve.mesh, elemType, order, constrained_domain=self.pbc)
-        self.bc = fe.DirichletBC(self.V, fe.Constant((0, 0)), pinned_point, method = 'pointwise')
+        # Espace fonctionel 2D pour les champs de deplacement
+        self.V = fe.VectorFunctionSpace(
+            self.rve.mesh, elemType, order,
+            constrained_domain=self.pbc
+            )
+            #TODO : reprendre le Ve défini pour l'espace fonctionnel mixte. Par ex: V = FunctionSpace(mesh, Ve)
         
-        # #Espace fonctionnel 3D pour la representation de voigt des deformations
-        # self.T = fe.VectorElement(elemType, self.rve.mesh.ufl_cell(), order, dim=int(self.topo_dim*(self.topo_dim+1)/2))
-        # self.W = fe.FunctionSpace(self.rve.mesh,self.T, constrained_domain=self.pbc)
+        #* Espace fonctionel mixte pour la résolution : 2D pour les champs + scalaire pour multiplicateur de Lagrange
+        self.Ve = fe.VectorElement(elemType, self.rve.mesh.ufl_cell(), order)
+        # Pour le multiplicateur de Lagrange : Real element with one global degree of freedom
+        self.Re = fe.VectorElement("R", self.rve.mesh.ufl_cell(), 0)
+        self.M = fe.FunctionSpace(
+            self.rve.mesh,
+            fe.MixedElement([self.Ve, self.Re]),
+            constrained_domain=self.pbc
+            )
         
         # Define variational problem
-        self.u = fe.TrialFunction(self.V)
-        self.v = fe.TestFunction(self.V)
+        self.v, self.lamb_ = fe.TestFunctions(self.M)
+        self.u, self.lamb = fe.TrialFunctions(self.M)
+        self.w = fe.Function(self.M)
 
         # bilinear form
-        self.a = fe.inner(self.rve.sigma(self.rve.epsilon(self.u)), self.rve.epsilon(self.v))*fe.dx
+        self.a = (fe.inner(
+                    self.rve.sigma(self.rve.epsilon(self.u)),
+                    self.rve.epsilon(self.v)
+                    ) * fe.dx
+                + fe.dot(self.lamb_, self.u)*fe.dx
+                + fe.dot(self.lamb, self.v)*fe.dx)
         self.K = fe.assemble(self.a)
-        self.solver = fe.LUSolver(self.K)
-        self.solver.parameters["symmetric"] = True
+        #! self.solver = fe.LUSolver(self.K) #! Précédemment
+        self.solver = fe.KrylovSolver(self.K, method="cg")
+        # self.solver.parameters["symmetric"] = True #? Abandonné pour le moment
+        # self.solver.parameters["linear_solver"] = "cg" #! Erreur si imposé comme cela.
+        # print("Solver parameters : ")
+        # fe.info(self.solver.parameters, True)
 
         # Areas
         self.one = fe.interpolate(fe.Constant(1),self.X)
@@ -398,21 +415,22 @@ class Fenics2DHomogenization(object):
             print('load '+ str(i))
             L = fe.dot(Fload[i], self.v) * fe.dx + fe.inner(-self.rve.sigma(Epsilon0[i]), self.rve.epsilon(self.v)) * fe.dx
         
-            u_s = fe.Function(self.V)
+            # u_s = fe.Function(self.V)
             res = fe.assemble(L)
             # self.bc.apply(res) #TODO à tester. Pas nécessaire pour le moment, la ligne # K,res = fe.assemble_system(self.a,L,self.bc) était commentée.
             # self.solver.solve(K, u_s.vector(), res) #* Previous method
-            self.solver.solve(u_s.vector(), res)
+            self.solver.solve(self.w.vector(), res)
             #* More info : https://fenicsproject.org/docs/dolfin/1.5.0/python/programmers-reference/cpp/la/PETScLUSolver.html
 
-            u_av = [fe.assemble(u_s[k]*fe.dx)/self.rve.mat_area for k in range(d) ]
-        
-            u_av = fe.interpolate(fe.Constant(u_av), self.V)
+            (u_s, lamb) = fe.split(self.w)
+            # Not need anymore.
+            # u_av = [fe.assemble(u_s[k]*fe.dx)/self.rve.mat_area for k in range(d) ]
+            # u_av = fe.interpolate(fe.Constant(u_av), self.V)
+            # u_s = fe.project(u_s - u_av,self.V)
+            # # u_s = u_s - u_av
             
-            u_s = fe.project(u_s - u_av,self.V)
-            # u_s = u_s - u_av
-    
-            U2 = U2 + [u_s]
+            self.u_s = fe.project(u_s, self.V) #? Pas un autre moyen de le faire ?
+            U2 = U2 + [self.u_s]
             E2 = E2 + [fe.project(self.rve.epsilon(u_s) + Epsilon0[i],self.W)]
             S2 = S2 + [fe.project(self.rve.sigma(E2[i]),self.W)]
             # e2 = fe.Function(self.W)
@@ -423,7 +441,7 @@ class Fenics2DHomogenization(object):
             # s2.assign(self.RVE.sigma(E2[i]))
             # S2 = S2 + [s2]
  
-        return U2,S2,E2
+        return U2, S2, E2
     
     def anyOrderAuxiliaryProblem(self,order = 1):
         
@@ -485,3 +503,87 @@ class Fenics2DHomogenization(object):
             Epsilon0 = Epsilon0 + [fe.as_vector((fe.interpolate(fe.Constant(0.),self.X), U[i][1], U[i][0]/fe.sqrt(2)))]
         
         return Epsilon0
+
+if __name__ == "__main__":
+    import os
+    import site
+    CUR_DIR = os.path.dirname(os.path.realpath(__file__))
+    site.addsitedir(CUR_DIR)
+    #Pour que seulement ce qui est indiqué dans le .pth soit importable et non l'intégralité de ce dossier:
+    #site.addpackage(CUR_DIR, '.pth', set())
+    import mesh_generate_2D
+    import materials
+    import part
+    import geometry
+    import matplotlib.pyplot as plt
+    from pathlib import Path
+
+    geometry.init_geo_tools()
+
+    logger_root = logging.getLogger()
+    logger_root.setLevel(logging.INFO)
+    formatter =logging.Formatter('%(asctime)s :: %(levelname)s :: %(name)s :: %(message)s',"%Y-%m-%d %H:%M:%S")
+    log_path = Path.home().joinpath('Desktop/activity.log')
+    file_handler = RotatingFileHandler(str(log_path), 'a', 1000000, 10)
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(formatter)
+    logger_root.addHandler(file_handler) #Pour écriture d'un fichier log
+    formatter = logging.Formatter('%(asctime)s :: %(levelname)s :: %(message)s',"%H:%M")
+    stream_handler = logging.StreamHandler()
+    stream_handler.setLevel(logging.INFO)
+    stream_handler.setFormatter(formatter)
+    logger_root.addHandler(stream_handler)
+    
+    E_NAMES = ('E11','E22','E12')
+
+    def test_homogeneous_pantograph_cell():
+        """ Test élémentaire.
+        
+        Homogénéisation d'une cellule homogène, construite avec la géométrie du 'pantographe'.
+
+        """
+        logger.info("Test : Homogeneization of a homogeneous cell with a pantograph geometry. Order : EGG")
+        a = 1
+        b, k = a, a/3
+        junction_r = a/10
+        geo_model = mesh_generate_2D.Gmsh2DRVE.pantograph(a, b, k, 0.1, soft_mat=True, name='homogeneous_panto')
+        lc_ratio = 1/3
+        d_min_max = (2*junction_r, a)
+        geo_model.main_mesh_refinement(d_min_max, (lc_ratio*junction_r, lc_ratio*a), False)
+        geo_model.soft_mesh_refinement(d_min_max, (lc_ratio*junction_r, lc_ratio*a), False)
+        geo_model.mesh_generate()
+        
+        E, nu = 1., 0.3
+        subdo_tags = tuple([subdo.tag for subdo in geo_model.phy_surf])
+        material_dict = dict()
+        for tag in subdo_tags:
+            material_dict[tag] = materials.Material(E, nu, 'cp')
+        
+        rve = part.Fenics2DRVE.gmsh_2_Fenics_2DRVE(geo_model, material_dict,plots=False)
+        hom_model = Fenics2DHomogenization(rve)
+        results = hom_model.homogenizationScheme('E')
+        localization_u, localization_sigma, localization_eps, constitutive_tens_dict = results
+        print(constitutive_tens_dict['E']['E'])
+        #* >> [[ 1.0989  0.3297 -0.    ]
+        #*     [ 0.3297  1.0989 -0.    ]
+        #*     [-0.     -0.      0.7692]]
+
+
+        # print(constitutive_tens_dict['EG']['EG'])
+
+        loc_E_u_file = fe.XDMFFile("homogeneous_cell_loc_E_u.xdmf")
+        loc_E_u_file.parameters["flush_output"] = False
+        loc_E_u_file.parameters["functions_share_mesh"] = True
+        for field, E_name in zip(localization_u['E'], E_NAMES):
+            print(localization_u['E'])
+            print(type(localization_u['E']))
+            print(type(localization_u['E'][0]))
+            field.rename(f"loc_{E_name}_u", f"localization of displacement for {E_name}, homogeneous cell")
+            loc_E_u_file.write(field, 0.)
+        plt.figure()
+        fe.plot(fe.project(0.1*localization_u['E'][2],hom_model.V), mode='displacement')
+        plt.savefig("homogeneous_cell_loc_E12_u.pdf")
+        return hom_model, results
+    
+    hom_model, results = test_homogeneous_pantograph_cell()
+    plt.show()
