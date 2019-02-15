@@ -5,9 +5,7 @@ Created on Wed Apr 18 13:39:42 2018
 """
 
 
-import copy
 import math
-import matplotlib.pyplot as plt
 import numpy as np
 import warnings
 import dolfin as fe
