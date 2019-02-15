@@ -12,18 +12,16 @@ import copy
 import logging
 import math
 import os
-from pathlib import Path
 from logging.handlers import RotatingFileHandler
-from more_itertools import flatten, one
+from pathlib import Path
+from subprocess import run
 
 import numpy as np
-
-import gmsh
+from more_itertools import flatten, one
 
 import geometry as geo
+import gmsh
 import mesh_tools as msh
-
-from subprocess import run
 
 #TODO : placer un asarray dans la def de __init__ pour Point
 

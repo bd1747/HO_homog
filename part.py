@@ -5,31 +5,15 @@ Created on 17/11/2018
 
 """
 
-import copy
 import logging
-import math
-import os
 from logging.handlers import RotatingFileHandler
-from more_itertools import flatten, one
-
 import matplotlib.pyplot as plt
 import numpy as np
 import toolbox_FEniCS as fetools
 import dolfin as fe
-import gmsh
-
-import geometry as geo
 import materials as mat
-import mesh_tools as msh
-
 from subprocess import run
 from pathlib import Path
-
-#TODO : placer un asarray dans la def de __init__ pour Point
-
-# nice shortcuts
-model = gmsh.model
-factory = model.occ
 
 plt.ioff()
 
@@ -181,7 +165,8 @@ class Fenics2DRVE(FenicsPart):
         return Fenics2DRVE(mesh, generating_vectors, material_dict, subdomains, facets)
 
 if __name__ == "__main__":
-    geo.init_geo_tools()
+    pass
+    # geo.init_geo_tools()
 
     # a = 1
     # b, k = a, a/3
@@ -217,8 +202,8 @@ if __name__ == "__main__":
     # os.system(f"gmsh {beam_panto_test.name}.msh &")
 
 
-    gmsh.option.setNumber('Mesh.SurfaceFaces',1) #Display faces of surface mesh?
-    gmsh.fltk.run()
+    # gmsh.option.setNumber('Mesh.SurfaceFaces',1) #Display faces of surface mesh?
+    # gmsh.fltk.run()
 
 # msh.set_background_mesh(field)
 

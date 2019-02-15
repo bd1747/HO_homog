@@ -1,7 +1,5 @@
 # coding: utf-8
 
-import copy
-
 import dolfin as fe
 import numpy as np
 import logging

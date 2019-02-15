@@ -11,12 +11,8 @@ Deux fonctionnalités :
         - Maillage "périodique" : identique sur les parties du bords du RVE en vis à vis.
 """
 
-import copy
 import logging
-import os
 
-import matplotlib.cm as pltcm
-import matplotlib.pyplot as plt
 import numpy as np
 
 import geometry as geo
@@ -24,7 +20,6 @@ import gmsh
 
 # nice shortcuts
 model = gmsh.model
-factory = model.occ
 api_field = model.mesh.field
 
 logger = logging.getLogger(__name__) #http://sametmax.com/ecrire-des-logs-en-python/

@@ -14,7 +14,6 @@ import copy
 import logging
 from logging.handlers import RotatingFileHandler
 import math
-import operator
 import os
 import sys
 import warnings
