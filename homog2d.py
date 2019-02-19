@@ -126,9 +126,10 @@ class Fenics2DHomogenization(object):
                 + fe.dot(self.lamb, self.v)*fe.dx)
         self.K = fe.assemble(self.a)
         #! self.solver = fe.LUSolver(self.K) #! Précédemment
-        self.solver = fe.KrylovSolver(self.K, method="cg")
-        # self.solver.parameters["symmetric"] = True #? Abandonné pour le moment
-        # self.solver.parameters["linear_solver"] = "cg" #! Erreur si imposé comme cela.
+        #! Utilisé pour les études de convergence mais pas le plus approprié selon Jérémy
+        #! self.solver = fe.KrylovSolver(self.K, method="cg")
+        self.solver = fe.LUSolver(self.K, "mumps")
+        self.solver.parameters["symmetric"] = True
         # print("Solver parameters : ")
         # fe.info(self.solver.parameters, True)
 
