@@ -411,7 +411,7 @@ class Fenics2DHomogenization(object):
         S2 = []
         E2 = []
         for i in range(len(Fload)):
-            print('load '+ str(i))
+            logger.info("Progression : load %i / %i", i+1, len(Fload))
             L = fe.dot(Fload[i], self.v) * fe.dx + fe.inner(-self.rve.sigma(Epsilon0[i]), self.rve.epsilon(self.v)) * fe.dx
         
             # u_s = fe.Function(self.V)
