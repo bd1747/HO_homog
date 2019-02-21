@@ -41,7 +41,7 @@ if __name__ == "__main__":
 
 geo.set_gmsh_option("General.Verbosity", 2)
 
-fe.set_log_level(16)
+fe.set_log_level(20)
 #* CRITICAL  = 50, // errors that may lead to data corruption and suchlike
 #* ERROR     = 40, // things that go boom
 #* WARNING   = 30, // things that may go boom later

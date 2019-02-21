@@ -27,11 +27,11 @@ try:
     import gmsh
 except ModuleNotFoundError:
     warnings.warn("Gmsh API not found. The path to the folder that contains gmsh.py indicated in geometry.py will be add to the PYTHONPATH, then another import attempt will be done.", UserWarning)
-    sys.path.insert(0,'/usr/lib/gmsh-4.0.6-Linux64-sdk/lib')
+    sys.path.insert(0,'/usr/lib/gmsh-sdk/lib')
     import gmsh
 
 logger = logging.getLogger(__name__) #http://sametmax.com/ecrire-des-logs-en-python/
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 # nice shortcuts
 model = gmsh.model
@@ -43,6 +43,7 @@ warnings.simplefilter("always") #? Doc: https://docs.python.org/3.6/library/warn
 logger.info(f"gmsh module path {inspect.getfile(gmsh)}")
 logger.info(f"gmsh lib real path {os.path.dirname(os.path.realpath(gmsh.__file__))}")
 
+#TODO : placer un asarray dans la def de __init__ pour Point
 
 
 #TODO : docstring à faire
@@ -150,7 +151,7 @@ def init_geo_tools():
     set_gmsh_option("Mesh.Binary", 0)
     set_gmsh_option('Mesh.MshFileVersion', 2.2)
     set_gmsh_option('Mesh.Algorithm', 1) #* 2D mesh algorithm (1=MeshAdapt, 2=Automatic,...)
-
+    logger.info("Gmsh SDK version : %s", gmsh.option.getString("General.Version"))
 
 def reset():
     """Throw out all information about the created geometry."""
