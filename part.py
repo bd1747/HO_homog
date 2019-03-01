@@ -22,7 +22,105 @@ logger.setLevel(logging.INFO)
 
 
 class FenicsPart(object):
-    pass
+    """
+    Contrat : Créer un couple maillage + matériaux pour des géométries 2D, planes.
+    """
+    def __init__(self, mesh, part_vectors, material_dict, subdomains, facet_regions):
+        """
+        Parameters
+        ----------
+        subdomains : dolfin.MeshFunction
+            Indicates the subdomains that have been defined in the mesh.
+        #! L'ordre des facet function à probablement de l'importance pour la suite des opérations
+        """
+        self.mesh = mesh
+        self.gen_vect = part_vectors
+        self.rve_area = np.linalg.det(self.gen_vect)
+        self.mat_area = fe.assemble(fe.Constant(1)*fe.dx(mesh))
+        self.mesh_dim = mesh.topology().dim() #dimension d'espace de depart
+        self.materials = material_dict
+        self.subdomains = subdomains
+        self.facet_regions = facet_regions
+    
+        self.C_per = mat.mat_per_subdomains(self.subdomains, self.materials, self.mesh_dim)
+    #! A REGARDER !
+    def epsilon(self,u):
+        return mat.epsilon(u)
+    def sigma(self,eps):
+        return mat.sigma(self.C_per, eps)
+    def StrainCrossEnergy(self, sig, eps):
+        return mat.strain_cross_energy(sig, eps, self.mesh, self.rve_area)
+
+    @staticmethod
+    def file_2_FenicsPart(mesh_path, part_vectors, material_dict, subdomains_import=False, plots=True):
+        """Generate an instance of Fenics2DRVE from a .xml or .msh file that contains the mesh.
+
+        Parameters
+        ----------
+        mesh_path : string or Path
+            Relative or absolute path to the mesh file (format Dolfin XML or MSH version 2)
+        generating_vectors : 2D-array
+            dimensions of the RVE
+        material_dict : dictionnary
+            [description] #TODO : à compléter
+        subdomains_import : bool
+            Import subdomains data ?
+        plots : bool, optional
+            If True (default) the physical regions and the facet regions are plotted at the end of the import.
+
+        Returns
+        -------
+        Fenics2DRVE instance
+
+        """
+        if not isinstance(mesh_path, Path):
+            mesh_path = Path(mesh_path)
+        name = mesh_path.stem
+
+        if mesh_path.suffix != '.xml':
+            cmd = (
+                "dolfin-convert "
+                + mesh_path.as_posix()
+                + ' '
+                + mesh_path.with_suffix('.xml').as_posix()
+                )
+            run(cmd, shell=True, check=True)
+            mesh_path = mesh_path.with_suffix('.xml')
+
+        mesh = fe.Mesh(mesh_path.as_posix())
+        if subdomains_import:
+            subdo_path = mesh_path.with_name(name+'_physical_region.xml')
+            facet_path = mesh_path.with_name(name+'_facet_region.xml')
+            if subdo_path.exists():
+                subdomains = fe.MeshFunction('size_t', mesh, subdo_path.as_posix())
+            else:
+                logger.info(f"For mesh file {mesh_path.name}, _physical_region.xml file is missing.")
+                subdomains = None
+            if facet_path.exists():
+                facets = fe.MeshFunction('size_t', mesh, facet_path.as_posix())
+            else:
+                logger.info(f"For mesh file {mesh_path.name}, _facet_region.xml file is missing.")
+                facets = None
+            subdo_val = fetools.get_MeshFunction_val(subdomains)
+            facets_val = fetools.get_MeshFunction_val(facets)
+            logger.info(f'{subdo_val[0]} physical regions imported. The values of their tags are : {subdo_val[1]}')
+            logger.info(f'{facets_val[0]} facet regions imported. The values of their tags are : {facets_val[1]}')
+        else:
+            subdomains = None
+            facets = None
+        
+        if plots:
+            plt.figure()
+            subdo_plt = fe.plot(subdomains)
+            plt.colorbar(subdo_plt)
+            plt.figure()
+            cmap = plt.cm.get_cmap('viridis', max(facets_val[1])-min(facets_val[1]))
+            facets_plt = fetools.facet_plot2d(facets, mesh, cmap=cmap)
+            plt.colorbar(facets_plt[0])
+            plt.draw()
+        logger.info(f'Import of the mesh : DONE')
+        
+        return FenicsPart(mesh, part_vectors, material_dict, subdomains, facets)
 
 class Fenics2DRVE(FenicsPart):
     """
