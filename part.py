@@ -52,7 +52,7 @@ class FenicsPart(object):
         return mat.strain_cross_energy(sig, eps, self.mesh, self.rve_area)
 
     @staticmethod
-    def file_2_FenicsPart(mesh_path, part_vectors, material_dict, subdomains_import=False, plots=True):
+    def file_2_FenicsPart(mesh_path, part_vectors, material_dict, subdomains_import=False, plots=True, explicit_subdo_val=1):
         """Generate an instance of Fenics2DRVE from a .xml or .msh file that contains the mesh.
 
         Parameters
@@ -106,7 +106,8 @@ class FenicsPart(object):
             logger.info(f'{subdo_val[0]} physical regions imported. The values of their tags are : {subdo_val[1]}')
             logger.info(f'{facets_val[0]} facet regions imported. The values of their tags are : {facets_val[1]}')
         else:
-            subdomains = None
+            subdomains = fe.MeshFunction('size_t', mesh, mesh.topology().dim())
+            subdomains.set_all(explicit_subdo_val)
             facets = None
         
         if plots:
