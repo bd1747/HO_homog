@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# coding: utf8
 """
 Created on 17/11/2018
 @author: baptiste
