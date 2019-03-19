@@ -287,8 +287,8 @@ class Gmsh2DRVE(object):
         gmsh.model.mesh.removeDuplicateNodes()
         geo.PhysicalGroup.set_group_visibility(False)
         if directory:
-            mesh_path = directory if not directory.suffix() else directory.with_suffix('')
-            if not mesh_path.exist:
+            mesh_path = directory if not directory.suffix else directory.with_suffix('')
+            if not mesh_path.exists():
                 mesh_path.mkdir(mode=0o777, parents=True)
         else:
             mesh_path = Path.cwd()
