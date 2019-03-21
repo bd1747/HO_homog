@@ -15,7 +15,7 @@ import logging
 
 import numpy as np
 
-import geometry as geo
+import ho_homog.geometry as geo
 import gmsh
 
 # nice shortcuts

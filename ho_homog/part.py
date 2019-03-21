@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import toolbox_FEniCS as fetools
 import dolfin as fe
-import materials as mat
+import ho_homog.materials as mat
 from subprocess import run
 from pathlib import Path
 

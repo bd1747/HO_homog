@@ -19,9 +19,9 @@ from subprocess import run
 import numpy as np
 from more_itertools import flatten, one
 
-import geometry as geo
+import ho_homog.geometry as geo
 import gmsh
-import mesh_tools as msh
+import ho_homog.mesh_tools as msh
 
 #TODO : placer un asarray dans la def de __init__ pour Point
 

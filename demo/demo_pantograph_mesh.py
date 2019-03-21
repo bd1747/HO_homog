@@ -5,8 +5,8 @@ Created on 07/11/2018
 
 """
 
-import geometry as geo
-import mesh_tools as msh
+import hohomog.geometry as geo
+import hohomog.mesh_tools as msh
 import numpy as np
 import logging
 from logging.handlers import RotatingFileHandler
