@@ -14,7 +14,7 @@ The current stable release of the **HO_homog** Python library can be downloaded 
 
 ### Prerequisites
 
-Before using the **HO_homog** tools, FEniCS and the gmsh Python API must be installed.
+Before using the **HO_homog** tools FEniCS and `pip` (or setuptools) must be installed.
 
 #### FEniCS
 
@@ -29,24 +29,33 @@ sudo apt-get install --no-install-recommends fenics
 
 For more information about installation or instructions for other platforms see the [fenicsproject website](https://fenicsproject.org/download/) and the [FEniCS reference manual](https://fenics.readthedocs.io/en/latest/installation.html#debian-ubuntu-packages).
 
-#### Gmsh
 
-The python API of gmsh is part of the gmsh Software Development Kit (SDK).
-The exectuble releases of the Gmsh SDK can be download from the [Gmsh website](http://gmsh.info/).
+#### Virtual Environment
+Using a virtual environment for Python projects is recommended. **HO_homog** and Gmsh can be installed inside a virtual environment but FEniCS cannot.
 
-Alternatively, the python API of gmsh can be downloaded and installed via a `pip` command thanks to the [gmsh-sdk package](https://github.com/mrkwjc/gmsh-sdk) created by [Marek Wojciechowski](https://github.com/mrkwjc).
-See the [project description](https://pypi.org/project/gmsh-sdk/) for more information about gmsh-sdk.
-
-Installing the executable Gmsh as well is not necessary.
-
-Please note that the gmsh SDK library must be accessible by Python.
-On an Ubuntu platform, if you run Python via a Terminal you can complete the PYTHONPATH by means of a `.bashrc` file. It should be placed in your home directory `~/` and should contain a command similar to this one :
-
+Make a new virtual environment :
 ```bash
-export PYTHONPATH=$PYTHONPATH:/usr/lib/gmsh-4.0.6-Linux64-sdk/lib
+python3 -m venv /path/to/project/project_name
 ```
+Then activate it :
+```bash
+source /path/to/project/project_name/bin/activate
+```
+Now, the HO_homog package and its dependencies can be installed inside this virtual environment (see instructions below).
 
-Alternatively, you can explicitely indicate the path to `gmsh.py` in the **HO_homog** library. To do that, you can use the following command of the `geometry.py` file : `sys.path.insert(0,'/usr/lib/gmsh-4.0.6-Linux64-sdk/lib')`
+Supposing FEniCS has been already installed on the system, the settings of the virtual environment can be modified to make it accessible. In `/path/to/project/project_name/pyenv.cfg` : `include-system-site-packages = true`.
+
+### Installing
+The **HO_homog** Python package can be installed with `pip`.
+- Install it from the gitlab repository directly (preferred way):
+```bash
+pip install git+https://baptiste.durand@gitlab.enpc.fr/baptiste.durand/HO_homog.git#egg=ho_homog
+```
+- Or [download](https://gitlab.enpc.fr/baptiste.durand/HO_homog/repository/archive.tar?ref=master) the HO_homog repository files. Then, move to the HO_homog directory and use `pip` : 
+```bash
+ pip3 install . --no-cache-dir
+
+```
 
 <!--
 ## Getting Started
@@ -146,8 +155,10 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 * Inspiration
 * etc -->
 
+<!--
 ## Ressources pour la rédaction du fichier README
 
 - [Cheatsheet](https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet) for writing in markdown.
 - [Template](https://gist.github.com/PurpleBooth/109311bb0361f32d87a2) of a README<span></span>.md file.
 - [Examples](https://github.com/matiassingers/awesome-readme) of readme files.
+-->
