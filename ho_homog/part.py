@@ -9,7 +9,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 import matplotlib.pyplot as plt
 import numpy as np
-import toolbox_FEniCS as fetools
+import ho_homog.toolbox_FEniCS as fetools
 import dolfin as fe
 import ho_homog.materials as mat
 from subprocess import run

@@ -5,13 +5,13 @@ Created on 09/01/2019
 
 """
 
-import materials as mat
-import part
-import mesh_generate_2D
+from ho_homog import materials as mat
+from ho_homog import part
+from ho_homog import mesh_generate_2D
 import matplotlib.pyplot as plt
-import homog2d as hom
+from ho_homog import homog2d as hom
 import dolfin as fe
-import geometry as geo
+from ho_homog import geometry as geo
 from pathlib import Path
 import numpy as np
 import logging
