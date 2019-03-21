@@ -54,7 +54,6 @@ pip install git+https://baptiste.durand@gitlab.enpc.fr/baptiste.durand/HO_homog.
 - Or [download](https://gitlab.enpc.fr/baptiste.durand/HO_homog/repository/archive.tar?ref=master) the HO_homog repository files. Then, move to the HO_homog directory and use `pip` : 
 ```bash
  pip3 install . --no-cache-dir
-
 ```
 
 <!--
