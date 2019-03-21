@@ -50,7 +50,7 @@ The **HO_homog** Python package can be installed with `pip`.
 - Install it from the gitlab repository directly (preferred way):
 
 ```bash
-pip install git+https://baptiste.durand@gitlab.enpc.fr/baptiste.durand/HO_homog.git#egg=ho_homog
+pip3 install git+https://baptiste.durand@gitlab.enpc.fr/baptiste.durand/HO_homog.git#egg=ho_homog
 ```
 
 - Or [download](https://gitlab.enpc.fr/baptiste.durand/HO_homog/repository/archive.tar?ref=master) the HO_homog repository files. Then, move to the HO_homog directory and use `pip` : 
