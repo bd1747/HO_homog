@@ -18,7 +18,6 @@ from pathlib import Path
 plt.ioff()
 
 logger = logging.getLogger(__name__) #http://sametmax.com/ecrire-des-logs-en-python/
-logger.setLevel(logging.INFO)
 
 
 class FenicsPart(object):

@@ -25,7 +25,7 @@ import numpy as np
 
 logger = logging.getLogger(__name__) #http://sametmax.com/ecrire-des-logs-en-python/
 
-bndry_logger = logging.getLogger("bndry") #http://sametmax.com/ecrire-des-logs-en-python/
+bndry_logger = logging.getLogger(__name__+".bndry") #http://sametmax.com/ecrire-des-logs-en-python/
 bndry_logger.setLevel(logging.DEBUG)
 # nice shortcuts
 model = gmsh.model

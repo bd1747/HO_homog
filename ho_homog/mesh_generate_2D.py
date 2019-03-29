@@ -31,7 +31,6 @@ factory = model.occ
 
 
 logger = logging.getLogger(__name__)#http://sametmax.com/ecrire-des-logs-en-python/
-logger.setLevel(logging.INFO)
 
 
 def duplicate_pattern(cell_ll, nb_cells, gen_vect):

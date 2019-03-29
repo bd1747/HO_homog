@@ -14,8 +14,6 @@ import logging
 from logging.handlers import RotatingFileHandler
 
 logger = logging.getLogger(__name__)
-#http://sametmax.com/ecrire-des-logs-en-python/
-logger.setLevel(logging.DEBUG)
 
 PLANE_IDX = np.array([0, 1, 5])
 

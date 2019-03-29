@@ -15,9 +15,6 @@ np.set_printoptions(suppress = True)
 GEO_TOLERANCE = 1e-12
 
 logger = logging.getLogger(__name__)
-#http://sametmax.com/ecrire-des-logs-en-python/
-logger.setLevel(logging.DEBUG)
-
 
 logging.getLogger('UFL').setLevel(logging.DEBUG)
 logging.getLogger('FFC').setLevel(logging.DEBUG)

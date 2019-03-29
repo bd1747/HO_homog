@@ -22,8 +22,7 @@ import gmsh
 model = gmsh.model
 api_field = model.mesh.field
 
-logger = logging.getLogger(__name__) #http://sametmax.com/ecrire-des-logs-en-python/
-logger.setLevel(logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 class Field(object):
     """
