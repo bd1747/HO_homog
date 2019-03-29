@@ -25,6 +25,8 @@ import numpy as np
 
 logger = logging.getLogger(__name__) #http://sametmax.com/ecrire-des-logs-en-python/
 
+bndry_logger = logging.getLogger("bndry") #http://sametmax.com/ecrire-des-logs-en-python/
+bndry_logger.setLevel(logging.DEBUG)
 # nice shortcuts
 model = gmsh.model
 factory = model.occ
@@ -145,8 +147,13 @@ def init_geo_tools():
     logger.info("Gmsh SDK version : %s", gmsh.option.getString("General.Version"))
 
 def reset():
-    """Throw out all information about the created geometry."""
+    """Throw out all information about the created geometry and remove all gmsh models."""
     PhysicalGroup.all_groups = dict()
+    models = model.list()
+    for model_ in models:
+        model.setCurrent(model_)
+        model.remove()
+
 
 class Point(object):
     """Classe définissant un point caractérisée par :
@@ -405,8 +412,10 @@ class AbstractCurve(Curve):
             If true, les coordonnées des points extrémités sont aussi récupérés.
         
         """
+        bndry_logger.debug(f"Abstract Curve -> get_boundary. self.tag : {self.tag}")
         def_pts = []
         boundary = model.getBoundary((1, self.tag), False, False, False)
+        bndry_logger.debug(f"Abstract Curve -> get_boundary. raw API return : {boundary}")
         for pt_dimtag in boundary:
             if not pt_dimtag[0] == 0:
                 raise TypeError("The boundary of the geometrical entity %i are not points." %self.tag)
