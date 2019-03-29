@@ -12,26 +12,18 @@ sources :
 
 import copy
 import logging
-from logging.handlers import RotatingFileHandler
 import math
 import os
+from pathlib import Path
 import sys
 import warnings
-import inspect
+from logging.handlers import RotatingFileHandler
 
-import matplotlib.patches
+import gmsh
 import matplotlib.pyplot as plt
 import numpy as np
 
-try:
-    import gmsh
-except ModuleNotFoundError:
-    warnings.warn("Gmsh API not found. The path to the folder that contains gmsh.py indicated in geometry.py will be add to the PYTHONPATH, then another import attempt will be done.", UserWarning)
-    sys.path.insert(0,'/usr/lib/gmsh-sdk/lib')
-    import gmsh
-
 logger = logging.getLogger(__name__) #http://sametmax.com/ecrire-des-logs-en-python/
-logger.setLevel(logging.INFO)
 
 # nice shortcuts
 model = gmsh.model
@@ -40,8 +32,7 @@ factory = model.occ
 warnings.simplefilter("always") #? Doc: https://docs.python.org/3.6/library/warnings.html
 
 #info about gmsh module
-logger.info(f"gmsh module path {inspect.getfile(gmsh)}")
-logger.info(f"gmsh lib real path {os.path.dirname(os.path.realpath(gmsh.__file__))}")
+logger.info(f"gmsh module path : {Path(gmsh.__file__).resolve()}")
 
 #TODO : placer un asarray dans la def de __init__ pour Point
 

@@ -15,11 +15,7 @@ import copy
 import logging
 from logging.handlers import RotatingFileHandler
 
-try:
-    import gmsh
-except ModuleNotFoundError:
-    sys.path.insert(0,'/usr/lib/gmsh-4.0.6-Linux64-sdk/lib')
-    import gmsh
+import gmsh
 
 # nice shortcuts
 model = gmsh.model
