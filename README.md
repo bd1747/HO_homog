@@ -154,7 +154,7 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 ## Acknowledgments
 
 The authors acknowledge the support of the French Agence Nationale de la Recherche (ANR), under grant ANR-17-CE08-0039 ([project ArchiMatHOS](http://www.agence-nationale-recherche.fr/Projet-ANR-17-CE08-0039)).
-![ArchiMATHOS logo](img/ArchiMATHOS_ANR.png)
+<img src="/img/ArchiMATHOS_ANR.png" height="250">
 
 
 <!--
