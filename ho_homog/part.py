@@ -6,7 +6,6 @@ Created on 17/11/2018
 """
 
 import logging
-from logging.handlers import RotatingFileHandler
 import matplotlib.pyplot as plt
 import numpy as np
 import ho_homog.toolbox_FEniCS as fetools

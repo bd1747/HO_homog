@@ -3,7 +3,6 @@
 import dolfin as fe
 import numpy as np
 import logging
-from logging.handlers import RotatingFileHandler
 
 np.set_printoptions(precision=4,linewidth=150)
 np.set_printoptions(suppress = True)

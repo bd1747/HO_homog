@@ -17,7 +17,6 @@ import os
 from pathlib import Path
 import sys
 import warnings
-from logging.handlers import RotatingFileHandler
 
 import gmsh
 import matplotlib.pyplot as plt

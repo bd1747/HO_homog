@@ -5,13 +5,12 @@ Created on Wed Apr 18 13:39:42 2018
 """
 
 
-import math
-import numpy as np
-import warnings
-import dolfin as fe
-
 import logging
-from logging.handlers import RotatingFileHandler
+import math
+import warnings
+
+import dolfin as fe
+import numpy as np
 
 logger = logging.getLogger(__name__)
 

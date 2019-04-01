@@ -12,15 +12,14 @@ import copy
 import logging
 import math
 import os
-from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from subprocess import run
 
+import gmsh
 import numpy as np
 from more_itertools import flatten, one
 
 import ho_homog.geometry as geo
-import gmsh
 import ho_homog.mesh_tools as msh
 
 #TODO : placer un asarray dans la def de __init__ pour Point
