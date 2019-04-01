@@ -151,11 +151,11 @@ See also the list of [contributors](https://github.com/your/project/contributors
 
 This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details -->
 
-<!-- ## Acknowledgments
+## Acknowledgments
 
-* Hat tip to anyone whose code was used
-* Inspiration
-* etc -->
+The authors acknowledge the support of the French Agence Nationale de la Recherche (ANR), under grant ANR-17-CE08-0039 ([project ArchiMatHOS](http://www.agence-nationale-recherche.fr/Projet-ANR-17-CE08-0039)).
+![ArchiMATHOS logo](img/ArchiMATHOS_ANR.png)
+
 
 <!--
 ## Ressources pour la rédaction du fichier README
