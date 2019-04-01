@@ -18,7 +18,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 log_level = logging.DEBUG
-log_path = Path.home().joinpath('/ho_homog_log/activity.log')
+log_path = Path('~/ho_homog_log/activity.log')
 if not log_path.parent.exists():
     log_path.parent.mkdir(mode=0o777, parents=True)
 pckg_logger = logging.getLogger(__name__)
