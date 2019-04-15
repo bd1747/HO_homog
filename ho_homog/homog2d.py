@@ -11,7 +11,7 @@ np.set_printoptions(suppress = True)
     - implementer Stress gradient
 '''
 
-GEO_TOLERANCE = 1e-12
+GEO_TOLERANCE = ho_homog.GEO_TOLERANCE
 
 logger = logging.getLogger(__name__)
 

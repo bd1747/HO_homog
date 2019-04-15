@@ -17,8 +17,10 @@ import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+GEO_TOLERANCE = 1e-12
+
 log_level = logging.DEBUG
-log_path = Path('~/ho_homog_log/activity.log')
+log_path = Path('~/ho_homog_log/activity.log').expanduser()
 if not log_path.parent.exists():
     log_path.parent.mkdir(mode=0o777, parents=True)
 pckg_logger = logging.getLogger(__name__)
@@ -43,4 +45,4 @@ def set_log_path(path):
 
 set_log_handlers(log_level, log_path)
 
-__all__ = ["geometry", "homog2d", "materials", "mesh_generate_2D", "mesh_tools", "part", "toolbox_FEniCS", "set_log_path","set_log_handlers","log_level","log_path"]
+__all__ = ["geometry", "homog2d", "materials", "mesh_generate_2D", "mesh_tools", "part", "toolbox_FEniCS", "set_log_path","set_log_handlers","log_level","log_path","GEO_TOLERANCE"]
