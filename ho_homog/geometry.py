@@ -167,6 +167,7 @@ class Point(object):
 
     def __init__(self, coord=np.array((0., 0.)), mesh_size=0):
         """Constructeur de notre classe. Coordonnées importéées sous forme d'un np.array"""
+        coord = np.asarray(coord) #*existing arrays are not copied
         dim = coord.shape[0]
         self.coord = coord
         if dim == 2:
