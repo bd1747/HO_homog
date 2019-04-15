@@ -23,43 +23,57 @@ class FenicsPart(object):
     """
     Contrat : Créer un couple maillage + matériaux pour des géométries 2D, planes.
     """
-    def __init__(self, mesh, part_vectors, material_dict, subdomains, facet_regions):
+    def __init__(self, mesh, materials, subdomains, global_dimensions=None, facet_regions=None):
         """
         Parameters
         ----------
         subdomains : dolfin.MeshFunction
             Indicates the subdomains that have been defined in the mesh.
-        #! L'ordre des facet function à probablement de l'importance pour la suite des opérations
         """
         self.mesh = mesh
-        self.gen_vect = part_vectors
-        self.rve_area = np.linalg.det(self.gen_vect)
-        self.mat_area = fe.assemble(fe.Constant(1)*fe.dx(mesh))
-        self.mesh_dim = mesh.topology().dim() #dimension d'espace de depart
-        self.materials = material_dict
+        self.dim = mesh.topology().dim() #dimension d'espace de depart
+        self.materials = materials
         self.subdomains = subdomains
+        self.global_dimensions = global_dimensions
         self.facet_regions = facet_regions
-    
-        self.C_per = mat.mat_per_subdomains(self.subdomains, self.materials, self.mesh_dim)
-    #! A REGARDER !
-    def epsilon(self,u):
+        if isinstance(materials, mat.Material):
+            self.elasticity_tensor = fe.as_matrix(materials.get_C())
+        elif isinstance(materials, dict):
+            self.elasticity_tensor = mat.mat_per_subdomains(
+                self.subdomains, self.materials, self.dim)
+        else:
+            raise TypeError("materials parameter must be an instance of Material or a dictionnary that contains Material instances.")
+    def epsilon(self, u):
         return mat.epsilon(u)
-    def sigma(self,eps):
-        return mat.sigma(self.C_per, eps)
-    def StrainCrossEnergy(self, sig, eps):
-        return mat.strain_cross_energy(sig, eps, self.mesh, self.rve_area)
+
+    def sigma(self, eps):
+        return mat.sigma(self.elasticity_tensor, eps)
+
+    def mat_area(self):
+        try:
+            return self._mat_area
+        except AttributeError:
+            self._mat_area = fe.assemble(fe.Constant(1)*fe.dx(self.mesh))
+            return self._mat_area
+
+    def global_area(self):
+        if not self.global_dimensions is None:
+            return np.linalg.det(self.global_dimensions)
+        else:
+            raise AttributeError(f"global_size information is lacking for FenicsPart {self}.")
 
     @staticmethod
-    def file_2_FenicsPart(mesh_path, part_vectors, material_dict, subdomains_import=False, plots=True, explicit_subdo_val=1):
-        """Generate an instance of Fenics2DRVE from a .xml or .msh file that contains the mesh.
+    def file_2_FenicsPart(mesh_path, materials, global_dimensions=None, subdomains_import=False, plots=True, explicit_subdo_val=0):
+        """Generate an instance of FenicsPart from a .xml or .msh file that contains the mesh.
 
         Parameters
         ----------
         mesh_path : string or Path
             Relative or absolute path to the mesh file (format Dolfin XML or MSH version 2)
-        generating_vectors : 2D-array
+        global_dimensions : 2D-array
+            shape : 2×2 if 2D problem
             dimensions of the RVE
-        material_dict : dictionnary
+        materials : dict or Material
             [description] #TODO : à compléter
         subdomains_import : bool
             Import subdomains data ?
@@ -68,41 +82,37 @@ class FenicsPart(object):
 
         Returns
         -------
-        Fenics2DRVE instance
+        FenicsPart instance
 
         """
         if not isinstance(mesh_path, Path):
             mesh_path = Path(mesh_path)
         name = mesh_path.stem
-
         if mesh_path.suffix != '.xml':
-            cmd = (
-                "dolfin-convert "
-                + mesh_path.as_posix()
-                + ' '
-                + mesh_path.with_suffix('.xml').as_posix()
-                )
+            cmd = (f"dolfin-convert {mesh_path} {mesh_path.with_suffix('.xml')}")
             run(cmd, shell=True, check=True)
             mesh_path = mesh_path.with_suffix('.xml')
 
-        mesh = fe.Mesh(mesh_path.as_posix())
+        mesh = fe.Mesh(str(mesh_path))
         if subdomains_import:
             subdo_path = mesh_path.with_name(name+'_physical_region.xml')
             facet_path = mesh_path.with_name(name+'_facet_region.xml')
             if subdo_path.exists():
-                subdomains = fe.MeshFunction('size_t', mesh, subdo_path.as_posix())
+                subdomains = fe.MeshFunction('size_t', mesh, str(subdo_path))
+                subdo_val = fetools.get_MeshFunction_val(subdomains)
+                logger.info(f"{subdo_val[0]} physical regions imported.")
+                logger.info(f"The values of their tags are : {subdo_val[1]}")
             else:
                 logger.info(f"For mesh file {mesh_path.name}, _physical_region.xml file is missing.")
                 subdomains = None
             if facet_path.exists():
-                facets = fe.MeshFunction('size_t', mesh, facet_path.as_posix())
+                facets = fe.MeshFunction('size_t', mesh, str(facet_path))
+                facets_val = fetools.get_MeshFunction_val(facets)
+                logger.info(f"{facets_val[0]} facet regions imported.")
+                logger.info(f"The values of their tags are : {facets_val[1]}")
             else:
                 logger.info(f"For mesh file {mesh_path.name}, _facet_region.xml file is missing.")
                 facets = None
-            subdo_val = fetools.get_MeshFunction_val(subdomains)
-            facets_val = fetools.get_MeshFunction_val(facets)
-            logger.info(f'{subdo_val[0]} physical regions imported. The values of their tags are : {subdo_val[1]}')
-            logger.info(f'{facets_val[0]} facet regions imported. The values of their tags are : {facets_val[1]}')
         else:
             subdomains = fe.MeshFunction('size_t', mesh, mesh.topology().dim())
             subdomains.set_all(explicit_subdo_val)
@@ -119,7 +129,7 @@ class FenicsPart(object):
             plt.draw()
         logger.info(f'Import of the mesh : DONE')
         
-        return FenicsPart(mesh, part_vectors, material_dict, subdomains, facets)
+        return FenicsPart(mesh, materials, subdomains, global_dimensions, facets)
 
 class Fenics2DRVE(FenicsPart):
     """
