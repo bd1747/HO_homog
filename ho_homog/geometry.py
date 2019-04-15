@@ -718,12 +718,14 @@ class AbstractSurface(object):
         """
         if not body.tag:
             body.add_gmsh()
-        if isinstance(tool, PlaneSurface):
-            tool = [tool]
-        assert isinstance(tool, list)
         if not tool: #* =True if empty list
             logger.warning(f"No entity in the tool list for boolean cut operation. The 'body' surface is returned.")
             return [body]
+        try:
+            _ = (element for element in tool)
+        except TypeError:
+                logger.debug("tool convert to list for boolean operation.")
+                tool = [tool]
         for t in tool:
             if not t.tag:
                 t.add_gmsh()
@@ -898,6 +900,11 @@ class PhysicalGroup(object):
             name of the group.
 
         """
+        try:
+            _ = (item for item in entities)
+        except TypeError:
+                logger.debug("Physical group single entity -> Input conversion to list")
+                entities = [entities]
         self.entities = entities
         self.dim = geo_dim
         self.name = name
