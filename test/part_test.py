@@ -276,7 +276,7 @@ def test_get_domains_gmsh(plots=False):
         group.add_gmsh()
     for group in boundaries.values():
         group.add_gmsh()
-    charact_field = ho_homog.mesh_tools.MathEvalField("0.1")
+    charact_field = ho_homog.mesh_tools.MathEvalField("0.05")
     ho_homog.mesh_tools.set_background_mesh(charact_field)
     geo.set_gmsh_option('Mesh.SaveAll', 0)
     model.mesh.generate(1)
@@ -285,8 +285,8 @@ def test_get_domains_gmsh(plots=False):
     gmsh.write(str(mesh_file))
     E_1, E_2, nu = 1, 3, 0.3
     materials = {
-        domains['soft'].tag: mat.Material(1, 0.3, 'cp'),
-        domains['stiff'].tag: mat.Material(1, 0.3, 'cp')
+        domains['soft'].tag: mat.Material(E_1, nu, 'cp'),
+        domains['stiff'].tag: mat.Material(E_1, nu, 'cp')
     }
     test_part = part.FenicsPart.file_2_FenicsPart(
         str(mesh_file), materials, subdomains_import=True)
@@ -337,5 +337,34 @@ def test_get_domains_gmsh(plots=False):
         plt.colorbar(plot)
         plt.show()
     error = fe.errornorm(strain, fe.Expression(("1","1","0"),degree=0),degree_rise=3, mesh=test_part.mesh)
-    assert error == approx(0,abs=5e-13)
+    assert error == approx(0,abs=1e-12)
+    
+    materials = {
+        domains['soft'].tag: mat.Material(E_1, nu, 'cp'),
+        domains['stiff'].tag: mat.Material(E_2, nu, 'cp')
+    }
+    test_part = part.FenicsPart.file_2_FenicsPart(
+        str(mesh_file), materials, subdomains_import=True)
+    V = fe.VectorFunctionSpace(test_part.mesh, elem_type, degree)
+    W = fe.FunctionSpace(
+        test_part.mesh,
+        fe.VectorElement(elem_type, test_part.mesh.ufl_cell(), degree, dim=3),
+    )
+    bcs = list()
+    for tag, val in boundary_conditions.items():
+        bcs.append(fe.DirichletBC(V, val, test_part.facet_regions, tag))
+    v = fe.TestFunctions(V)
+    u = fe.TrialFunctions(V)
+    F = fe.inner(
+            test_part.sigma(test_part.epsilon(u)),
+            test_part.epsilon(v)
+            ) * fe.dx
+    a, L = fe.lhs(F), fe.rhs(F)
+    u_sol = fe.Function(V)
+    fe.solve(a == L, u_sol, bcs)
+    strain = test_part.epsilon(u_sol)
+    stress = test_part.sigma(strain)
+    energy = 0.5 * fe.assemble(fe.inner(stress, strain) * fe.dx(test_part.mesh))
+    energy_abaqus = 12.8788939
+    assert energy == approx(energy_abaqus, rel=1e-3)
     geo.reset()
