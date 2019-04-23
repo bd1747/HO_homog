@@ -3,7 +3,7 @@
 import dolfin as fe
 import numpy as np
 import logging
-
+import ho_homog
 np.set_printoptions(precision=4,linewidth=150)
 np.set_printoptions(suppress = True)
 

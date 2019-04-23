@@ -6,6 +6,8 @@
  
 __version__ = "0.1"
 
+GEO_TOLERANCE = 1e-12
+
 from . import geometry
 from . import homog2d
 from . import materials
@@ -17,7 +19,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-GEO_TOLERANCE = 1e-12
+
 
 log_level = logging.DEBUG
 log_path = Path('~/ho_homog_log/activity.log').expanduser()

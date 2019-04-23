@@ -6,9 +6,11 @@ Created on 08/04/2019
 
 import logging
 import dolfin as fe
+import ho_homog
 
 logger = logging.getLogger(__name__)
 
+GEO_TOLERANCE = ho_homog.GEO_TOLERANCE
 #* For mechanical fields reconstruction
 MACRO_FIELDS_NAMES = ['U', 'E', 'EG', 'EGG']
 
