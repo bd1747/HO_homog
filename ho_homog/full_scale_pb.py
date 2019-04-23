@@ -7,6 +7,8 @@ Created on 08/04/2019
 import logging
 import dolfin as fe
 import ho_homog
+import numpy as np
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +16,228 @@ GEO_TOLERANCE = ho_homog.GEO_TOLERANCE
 #* For mechanical fields reconstruction
 MACRO_FIELDS_NAMES = ['U', 'E', 'EG', 'EGG']
 
+class FullScaleModel(object):
+    """Solve an elasticity problem over a 2D domain that contains a periodic microstructure or a homogeneous material or that has a more complex material behavior."""
+    
+    def __init__(self, fenics_2d_part, loads, boundary_conditions, element):
+        """
+
+        The FacetFunction must be the same for all BC and facet loads. Its type of value must be 'size_t' (unsigned integers).
+        
+        Parameters
+        ----------
+        fenics_2d_part : FEnicsPart
+            [description]
+        loads : [type]
+            [description]
+        boundary_conditions : list or tuple
+            All the boundary conditions. 
+            Each of them is describe by a tuple or a dictionnary.
+            Only one periodic BC can be prescribed.
+            Format:
+                if Periodic BC : 
+                    {'type': 'Periodic', 'constraint': PeriodicDomain}
+                    or
+                    ('Periodic', PeriodicDomain)
+                if Dirichlet BC : 
+                    {
+                        'type': 'Dirichlet',
+                        'constraint': the prescribed value,
+                        'facet_function': facet function,
+                        'facet_idx': facet function index}
+                    or 
+                    ('Dirichlet', the prescribed value, facet function, facet function index)
+                    or 
+                    ('Dirichlet', the prescribed value, indicator function)
+                        where the indicator function is python function like :
+                        def clamped(x, on_boundary):
+                            return on_boundary and x[0] < tolerance 
+        element: tuple or dict
+        Ex: ('CG', 2) or {'family':'Lagrange', degree:2}
+        """
+        self.part = fenics_2d_part
+
+        #* Boundary conditions
+        self.per_bc = None
+        self.Dirichlet_bc = list()
+        for bc in boundary_conditions:
+            if isinstance(bc, dict):
+                bc_ = bc
+                bc = [bc_['type'], bc_['constraint']]
+                try:
+                    bc.append(bc_['facet_function'])
+                    bc.append(bc_['facet_idx'])
+                except KeyError:
+                    pass
+            bc_type, *bc_data = bc
+            if bc_type == 'Periodic':
+                if not self.per_bc is None:
+                    raise AttributeError("Only one periodic boundary condition can be prescribed.")
+                self.per_bc = bc_data[0]
+            elif bc_type == 'Dirichlet':
+                if len(bc_data) == 2 or len(bc_data) == 3:
+                    bc_data = tuple(bc_data)
+                else: 
+                    raise AttributeError("Too much parameter for the definition of a Dirichlet boundary condition.")
+                self.Dirichlet_bc.append(bc_data)
+        
+        self.measures = {self.part.dim: fe.dx, self.part.dim-1: fe.ds}
+
+        #* Function spaces
+        try:
+            self.elmt_family = family = element['family']
+            self.elmt_degree = degree = element['degree']
+        except TypeError: #Which means that element is not a dictionnary
+            self.element_family, self.element_degree = element
+            family, degree = element
+        cell = self.part.mesh.ufl_cell()
+        Voigt_strain_dim = int(self.part.dim*(self.part.dim+1)/2)
+        self.scalar_fspace = fe.FunctionSpace(
+            self.part.mesh,
+            fe.FiniteElement(family, cell, degree),
+            constrained_domain=self.per_bc)
+        self.displ_fspace = fe.FunctionSpace(
+            self.part.mesh,
+            fe.VectorElement(family, cell, degree, dim=self.part.dim),
+            constrained_domain=self.per_bc)
+        self.strain_fspace = fe.FunctionSpace(
+            self.part.mesh,
+            fe.VectorElement(family, cell, degree, dim=Voigt_strain_dim),
+            constrained_domain=self.per_bc)
+
+        self.v = fe.TestFunction(self.displ_fspace)
+        self.u = fe.TrialFunction(self.displ_fspace)
+        self.a = fe.inner(
+                    self.part.sigma(self.part.epsilon(self.u)), 
+                    self.part.epsilon(self.v)
+                ) * self.measures[self.part.dim]
+        self.K = fe.assemble(self.a)
+
+        #* Create suitable objects for Dirichlet boundary conditions
+        for i, bc_data in enumerate(self.Dirichlet_bc):
+            self.Dirichlet_bc[i] = fe.DirichletBC(self.displ_fspace, *bc_data)
+        #? Vu comment les conditions aux limites de Dirichlet interviennent dans le problème, pas sûr que ce soit nécessaire que toutes soient définies avec la même facetfunction
+        
+        #* Taking into account the loads
+        if loads:
+            self.set_loads(loads)
+        else:
+            self.loads_data = None
+            self.load_integrals = None
+        #* Prepare attribute for the solver
+        self.solver = None
+
+    def set_solver(self, solver_type='LU', solver_method='mumps', preconditioner='default'):
+        """Choose the type of the solver and its method."""
+
+        if solver_type == 'Krylov':
+            self.solver = fe.KrylovSolver(self.K, solver_method)
+        elif solver_type == 'LU':
+            self.solver = fe.LUSolver(self.K, solver_method)
+        else:
+            raise TypeError
+        if preconditioner != 'default':
+            self.solver.parameters.preconditioner = preconditioner
+        return self.solver
+
+    def set_loads(self, loads):
+        """Define the loads of the elasticy problem.
+        
+        Parameters
+        ----------
+        loads : List
+            List of all the loads of the problem.
+            Each load must be described by a tuple.
+            3 formats can be used to define a load :
+                - Topology dimension, Expression valid throughout the domain
+                - Topology dimension, Magnitude, distribution over the domain
+                    -> load value at x = magnitude(x)*distribution(x)
+                - Topology dimension, Magnitude, MeshFunction, subdomain_index
+
+        Returns
+        -------
+        list
+            The self.loads attribute
+        """
+        self.loads_data = dict()
+        self.load_subdomains = dict()
+        for topo_dim, *load_data in loads:
+            try:
+                self.loads_data[topo_dim].append(load_data)
+            except KeyError:
+                self.loads_data[topo_dim] = [load_data]
+            if len(load_data) == 3:
+                mesh_fctn = load_data[1]
+                try:
+                    if not mesh_fctn == self.load_subdomains[topo_dim]:
+                        raise ValueError("Only one mesh function for each topology dimension can be use for the definition of loads.")
+                except KeyError:
+                    self.load_subdomains[topo_dim] = mesh_fctn
+
+        #* Define load integrals
+        labels = {self.part.dim:'dx', self.part.dim-1:'ds'}
+        for topo_dim, partition in self.load_subdomains.items():
+            self.measures[topo_dim] = fe.Measure(
+                labels[topo_dim],
+                domain=self.part.mesh,
+                subdomain_data=partition)
+
+        self.load_integrals = dict()
+        for topo_dim, loads in self.loads_data.items():
+            self.load_integrals[topo_dim] = list()
+            dy = self.measures[topo_dim]
+            for load in loads:
+                if len(load) == 1: 
+                    contrib = fe.dot(load[0], self.v) * dy
+                elif len(load) == 2:
+                    contrib = fe.dot(load[1]*load[0], self.v) * dy
+                elif len(load) == 3:
+                    contrib = fe.dot(load[0], self.v) * dy(load[2])
+                else:
+                    raise AttributeError("Too much parameter for the definition of a load. Expecting 2, 3 or 4 parameters for each load.")
+                self.load_integrals[topo_dim].append(contrib)
+
+        return self.loads_data
+
+    def solve(self, results_file=None):
+        if self.solver is None:
+            logger.warning("The solver has to be set.")
+        if self.load_integrals is not None:
+            L_terms = []
+            for contrib_list in self.load_integrals.values():
+                L_terms += contrib_list
+            L = sum(L_terms)
+        else:
+            L = 0.
+        
+        logger.info('Assembling system...')
+        K, res = fe.assemble_system(self.a, L, self.Dirichlet_bc)
+        logger.info('Assembling system : done')
+        self.u_sol = fe.Function(self.displ_fspace)
+        logger.info('Solving system...')
+        self.solver.solve(K, self.u_sol.vector(), res)
+        logger.info('Solving system : done')
+
+        self.eps_sol = fe.project(self.part.epsilon(self.u_sol),self.strain_fspace)
+        
+        if results_file is not None:
+            try:
+                if results_file.suffix != '.xdmf':
+                    results_file = results_file.with_suffix('.xdmf')
+            except AttributeError:
+                results_file = Path(results_file).with_suffix('.xdmf')
+            with fe.XDMFFile(results_file.as_posix()) as file_out: 
+                file_out.parameters["flush_output"] = False
+                file_out.parameters["functions_share_mesh"] = True
+                self.u_sol.rename('displacement', 'displacement solution, full scale problem')
+                self.eps_sol.rename('strain', 'strain solution, full scale problem')
+                file_out.write(self.u_sol, 0.)
+                file_out.write(self.eps_sol, 0.)
+
+        return self.u_sol
+
+
+        
 class PeriodicDomain(fe.SubDomain):
     """Representation of periodicity boundary conditions. For 2D only"""
     #? Source : https://comet-fenics.readthedocs.io/en/latest/demo/periodic_homog_elas/periodic_homog_elas.html

@@ -15,6 +15,8 @@ from . import mesh_generate_2D
 from . import mesh_tools
 from . import part
 from . import toolbox_FEniCS
+from . import full_scale_pb
+
 import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
