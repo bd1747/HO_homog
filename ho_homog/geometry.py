@@ -117,25 +117,25 @@ def set_gmsh_option(option, val):
     if isinstance(val, (int, float)):
         setter = gmsh.option.setNumber
         getter = gmsh.option.getNumber
-    elif isinstance(val, int):
+    elif isinstance(val, str):
         setter = gmsh.option.setString
         getter = gmsh.option.getString
     else:
         raise TypeError("Wrong type of parameter for a gmsh option.")
     preval = getter(option)
     setter(option, val)
-    logger.info(f"The option {option} has been set to {val}. The previous value before change was : {preval}")
-    
+    logger.info(f"Gmsh option {option} set to {val} (previously : {preval}).")
+
 def init_geo_tools():
     """
     The Gmsh Python API must be initialized before using any functions.
     In addition, some options are set to custom values.
     """
     gmsh.initialize() #? Utiliser l'argument sys.argv ? cf script boolean.py
-    gmsh.option.setNumber("General.Terminal", 1)
-    gmsh.option.setNumber("General.Verbosity", 5)
+    set_gmsh_option("General.Terminal", 1)
+    set_gmsh_option("General.Verbosity", 5)
     set_gmsh_option("Geometry.AutoCoherence", 0)
-    gmsh.option.setNumber("Mesh.ColorCarousel", 2) #0=by element type, 1=by elementary entity, 2=by physical entity, 3=by partition
+    set_gmsh_option("Mesh.ColorCarousel", 2) #0=by element type, 1=by elementary entity, 2=by physical entity, 3=by partition
     gmsh.option.setNumber("Mesh.MeshOnlyVisible", 0) #TODO : Should be in the init file of the mesh_tools module.
     set_gmsh_option('Mesh.CharacteristicLengthExtendFromBoundary', 0)
     set_gmsh_option("Mesh.SaveAll", 0)
