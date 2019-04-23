@@ -47,4 +47,4 @@ def set_log_path(path):
 
 set_log_handlers(log_level, log_path)
 
-__all__ = ["geometry", "homog2d", "materials", "mesh_generate_2D", "mesh_tools", "part", "toolbox_FEniCS", "set_log_path","set_log_handlers","log_level","log_path","GEO_TOLERANCE"]
+__all__ = ["geometry", "homog2d", "materials", "mesh_generate_2D", "mesh_tools", "part", "full_scale_pb", "toolbox_FEniCS", "set_log_path","set_log_handlers","log_level","log_path", "pckg_logger", "GEO_TOLERANCE"]

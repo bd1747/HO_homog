@@ -22,10 +22,9 @@ import gmsh
 import matplotlib.pyplot as plt
 import numpy as np
 
-logger = logging.getLogger(__name__) #http://sametmax.com/ecrire-des-logs-en-python/
+logger = logging.getLogger(__name__)
+bndry_logger = logging.getLogger(__name__+".bndry")
 
-bndry_logger = logging.getLogger(__name__+".bndry") #http://sametmax.com/ecrire-des-logs-en-python/
-bndry_logger.setLevel(logging.DEBUG)
 # nice shortcuts
 model = gmsh.model
 factory = model.occ
