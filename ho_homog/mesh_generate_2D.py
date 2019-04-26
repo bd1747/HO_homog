@@ -68,6 +68,7 @@ def duplicate_pattern(cell_ll, nb_cells, gen_vect):
     repeated_ll = geo.remove_duplicates(repeated_ll)
     return repeated_ll
 
+
 def offset_pattern(cell_ll, offset, cell_vect):
     """
     Translation of the lineloops that define the microstructure geometry of a unit cell.
@@ -93,6 +94,7 @@ def offset_pattern(cell_ll, offset, cell_vect):
     shifted_ll = [geo.translation(ll, t_vect) for ll in cell_ll]
     return shifted_ll
 
+
 class Gmsh2DRVE(object):
     #? Et si il y a pas seulement du mou et du vide mais plus de 2 matériaux constitutifs ? Imaginer une autre sous-classe semblable qui permet de définir plusieurs sous-domaines à partir d'une liste d'ensembles de LineLoop (chaque ensemble correspondant à un type d'inclusions ?)
 
@@ -117,7 +119,7 @@ class Gmsh2DRVE(object):
             Can also be = None or empty.
             It represent the points that will be used as attractors in the definition of the element characteristic length fields.
             Attractors are geometrical elements of the cell around which mesh refinement constraints will be set.
-            
+
         """
         self.name = name
         model.add(self.name)
@@ -129,10 +131,10 @@ class Gmsh2DRVE(object):
             pattern_ll = offset_pattern(pattern_ll, offset, cell_vect)
         else:
             nb_pattern = np.int8(np.ceil(nb_cells))
-        
+
         if not np.equal(nb_pattern, 1).all():
-                duplicate_pattern(pattern_ll, nb_pattern, cell_vect)
-        
+            duplicate_pattern(pattern_ll, nb_pattern, cell_vect)
+
         rve_vect = cell_vect * nb_cells[:,np.newaxis]
         O = np.zeros((3,))
         macro_vtx = [O, rve_vect[0], rve_vect[0] + rve_vect[1] , rve_vect[1]]
@@ -177,8 +179,8 @@ class Gmsh2DRVE(object):
                         need_sync = True
             if need_sync:
                 factory.synchronize() #? Pourrait être enlevé ?
-        
-        for gp in phy_surf :
+
+        for gp in phy_surf:
             gp.add_gmsh()
         factory.synchronize()
 
@@ -216,7 +218,7 @@ class Gmsh2DRVE(object):
             per_pair_phy.append(geo.PhysicalGroup(crvs, 1, tag))
         for gp in per_pair_phy:
             gp.add_gmsh()
-        
+
         self.gen_vect = rve_vect
         self.nb_cells = nb_cells
         self.attractors = attractors if attractors else []
@@ -234,8 +236,8 @@ class Gmsh2DRVE(object):
                 s.get_boundary()
         rve_boundary = list(flatten([s.boundary for s in rve_s]))
         restrict_domain = {
-            'surfaces':rve_s,
-            'curves':rve_boundary
+            'surfaces': rve_s,
+            'curves': rve_boundary
             }
         field = msh.set_mesh_refinement(d_min_max, lc_min_max, attractors, 10,
                                         sigmoid_interpol, restrict_domain)
@@ -250,8 +252,8 @@ class Gmsh2DRVE(object):
                 s.get_boundary()
         soft_boundary = list(flatten([s.boundary for s in soft_s]))
         restrict_domain = {
-            'surfaces':soft_s,
-            'curves':soft_boundary
+            'surfaces': soft_s,
+            'curves': soft_boundary
             }
         field = msh.set_mesh_refinement(d_min_max, lc_min_max, attractors, 1,
                                         sigmoid_interpol, restrict_domain)
@@ -259,7 +261,7 @@ class Gmsh2DRVE(object):
 
     def mesh_generate(self, mesh_field=None, directory: Path = None):
         """Generate a 2D mesh of the model which represent a RVE.
-        
+
         Parameters
         ----------
         mesh_field : mesh_tools.Field, optional
@@ -270,7 +272,7 @@ class Gmsh2DRVE(object):
             If None (default), the .msh file is written in the current working directory.
             Ex: Path('/media/sf_VM_share/homog')
         """
-        
+
         model.setCurrent(self.name)
         if not mesh_field:
             self.background_field = msh.set_background_mesh(self.mesh_fields)
@@ -325,7 +327,7 @@ class Gmsh2DRVE(object):
 
         Lx = 4*a
         Ly = 6*a+2*b
-        cell_vect = np.array(((Lx,0.), (0.,Ly)))
+        cell_vect = np.array(((Lx, 0.), (0., Ly)))
 
         e1 = np.array((a, 0., 0.))
         e2 = np.array((0., a, 0.))
@@ -450,7 +452,7 @@ class Gmsh2DRVE(object):
         """
         Create an instance of Gmsh2DRVE that represents a RVE of the beam pantograph microstructure.
         The geometry that is specific to this microstructure is defined in this staticmethod. Then, the generic operations will be performed with the Gmsh2DRVE methods.
-        
+
         Parameters
         ----------
         a, b : floats
@@ -464,7 +466,7 @@ class Gmsh2DRVE(object):
             nb of cells in each direction of repetition (the default is (1, 1).)
         offset : tuple, optional
             If (0., 0.) or False : No shift of the microstructure.
-            Else : The microstructure is shift with respect to the macroscopic domain. 
+            Else : The microstructure is shift with respect to the macroscopic domain.
             offset is the relative position inside a cell of the point that will coincide with the origin of the global domain.
         soft_mat : bool, optional
             If True : the remaining surface inside the RVE is associated with a second material domain and a mesh is genereted to represent it.

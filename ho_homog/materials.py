@@ -49,7 +49,7 @@ class Material(object):
         self.C = self.C_3D[PLANE_IDX[:, None], PLANE_IDX]
         self.S = np.linalg.inv(self.C)
         self.cas_elast = 'dp'
-    
+
     def set_3D(self):
         self.S = self.S_3D
         self.C = self.C_3D
@@ -57,11 +57,11 @@ class Material(object):
 
     # Dictionnaire des méthodes set
     set_elast = {"cp": set_cp, "dp": set_dp, "3D": set_3D}
-    
+
     def get_S(self):
         """ Renvoie la matrice de souplesse 3D, cp ou dp dans un format adapté pour FEniCs."""
         return fe.Constant(self.S)
-    
+
     def get_C(self):
         """ Renvoie la matrice de raideur 3D, cp ou dp dans un format adapté pour FEniCs."""
         # return fe.Constant(self.C)
@@ -76,7 +76,7 @@ class StiffnessComponent(fe.UserExpression):
         self.i = i
         self.j = j
         super().__init__(degree=kwargs["degree"])
-        #? Info : https://docs.python.org/fr/3/library/functions.html#super, 
+        #? Info : https://docs.python.org/fr/3/library/functions.html#super,
         #? and http://folk.uio.no/kent-and/hpl-fem-book/doc/pub/book/pdf/fem-book-4print-2up.pdf
 
     def eval_cell(self, values, x, cell):
@@ -85,7 +85,7 @@ class StiffnessComponent(fe.UserExpression):
 
 def mat_per_subdomains(cell_function, mat_dict, topo_dim):
     """Définir un comportement hétérogène par sous domaine.
-    
+
     Parameters
     ----------
     cell_function : FEniCS Mesh function
@@ -94,13 +94,13 @@ def mat_per_subdomains(cell_function, mat_dict, topo_dim):
         [description]
     topo_dim : int
         [description]
-    
+
     Returns
     -------
     C_per
         FEniCS matrix that represents the stiffness inside the RVE.
     """
-    
+
     C = []
     nb_val = int(topo_dim * (topo_dim + 1)/2)
     for i in range(nb_val):
@@ -128,7 +128,7 @@ class MaterialsPerDomains(object):
             self.i = i
             self.j = j
             super().__init__(degree=kwargs["degree"])
-            #? Info : https://docs.python.org/fr/3/library/functions.html#super, 
+            #? Info : https://docs.python.org/fr/3/library/functions.html#super,
             #? and http://folk.uio.no/kent-and/hpl-fem-book/doc/pub/book/pdf/fem-book-4print-2up.pdf
 
         def eval_cell(self, values, x, cell):
@@ -151,7 +151,7 @@ class MaterialsPerDomains(object):
         self.C_per = fe.as_matrix(C) #TODO : remplacer classe par une fonction
 
 ### TO DO : essayer de sortir cette nested définition de classe de la classe MatDomains2
-          
+
     #     # Assembling the constitutive matrix
     #     Ci = []
     #     for i in range(self.dim * (self.dim + 1)/2):
@@ -165,12 +165,14 @@ class MaterialsPerDomains(object):
 def epsilon(u):
     return fe.as_vector((u[0].dx(0), u[1].dx(1), (u[0].dx(1) + u[1].dx(0))/math.sqrt(2)))
 
+
 def sigma(C, eps):
     return C * eps
-    
+
+
 def strain_cross_energy(sig, eps, mesh, area):
     """
     Calcul de l'energie croisée des champs de contrainte sig et de deformation eps.
     """
-    
+
     return fe.assemble(fe.inner(sig, eps) * fe.dx(mesh))/area

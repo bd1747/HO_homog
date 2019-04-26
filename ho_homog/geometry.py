@@ -5,7 +5,7 @@ Created on 09/10/2018
 
 Définition de classes d'objets géométriques et de fonctions permettant de créer un modèle géométrique de RVE dans gmsh.
 
-sources : 
+sources :
     - https://deptinfo-ensip.univ-poitiers.fr/ENS/doku/doku.php/stu:python:pypoo
 
 """
@@ -42,6 +42,7 @@ def unit_vect(v):
     """ Renvoie le vecteur normé. Nécessite un vecteur non nul"""
     return v / np.linalg.norm(v)
 
+
 #TODO : docstring à faire
 def angle_between(v1, v2, orient=True):
     """ Renvoie l'angle en radian, orienté ou non entre les deux vecteurs.
@@ -64,6 +65,8 @@ def angle_between(v1, v2, orient=True):
 
 #TODO : docstring à faire
 #TODO : Refactoring
+
+
 def bissect(v1, v2):
     """Renvoie la direction de la bissectrice d'un angle défini par deux vecteurs, sous forme d'un vecteur unitaire.
         Seulement en 2D pour l'instant.
@@ -83,21 +86,22 @@ def bissect(v1, v2):
     biss = unit_vect(biss)
     return biss
 
+
 def dual_base(basis):
     """
-    Calculates the dual basis associated with a given basis. 
+    Calculates the dual basis associated with a given basis.
 
     Parameters
     ----------
     basis : numpy array_like, square matrix
         The components of the basis vectors in an orthogonal coordinate system.
         2-D array, Dimensions of the matrix : 2×2 or 3×3
-    
+
     Return
     ------
     dual_b : np.array
         The components of the vectors that composed the dual base, in the same orthogonal coordinate system.
-    
+
     """
     return np.linalg.inv(basis).T
 
@@ -126,6 +130,7 @@ def set_gmsh_option(option, val):
     setter(option, val)
     logger.info(f"Gmsh option {option} set to {val} (previously : {preval}).")
 
+
 def init_geo_tools():
     """
     The Gmsh Python API must be initialized before using any functions.
@@ -144,13 +149,12 @@ def init_geo_tools():
     set_gmsh_option('Mesh.Algorithm', 1) #* 2D mesh algorithm (1=MeshAdapt, 2=Automatic,...)
     logger.info("Gmsh SDK version : %s", gmsh.option.getString("General.Version"))
 
+
 def reset():
     """Throw out all information about the created geometry and remove all gmsh models."""
     PhysicalGroup.all_groups = dict()
-    models = model.list()
-    for model_ in models:
-        model.setCurrent(model_)
-        model.remove()
+    gmsh.clear()
+
 
 
 class Point(object):
@@ -170,17 +174,16 @@ class Point(object):
         dim = coord.shape[0]
         self.coord = coord
         if dim == 2:
-           self.coord = np.append(self.coord, [0.])
-        #? Choix : on utilise toujours des coordonnés en 3D. Les points définis en 2D sont mis dans le plan z=0. 
+            self.coord = np.append(self.coord, [0.])
+        #? Choix : on utilise toujours des coordonnés en 3D. Les points définis en 2D sont mis dans le plan z=0.
         self.tag = None
         #* Nouveau ! Pour identifier les points "importants" autour des quels il faut raffiner le maillage
-        self.fine_msh = False #TODO A définir et voir son utilisation...
+        self.fine_msh = False  #TODO A définir et voir son utilisation...
         self.mesh_size = mesh_size
 
     def __repr__(self):
         """Represent a Point object with the coordinates of this point."""
         return f"Pt {self.tag} ({str(self.coord)}) "
-
 
     def __eq__(self, other):
         """
@@ -223,13 +226,13 @@ class Point(object):
     #     return np.linalg.norm(self.coord - other.coord)
 
 
-
 #### Fonctions permettant des opérations géométriques de bases sur des objets de type Point ####
 def centroSym(pt, center):
     warnings.warn("Deprecated. Should use the point_reflection function instead.", DeprecationWarning)
     """ Renvoie un nouveau point obtenu par symétrie centrale."""
     new_coord = -(pt.coord - center.coord) + center.coord
     return Point(new_coord)
+
 
 def mirrorSym(pt, centre, axe):
     """
@@ -241,12 +244,14 @@ def mirrorSym(pt, centre, axe):
     new_coord = (2 * (pt.coord - centre.coord).dot(axe) * axe - (pt.coord - centre.coord) + centre.coord)
     return Point(new_coord)
 
+
 def translat(pt, vect):
     """ DEPRECATED. Translation d'un point, défini par un vecteur de type np.array
     """
     warnings.warn("Deprecated. Should use the translation function instead.", DeprecationWarning)
     new_coord = pt.coord + vect
     return Point(new_coord)
+
 
 def offset(pt, pt_dir1, pt_dir2, t):
     v1 = pt_dir1.coord - pt.coord
@@ -260,6 +265,7 @@ def offset(pt, pt_dir1, pt_dir2, t):
     new_coord = pt.coord + dpcmt * v_biss
     return Point(new_coord)
 
+
 class Curve(object):
     """
     Superclass that is used to define both the Line and the Arc classes.
@@ -267,15 +273,16 @@ class Curve(object):
 
     """
     all_instances = []
+
     def __init__(self, def_pts_list, gmsh_api_add_function):
         self.def_pts = def_pts_list
         self.tag = None
         self.gmsh_constructor = gmsh_api_add_function
         Curve.all_instances.append(self)
-    
+
     def __eq__(self, other):
         """
-        Return True if and only if : 
+        Return True if and only if :
         - both self and other are instances of the same subclass,
         AND
         - The coordinates of the points that are used to define these two Line (or Arc) are equal.
@@ -299,7 +306,7 @@ class Curve(object):
             if not pt.tag:
                 pt.add_gmsh()
         self.tag = self.gmsh_constructor(*[p.tag for p in self.def_pts])
-    
+
     def get_tag(self):
         warnings.warn("Deprecated. Should use explicit if not self.tag checks before reading set.tag instead.", DeprecationWarning)
         pass
@@ -373,7 +380,7 @@ class Arc(Curve):
         return prt_str
 
     def plot(self, circle_color="Green", end_pts_color="Blue", center_color="Orange", pt_size=5):
-        """Représenter l'arc de cercle dans un plot matplotlib. 
+        """Représenter l'arc de cercle dans un plot matplotlib.
         Disponible seulement en 2D pour l'instant."""
 
         self.def_pts[0].plot(end_pts_color, pt_size)
@@ -390,7 +397,7 @@ class AbstractCurve(Curve):
     @staticmethod
     def empty_constructor(*args):
         warnings.warn("Adding an AbstractCurve instance to the gmsh geometrical model is not a supported feature. These python objects actually represent unknown geometrical entities that already exist in the gmsh model.",UserWarning)
-    
+
     def __init__(self, tag):
         """
         Créer une représentation d'une courbe existant dans le modèle Gmsh.
@@ -400,7 +407,7 @@ class AbstractCurve(Curve):
         """
         Curve.__init__(self, [], AbstractCurve.empty_constructor)
         self.tag = tag
-    
+
     def get_boundary(self, get_coords=True):
         """
         Récupérer les points correspondants aux extrémités de la courbe à partir du modèle Gmsh.
@@ -409,7 +416,7 @@ class AbstractCurve(Curve):
         ----------
         coords : bool, optional
             If true, les coordonnées des points extrémités sont aussi récupérés.
-        
+
         """
         bndry_logger.debug(f"Abstract Curve -> get_boundary. self.tag : {self.tag}")
         def_pts = []
@@ -486,7 +493,7 @@ class LineLoop(object):
         return not self.__eq__(other)
 
     def plot(self, color="black"):
-        """Représenter la polyligne dans un plot matplotlib. 
+        """Représenter la polyligne dans un plot matplotlib.
         Disponible seulement en 2D pour l'instant."""
         if not self.sides:
             self.vertices_2_sides()
@@ -589,7 +596,7 @@ def centro_sym_ll(inp_ll, center):
 
 
 def mirror_sym_ll(inp_ll, center, axe):
-    
+
     """Une nouvelle LineLoop ou liste de LineLoop est calculée par symmétrie mirroir et renvoyée.
     La symétrie est faite aux niveaux des sommets (objets Points) de la LineLoop et n'agit pas sur l'attribut sides.
     Le sens de rotation de la LineLoop (horaire / anti_horaire) est conservé.
@@ -606,7 +613,7 @@ def mirror_sym_ll(inp_ll, center, axe):
 
 def translat_ll(inp_ll, vect):
     """ DEPRECATED.  Doc_string à compléter. Voir mirror_sym_ll pour un fonctionnement similaire. """
-    
+
     warnings.warn("Deprecated. Should use the translation function instead.", DeprecationWarning)
     if type(inp_ll) is not list:
         new_pts = [translat(pt, vect) for pt in inp_ll.vertices]
@@ -616,7 +623,7 @@ def translat_ll(inp_ll, vect):
         return new_ll_list
 
 #! #! #!
-#TODO : Pour la classe LineLoop : 
+#TODO : Pour la classe LineLoop :
 #TODO	Utiliser des attributs Sommets_de_base, et côtés pour faire en sorte que les sommets soient reconstruit si on crée la LineLoop de manière explicit
 #?  	Faire 2 constructors au lieu du paramètre Explicit ?
 #TODO garder une info "en dur" sur la position des sommets du polygone correspondant à la LineLoop plutôt que d'utiliser une booléen pour l'historique de l'offset et un argument qui garde en mémoire les déplacements ?
@@ -632,7 +639,7 @@ class PlaneSurface(object):
         self.holes = holes
         self.tag = None
         self.boundary = ext_contour.sides + [crv for h in holes for crv in h.sides] #Pour favoriser le duck typing ?
-    
+
     def __eq__(self, other):
         """
          Opérateur de comparaison == surchargé pour les objets de la classe Plane Surface
@@ -674,15 +681,15 @@ class AbstractSurface(object):
     def __init__(self, tag):
         self.tag = tag
         self.boundary = []
-    
+
     def get_boundary(self, recursive=True):
         """
         Récupérer les tags des entitées géométriques 1D qui composent le bord de la surface.
-        
+
         Parameters
         ----------
         recursive : bool, optional
-        If True, the boundaries of the 1-D entities that form the boundary of the AbstractSurface instance are also extracted from the gmsh model. 
+        If True, the boundaries of the 1-D entities that form the boundary of the AbstractSurface instance are also extracted from the gmsh model.
         Instances of Point are created to represent them.
 
         """
@@ -708,7 +715,7 @@ class AbstractSurface(object):
                             If True, the tag of the resulting surface might be equal to the one of the deleted body.
         NOT ENABLED ANYMORE remove_tool : bool, optional
                             Delete the tool surface from the gmsh model after the boolean operation, or all the tools if several tools are used.
-        
+
         Return
         ----------
         cut_surf : Instance of PlaneSurface
@@ -887,7 +894,7 @@ class PhysicalGroup(object):
     def __init__(self, entities, geo_dim, name=None):
         """
         Gather multiple instances of one of the geometrical Python classes (Point, Curve, PlaneSurface) to form a single object in the gmsh model.
-        
+
         Parameters
         ----------
         entities : list
@@ -935,7 +942,7 @@ class PhysicalGroup(object):
         if self.name:
             model.setPhysicalName(self.dim, self.tag, self.name)
 
-    
+
     def add_to_group(self, entities):
         """
         Add a geometrical entity or a list of geometrical entities to an existing physical group.
@@ -952,7 +959,7 @@ class PhysicalGroup(object):
     def set_color(self, rgba_color, recursive=False):
         """
         Choisir la couleur du maillage qui coincidera avec les éléments géométriques contenus de l'entité physique.
-        
+
        Parameters
        ----------
         rgba_color : list of 4 integers between 0 and 255.
@@ -998,7 +1005,7 @@ class PhysicalGroup(object):
         val : bool
             If True, only entities that to at least one physical group will be mesh.
             If False, a mesh will be generate for all geometrical entities.
-        
+
         """
         if val:
             cls.set_group_visibility(1)
@@ -1072,7 +1079,7 @@ def round_corner(inp_pt, pt_amt, pt_avl, r, junction_raduis=False, plot=False):
 def remove_duplicates(ent_list): #! Fonctionne très bien aussi pour d'autres types d'objets géométriques (Points par exemple)
     """
     Remove all duplicates from a list of geometrical entities.
-    
+
     Designed to be used with instances of one of the geometrical classes
     (Point, Curve, LineLoop and Surface).
     It should be noted that the equality operator has been overidden for these classes.
@@ -1082,7 +1089,7 @@ def remove_duplicates(ent_list): #! Fonctionne très bien aussi pour d'autres ty
     --------
     Since the __eq__ method has been overridden in the definition of the geometrical classes,
     their instances are not hashable.
-    Faster solution for hashable objects : 
+    Faster solution for hashable objects :
     https://stackoverflow.com/questions/7961363/removing-duplicates-in-lists/7961425#7961425
 
     """
@@ -1102,11 +1109,11 @@ def remove_duplicates(ent_list): #! Fonctionne très bien aussi pour d'autres ty
 #? Test : utilisation d'une factory
 # def point_reflection(geo_ent, center):
 #     """ Renvoie un nouvel objet géométrique obtenu par symétrie centrale.
-    
+
 #     geo_ent : instance of a geometrical class Point, Curve and its subclass or LineLoop
 #     """
 #     if geo_ent.tag:
-#         raise NotImplementedError("For now a geometrical properties of a geometrical entity cannot be modified if this entity has already been added to the gmsh geometry model.") 
+#         raise NotImplementedError("For now a geometrical properties of a geometrical entity cannot be modified if this entity has already been added to the gmsh geometry model.")
 #     if isinstance(geo_ent, Point):
 #         coord = -(geo_ent.coord - center.coord) + center.coord
 #         new_ent = Point(coord)
@@ -1138,7 +1145,7 @@ def geo_transformation_factory(pt_coord_fctn):
         Renvoie un nouvel objet géométrique obtenu en appliquant la transformation à l'objet et tout ses parents.
 
         geo_ent : instance of a geometrical class Point, Curve and its subclass or LineLoop
-        
+
         """
 
         if geo_ent.tag:
@@ -1172,14 +1179,14 @@ point_reflection = geo_transformation_factory(pt_reflection_basis)
 
 def pln_reflection_basis(pt_coord, pln_pt, pln_normal):
     """
-    Symétrie mirroir, en 3D, par rapport à un plan. 
-    Le plan est défini par une normale et un point contenu dans ce plan. 
+    Symétrie mirroir, en 3D, par rapport à un plan.
+    Le plan est défini par une normale et un point contenu dans ce plan.
     """
     #?laisser la possibilité d'utiliser directement un np.array ou une liste pour donner les coordonnées pour plus de facilité d'utilisation ?
-    if isinstance(pln_pt, Point): 
+    if isinstance(pln_pt, Point):
         pln_pt = pln_pt.coord
     else:
-        pln_pt = np.asarray(pln_pt) # Array interpretation of a. No copy is performed if the input is already an ndarray 
+        pln_pt = np.asarray(pln_pt) # Array interpretation of a. No copy is performed if the input is already an ndarray
     n = unit_vect(pln_normal)
     return (pt_coord - pln_pt) - 2*(pt_coord - pln_pt).dot(n) * n + pln_pt
 plane_reflection = geo_transformation_factory(pln_reflection_basis)
@@ -1196,12 +1203,12 @@ translation = geo_transformation_factory(translation_basis)
 def rotation_matrix(angle, direction, point=None):
     """
     Return matrix to rotate about axis defined by point and direction.
-    
+
     Returns
     -------
     4×4 numpy.array
         Matrix representation of the rotation.
-    
+
     From : transformations.py, https://www.lfd.uci.edu/~gohlke/
     Copyright (c) 2006-2019, Christoph Gohlke
     Copyright (c) 2006-2019, The Regents of the University of California
@@ -1233,7 +1240,7 @@ def rotation_matrix(angle, direction, point=None):
     CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
     ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
     POSSIBILITY OF SUCH DAMAGE.
-    
+
 
     >>> R = rotation_matrix(math.pi/2, [0, 0, 1], [1, 0, 0])
     >>> numpy.allclose(numpy.dot(R, [0, 0, 0, 1]), [1, -1, 0, 1])
@@ -1296,7 +1303,7 @@ def rotation_basis(pt_coord, angle, direction, point=None):
     -------
     rot_coord
         3 coordinates of the rotated point.
-    
+
     >>> v1 = np.array((0.,1.,0.))
     >>> v3 = rotation_basis(v1, math.pi/2, [0, 0, 1], [1, 0, 0]))
     >>> np.allclose(np.array((0.,-1.,0.)),v3))

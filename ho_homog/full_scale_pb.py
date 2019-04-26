@@ -10,20 +10,22 @@ import ho_homog
 import numpy as np
 from pathlib import Path
 
+
 logger = logging.getLogger(__name__)
 
 GEO_TOLERANCE = ho_homog.GEO_TOLERANCE
-#* For mechanical fields reconstruction
+# * For mechanical fields reconstruction
 MACRO_FIELDS_NAMES = ['U', 'E', 'EG', 'EGG']
+
 
 class FullScaleModel(object):
     """Solve an elasticity problem over a 2D domain that contains a periodic microstructure or a homogeneous material or that has a more complex material behavior."""
-    
+
     def __init__(self, fenics_2d_part, loads, boundary_conditions, element):
         """
 
         The FacetFunction must be the same for all BC and facet loads. Its type of value must be 'size_t' (unsigned integers).
-        
+
         Parameters
         ----------
         fenics_2d_part : FEnicsPart
@@ -31,33 +33,33 @@ class FullScaleModel(object):
         loads : [type]
             [description]
         boundary_conditions : list or tuple
-            All the boundary conditions. 
+            All the boundary conditions.
             Each of them is describe by a tuple or a dictionnary.
             Only one periodic BC can be prescribed.
             Format:
-                if Periodic BC : 
+                if Periodic BC :
                     {'type': 'Periodic', 'constraint': PeriodicDomain}
                     or
                     ('Periodic', PeriodicDomain)
-                if Dirichlet BC : 
+                if Dirichlet BC :
                     {
                         'type': 'Dirichlet',
                         'constraint': the prescribed value,
                         'facet_function': facet function,
                         'facet_idx': facet function index}
-                    or 
+                    or
                     ('Dirichlet', the prescribed value, facet function, facet function index)
-                    or 
+                    or
                     ('Dirichlet', the prescribed value, indicator function)
                         where the indicator function is python function like :
                         def clamped(x, on_boundary):
-                            return on_boundary and x[0] < tolerance 
+                            return on_boundary and x[0] < tolerance
         element: tuple or dict
         Ex: ('CG', 2) or {'family':'Lagrange', degree:2}
         """
         self.part = fenics_2d_part
 
-        #* Boundary conditions
+        # * Boundary conditions
         self.per_bc = None
         self.Dirichlet_bc = list()
         for bc in boundary_conditions:
@@ -77,17 +79,17 @@ class FullScaleModel(object):
             elif bc_type == 'Dirichlet':
                 if len(bc_data) == 2 or len(bc_data) == 3:
                     bc_data = tuple(bc_data)
-                else: 
+                else:
                     raise AttributeError("Too much parameter for the definition of a Dirichlet boundary condition.")
                 self.Dirichlet_bc.append(bc_data)
-        
+
         self.measures = {self.part.dim: fe.dx, self.part.dim-1: fe.ds}
 
-        #* Function spaces
+        # * Function spaces
         try:
             self.elmt_family = family = element['family']
             self.elmt_degree = degree = element['degree']
-        except TypeError: #Which means that element is not a dictionnary
+        except TypeError:  # Which means that element is not a dictionnary
             self.element_family, self.element_degree = element
             family, degree = element
         cell = self.part.mesh.ufl_cell()
@@ -108,23 +110,23 @@ class FullScaleModel(object):
         self.v = fe.TestFunction(self.displ_fspace)
         self.u = fe.TrialFunction(self.displ_fspace)
         self.a = fe.inner(
-                    self.part.sigma(self.part.epsilon(self.u)), 
+                    self.part.sigma(self.part.epsilon(self.u)),
                     self.part.epsilon(self.v)
                 ) * self.measures[self.part.dim]
         self.K = fe.assemble(self.a)
 
-        #* Create suitable objects for Dirichlet boundary conditions
+        # * Create suitable objects for Dirichlet boundary conditions
         for i, bc_data in enumerate(self.Dirichlet_bc):
             self.Dirichlet_bc[i] = fe.DirichletBC(self.displ_fspace, *bc_data)
-        #? Vu comment les conditions aux limites de Dirichlet interviennent dans le problème, pas sûr que ce soit nécessaire que toutes soient définies avec la même facetfunction
-        
-        #* Taking into account the loads
+        # ? Vu comment les conditions aux limites de Dirichlet interviennent dans le problème, pas sûr que ce soit nécessaire que toutes soient définies avec la même facetfunction
+
+        # * Taking into account the loads
         if loads:
             self.set_loads(loads)
         else:
             self.loads_data = None
             self.load_integrals = None
-        #* Prepare attribute for the solver
+        # * Prepare attribute for the solver
         self.solver = None
 
     def set_solver(self, solver_type='LU', solver_method='mumps', preconditioner='default'):
@@ -142,7 +144,7 @@ class FullScaleModel(object):
 
     def set_loads(self, loads):
         """Define the loads of the elasticy problem.
-        
+
         Parameters
         ----------
         loads : List
@@ -174,8 +176,8 @@ class FullScaleModel(object):
                 except KeyError:
                     self.load_subdomains[topo_dim] = mesh_fctn
 
-        #* Define load integrals
-        labels = {self.part.dim:'dx', self.part.dim-1:'ds'}
+        # * Define load integrals
+        labels = {self.part.dim: 'dx', self.part.dim-1: 'ds'}
         for topo_dim, partition in self.load_subdomains.items():
             self.measures[topo_dim] = fe.Measure(
                 labels[topo_dim],
@@ -187,7 +189,7 @@ class FullScaleModel(object):
             self.load_integrals[topo_dim] = list()
             dy = self.measures[topo_dim]
             for load in loads:
-                if len(load) == 1: 
+                if len(load) == 1:
                     contrib = fe.dot(load[0], self.v) * dy
                 elif len(load) == 2:
                     contrib = fe.dot(load[1]*load[0], self.v) * dy
@@ -209,7 +211,7 @@ class FullScaleModel(object):
             L = sum(L_terms)
         else:
             L = 0.
-        
+
         logger.info('Assembling system...')
         K, res = fe.assemble_system(self.a, L, self.Dirichlet_bc)
         logger.info('Assembling system : done')
@@ -218,15 +220,15 @@ class FullScaleModel(object):
         self.solver.solve(K, self.u_sol.vector(), res)
         logger.info('Solving system : done')
 
-        self.eps_sol = fe.project(self.part.epsilon(self.u_sol),self.strain_fspace)
-        
+        self.eps_sol = fe.project(self.part.epsilon(self.u_sol), self.strain_fspace)
+
         if results_file is not None:
             try:
                 if results_file.suffix != '.xdmf':
                     results_file = results_file.with_suffix('.xdmf')
             except AttributeError:
                 results_file = Path(results_file).with_suffix('.xdmf')
-            with fe.XDMFFile(results_file.as_posix()) as file_out: 
+            with fe.XDMFFile(results_file.as_posix()) as file_out:
                 file_out.parameters["flush_output"] = False
                 file_out.parameters["functions_share_mesh"] = True
                 self.u_sol.rename('displacement', 'displacement solution, full scale problem')
@@ -237,10 +239,9 @@ class FullScaleModel(object):
         return self.u_sol
 
 
-        
 class PeriodicDomain(fe.SubDomain):
     """Representation of periodicity boundary conditions. For 2D only"""
-    #? Source : https://comet-fenics.readthedocs.io/en/latest/demo/periodic_homog_elas/periodic_homog_elas.html
+    # ? Source : https://comet-fenics.readthedocs.io/en/latest/demo/periodic_homog_elas/periodic_homog_elas.html
 
     def __init__(self, per_vectors, master_tests, slave_tests, dim=2, tolerance=GEO_TOLERANCE):
         fe.SubDomain.__init__(self, tolerance)
@@ -251,7 +252,7 @@ class PeriodicDomain(fe.SubDomain):
         self.slave_tests = slave_tests
         self.infinity = list()
         for i in range(self.dim):
-            val = 9999* sum([vect[i] for vect in self.per_vectors])
+            val = 9999 * sum([vect[i] for vect in self.per_vectors])
             self.infinity.append(val)
 
     def inside(self, x, on_boundary):
@@ -263,7 +264,7 @@ class PeriodicDomain(fe.SubDomain):
                 return True
         else:
             return False
-    
+
     def map(self, x, y):
         """ Link a point 'x' on a slave part of the boundary to the related point 'y' which belong to a master region."""
         slave_flag = False
@@ -277,9 +278,9 @@ class PeriodicDomain(fe.SubDomain):
                 y[i] = self.infinity[i]
 
     @staticmethod
-    def pbc_dual_base(part_vectors, per_choice:str, dim=2, tolerance=GEO_TOLERANCE):
-        """Create periodic boundary only array that indicate the dimensions of the part. Appropriate for parallelepipedic domain. 
-        
+    def pbc_dual_base(part_vectors, per_choice: str, dim=2, tolerance=GEO_TOLERANCE):
+        """Create periodic boundary only array that indicate the dimensions of the part. Appropriate for parallelepipedic domain.
+
         Parameters
         ----------
         part_vectors : np.array
@@ -291,7 +292,7 @@ class PeriodicDomain(fe.SubDomain):
             Dimension of the modeling space. (the default is 2)
         tolerance : float, optional
             geometrical tolerance for membership tests.
-        
+
         Returns
         -------
         PeriodicDomain
@@ -299,8 +300,8 @@ class PeriodicDomain(fe.SubDomain):
         dual_vect = np.linalg.inv(part_vectors).T
         basis, dualbasis = list(), list()
         for i in range(np.size(part_vectors, 1)):
-            basis.append(fe.as_vector(part_vectors[:,i]))
-            dualbasis.append(fe.as_vector(dual_vect[:,i]))
+            basis.append(fe.as_vector(part_vectors[:, i]))
+            dualbasis.append(fe.as_vector(dual_vect[:, i]))
         master_tests, slave_tests, per_vectors = list(), list(), list()
         if 'x' in per_choice.lower():
             def left(x):
@@ -321,14 +322,14 @@ class PeriodicDomain(fe.SubDomain):
             master_tests.append(bottom)
             slave_tests.append(top)
             per_vectors.append(basis[1])
-        return PeriodicDomain(per_vectors, master_tests, slave_tests, 
+        return PeriodicDomain(per_vectors, master_tests, slave_tests,
                               dim, tolerance)
 
     @staticmethod
-    def pbc_facet_function(part_vectors, mesh, facet_function, per_choice:dict,
+    def pbc_facet_function(part_vectors, mesh, facet_function, per_choice: dict,
                            dim=2, tolerance=GEO_TOLERANCE):
         """[summary]
-        
+
         Parameters
         ----------
         part_vectors : np.array
@@ -337,18 +338,18 @@ class PeriodicDomain(fe.SubDomain):
         per_choice : dict
             key can be : 'X', 'Y'
             values : tuple (value of facetfunction for master, value for slave)
-            Ex : {'X' : (3,5)} 
+            Ex : {'X' : (3,5)}
         tolerance : float, optional
-        
+
         Returns
         -------
         PeriodicDomain
         """
 
-        #! Not tested yet
+        # ! Not tested yet
         basis = list()
         for i in range(np.size(part_vectors, 1)):
-            basis.append(fe.as_vector(part_vectors[:,i]))
+            basis.append(fe.as_vector(part_vectors[:, i]))
         per_values = [val for couple in per_choice for val in couple]
         coordinates = dict()
         mesh.init(1, 0)
@@ -375,10 +376,11 @@ class PeriodicDomain(fe.SubDomain):
             elif key.lower() == 'y':
                 per_vectors.append(basis[1])
 
-        return PeriodicDomain(per_vectors, master_tests, slave_tests, 
+        return PeriodicDomain(per_vectors, master_tests, slave_tests,
                               dim, tolerance)
 
-def reconstruction(localization_tensors:dict, macro_kinematic:dict, function_spaces:dict, localization_rules:dict={}, trunc_order:int=0, translation_microstructure=None, output_request=('u','eps')):
+
+def reconstruction(localization_tensors: dict, macro_kinematic: dict, function_spaces: dict, localization_rules: dict={}, trunc_order: int=0, translation_microstructure=None, output_request=('u', 'eps')):
     """
     One argument among localization_rules and trunc_order must be used.
 
@@ -387,15 +389,15 @@ def reconstruction(localization_tensors:dict, macro_kinematic:dict, function_spa
     localization_tensors : dictionnary
         Format : {
             [Macro_field] : {
-                [micro_field] : 
+                [micro_field] :
                     [list of lists : for each Macro_field component a list contains the components of the localization tensor field.]
             }
         }
     macro_kinematic : dictionnary of fields
         The macroscopic kinematic fields.
-        Keys : 'U', 'EG', 'EGG',\dots
-        Values : lists of components. 
-        None can be used to indicate a component that is equal to 0 or irrelevant. 
+        Keys : 'U', 'EG', 'EGG',\\dots
+        Values : lists of components.
+        None can be used to indicate a component that is equal to 0 or irrelevant.
     function_spaces : dictionnary
         Function space into which each mechanical field have to be built.
         keys : 'u', 'eps' or 'sigma'
@@ -404,7 +406,7 @@ def reconstruction(localization_tensors:dict, macro_kinematic:dict, function_spa
         Indicates the rules that have to be followed for the construction of the fluctuations.
         (the default is {}, which means that the trunc_order argument will be used)
     trunc_order : int, optional
-        Order of truncation for the reconstruction of the displacement field 
+        Order of truncation for the reconstruction of the displacement field
         following the higher order homogenization scheme defined in ???.
     translation_microstructure: np.array, optional
         Vector, 1D array (shape (2,) or (3,)), position origin used for the description of the RVE with regards to the macroscopic origin.
@@ -418,16 +420,16 @@ def reconstruction(localization_tensors:dict, macro_kinematic:dict, function_spa
     Dictionnary
         Mechanical fields with microscopic fluctuations. Keys are "eps", "sigma" and "u" respectively for the strain, stress and displacement fields.
     """
-    #? Changer les inputs ? 
-        #? Remplacer le dictionnaire de functionspace et output_request par un seul argument : list de tuples qui contiennent nom + function_space ?
-        #? Comme ça on peut aussi imaginer reconstruire le même champs dans différents espaces ?
+    # ? Changer les inputs ?
+        # ? Remplacer le dictionnaire de functionspace et output_request par un seul argument : list de tuples qui contiennent nom + function_space ?
+        # ? Comme ça on peut aussi imaginer reconstruire le même champs dans différents espaces ?
 
-    #! La construction de champs de localisation périodiques doit être faite en dehors de cette fonction.
+    # ! La construction de champs de localisation périodiques doit être faite en dehors de cette fonction.
 
-    #TODO : récupérer topo_dim à partir des tenseurs de localisation, ou mieux, à partir des espaces fonctionnels
-    #TODO : choisir comment on fixe la len des listes correspondantes aux composantes de u et de epsilon.
+    # TODO : récupérer topo_dim à partir des tenseurs de localisation, ou mieux, à partir des espaces fonctionnels
+    # TODO : choisir comment on fixe la len des listes correspondantes aux composantes de u et de epsilon.
 
-    #Au choix, utilisation de trunc_order ou localization_rules dans les kargs
+    # Au choix, utilisation de trunc_order ou localization_rules dans les kargs
     if localization_rules:
         pass
     elif trunc_order:
@@ -435,16 +437,16 @@ def reconstruction(localization_tensors:dict, macro_kinematic:dict, function_spa
             'u': [(MACRO_FIELDS_NAMES[i], MACRO_FIELDS_NAMES[i]) for i in range(trunc_order+1)],
             'eps': [(MACRO_FIELDS_NAMES[i], MACRO_FIELDS_NAMES[i]) for i in range(1, trunc_order+1)]
         }
-    #* Ex. for truncation order = 2:
-    #* localization_rules = {
-    #*    'u': [('U','U'), ('E','E'), ('EG','EG')],
-    #*    'eps': [('E','E'), ('EG', 'EG')]
-    #*}
+    # * Ex. for truncation order = 2:
+    # * localization_rules = {
+    # *    'u': [('U','U'), ('E','E'), ('EG','EG')],
+    # *    'eps': [('E','E'), ('EG', 'EG')]
+    # *}
 
     reconstructed_fields = dict()
 
     for mecha_field in output_request:
-        #* Prepare function spaces and assigner
+        # * Prepare function spaces and assigner
         fspace = function_spaces[mecha_field]
         value_shape = fspace.ufl_element()._value_shape
         if len(value_shape) == 1:
@@ -456,7 +458,7 @@ def reconstruction(localization_tensors:dict, macro_kinematic:dict, function_spa
                 fspace._ufl_element._degree
                 )
             constrain = fspace.dofmap().constrained_domain
-            scalar_fspace = fe.FunctionSpace(mesh, element,constrained_domain= constrain)
+            scalar_fspace = fe.FunctionSpace(mesh, element, constrained_domain=constrain)
             assigner = fe.FunctionAssigner(fspace, [scalar_fspace]*vector_dim)
             logger.debug(f"for reconstruction of {mecha_field}, vector_dim = {vector_dim}")
         elif len(value_shape) == 0:
@@ -467,7 +469,7 @@ def reconstruction(localization_tensors:dict, macro_kinematic:dict, function_spa
         else:
             raise NotImplementedError("Only vector fields are supported by the reconstruction function for now.")
 
-        #* Reconstruction proper
+        # * Reconstruction proper
         contributions = [list() for i in range(vector_dim)]
         for macro_key, localization_key in localization_rules[mecha_field]:
             macro_f = macro_kinematic[macro_key]
@@ -479,7 +481,7 @@ def reconstruction(localization_tensors:dict, macro_kinematic:dict, function_spa
                     contributions[i].append(macro_comp * loc_tens_comps[i])
         components = [sum(compnt_contrib) for compnt_contrib in contributions]
 
-        #* Components -> vector field
+        # * Components -> vector field
         field = fe.Function(fspace)
         components_proj = list()
         for scl_field in components:
@@ -489,5 +491,3 @@ def reconstruction(localization_tensors:dict, macro_kinematic:dict, function_spa
         assigner.assign(field, components_proj)
         reconstructed_fields[mecha_field] = field
     return reconstructed_fields
-
-

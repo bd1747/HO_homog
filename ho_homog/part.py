@@ -117,7 +117,7 @@ class FenicsPart(object):
             subdomains = fe.MeshFunction('size_t', mesh, mesh.topology().dim())
             subdomains.set_all(explicit_subdo_val)
             facets = None
-        
+
         if plots:
             plt.figure()
             subdo_plt = fe.plot(subdomains)
@@ -126,10 +126,11 @@ class FenicsPart(object):
             cmap = plt.cm.get_cmap('viridis', max(facets_val[1])-min(facets_val[1]))
             facets_plt = fetools.facet_plot2d(facets, mesh, cmap=cmap)
             plt.colorbar(facets_plt[0])
-            plt.draw()
+            plt.show()
         logger.info(f'Import of the mesh : DONE')
-        
+
         return FenicsPart(mesh, materials, subdomains, global_dimensions, facets)
+
 
 class Fenics2DRVE(FenicsPart):
     """
@@ -151,16 +152,17 @@ class Fenics2DRVE(FenicsPart):
         self.materials = material_dict
         self.subdomains = subdomains
         self.facet_regions = facet_regions
-    
+
         self.C_per = mat.mat_per_subdomains(self.subdomains, self.materials, self.mesh_dim)
-    #! A REGARDER !
+
     def epsilon(self,u):
         return mat.epsilon(u)
+
     def sigma(self,eps):
         return mat.sigma(self.C_per, eps)
+
     def StrainCrossEnergy(self, sig, eps):
         return mat.strain_cross_energy(sig, eps, self.mesh, self.rve_area)
-
 
     @staticmethod
     def gmsh_2_Fenics_2DRVE(gmsh_2D_RVE, material_dict, plots=True):
@@ -170,10 +172,10 @@ class Fenics2DRVE(FenicsPart):
         """
         xml_path = gmsh_2D_RVE.mesh_abs_path.with_suffix('.xml')
         cmd = ('dolfin-convert '
-                + gmsh_2D_RVE.mesh_abs_path.as_posix()
-                + ' '
-                + xml_path.as_posix()
-                )
+               + gmsh_2D_RVE.mesh_abs_path.as_posix()
+               + ' '
+               + xml_path.as_posix()
+               )
         run(cmd, shell=True, check=True)
         mesh = fe.Mesh(xml_path.as_posix())
         name = xml_path.stem
@@ -198,11 +200,11 @@ class Fenics2DRVE(FenicsPart):
             plt.figure()
             cmap = plt.cm.get_cmap('viridis', max(facets_val[1])-min(facets_val[1]))
             facets_plt = fetools.facet_plot2d(facets, mesh, cmap=cmap)
-            clrbar = plt.colorbar(facets_plt[0])
+            plt.colorbar(facets_plt[0])
             # clrbar.set_ticks(facets_val)
             plt.draw()
         logger.info(f'Import of the mesh : DONE')
-        
+
         generating_vectors = gmsh_2D_RVE.gen_vect
         return Fenics2DRVE(mesh, generating_vectors, material_dict, subdomains, facets)
 
@@ -253,7 +255,7 @@ class Fenics2DRVE(FenicsPart):
         else:
             logger.info(f"For mesh file {mesh_path.name}, _facet_region.xml file is missing.")
             facets = None
-        
+
         subdo_val = fetools.get_MeshFunction_val(subdomains)
         facets_val = fetools.get_MeshFunction_val(facets)
         logger.info(f'{subdo_val[0]} physical regions imported. The values of their tags are : {subdo_val[1]}')
@@ -268,7 +270,7 @@ class Fenics2DRVE(FenicsPart):
             plt.colorbar(facets_plt[0])
             plt.draw()
         logger.info(f'Import of the mesh : DONE')
-        
+
         return Fenics2DRVE(mesh, generating_vectors, material_dict, subdomains, facets)
 
 if __name__ == "__main__":
