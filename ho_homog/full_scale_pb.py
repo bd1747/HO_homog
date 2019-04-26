@@ -71,7 +71,7 @@ class FullScaleModel(object):
                     pass
             bc_type, *bc_data = bc
             if bc_type == 'Periodic':
-                if not self.per_bc is None:
+                if self.per_bc is not None:
                     raise AttributeError("Only one periodic boundary condition can be prescribed.")
                 self.per_bc = bc_data[0]
             elif bc_type == 'Dirichlet':
@@ -303,14 +303,21 @@ class PeriodicDomain(fe.SubDomain):
             dualbasis.append(fe.as_vector(dual_vect[:,i]))
         master_tests, slave_tests, per_vectors = list(), list(), list()
         if 'x' in per_choice.lower():
-            left = lambda x: fe.near(float(x.dot(dualbasis[0])), 0., tolerance) #TODO : Enlever la conversion en float ?
-            right = lambda x: fe.near(float((x - basis[0]).dot(dualbasis[0])), 0., tolerance)
+            def left(x):
+                return fe.near(x.dot(dualbasis[0]), 0., tolerance)
+                # dot product return a <'ufl.constantvalue.FloatValue'>
+
+            def right(x):
+                return fe.near((x - basis[0]).dot(dualbasis[0]), 0., tolerance)
             master_tests.append(left)
             slave_tests.append(right)
             per_vectors.append(basis[0])
         if 'y' in per_choice.lower():
-            bottom = lambda x: fe.near(float(x.dot(dualbasis[1])), 0., tolerance)
-            top = lambda x: fe.near(float((x - basis[1]).dot(dualbasis[1])), 0., tolerance)
+            def bottom(x):
+                return fe.near(x.dot(dualbasis[1]), 0., tolerance)
+
+            def top(x):
+                return fe.near((x - basis[1]).dot(dualbasis[1]), 0., tolerance)
             master_tests.append(bottom)
             slave_tests.append(top)
             per_vectors.append(basis[1])
@@ -356,8 +363,11 @@ class PeriodicDomain(fe.SubDomain):
             coordinates[val] = points_for_val
         master_tests, slave_tests, per_vectors = list(), list(), list()
         for key, (master_idx, slave_idx) in per_choice.items():
-            master_test = lambda x: any(np.allclose(x, pt, atol=tolerance) for pt in coordinates[master_idx])
-            slave_test = lambda x: any(np.allclose(x, pt, atol=tolerance) for pt in coordinates[slave_idx])
+            def master_test(x):
+                return any(np.allclose(x, pt, atol=tolerance) for pt in coordinates[master_idx])
+
+            def slave_test(x):
+                return any(np.allclose(x, pt, atol=tolerance) for pt in coordinates[slave_idx])
             master_tests.append(master_test)
             slave_tests.append(slave_test)
             if key.lower() == 'x':
