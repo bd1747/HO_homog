@@ -13,25 +13,22 @@ sources :
 import copy
 import logging
 import math
-import os
 from pathlib import Path
-import sys
 import warnings
-
 import gmsh
 import matplotlib.pyplot as plt
 import numpy as np
 
 logger = logging.getLogger(__name__)
-bndry_logger = logging.getLogger(__name__+".bndry")
+bndry_logger = logging.getLogger("bndry")
 
 # nice shortcuts
 model = gmsh.model
 factory = model.occ
 
-warnings.simplefilter("always") #? Doc: https://docs.python.org/3.6/library/warnings.html
+warnings.simplefilter("always") # ? Doc: https://docs.python.org/3.6/library/warnings.html
 
-#info about gmsh module
+# info about gmsh module
 logger.info(f"gmsh module path : {Path(gmsh.__file__).resolve()}")
 
 #TODO : placer un asarray dans la def de __init__ pour Point
@@ -936,9 +933,9 @@ class PhysicalGroup(object):
         phy_before = model.getPhysicalGroups()
         factory.synchronize()
         phy_after = model.getPhysicalGroups()
-        logger.info(f"call of factory.synchronize(). Physical groups in the model before : {phy_before} and after : {phy_after}")
+        logger.debug(f"call of factory.synchronize(). Physical groups in the model before : {phy_before} and after : {phy_after}")
         factory.synchronize()
-        logger.info(f"And after a second call of factory.synchronize() : {model.getPhysicalGroups()}")
+        logger.debug(f"And after a second call of factory.synchronize() : {model.getPhysicalGroups()}")
         if self.name:
             model.setPhysicalName(self.dim, self.tag, self.name)
 
