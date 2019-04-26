@@ -22,4 +22,5 @@ periodic.py
 activity.log
 test_convert_import_mesh/
 TODO.txt
-ho_homog.egg-info/
+*.xdmf
+*.h5
