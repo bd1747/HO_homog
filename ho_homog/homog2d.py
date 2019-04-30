@@ -5,7 +5,7 @@ import numpy as np
 import logging
 import ho_homog
 np.set_printoptions(precision=4, linewidth=150)
-np.set_printoptions(suppress= True)
+np.set_printoptions(suppress=True)
 
 '''TODO:
     - implementer Stress gradient
@@ -35,7 +35,7 @@ class Fenics2DHomogenization(object):
         dualbasis = self.dualbasis
 
         class PeriodicDomain(fe.SubDomain):
-        # ? Source : https://comet-fenics.readthedocs.io/en/latest/demo/periodic_homog_elas/periodic_homog_elas.html
+            # ? Source : https://comet-fenics.readthedocs.io/en/latest/demo/periodic_homog_elas/periodic_homog_elas.html
             def __init__(self, tolerance=GEO_TOLERANCE):
                 """ vertices stores the coordinates of the 4 unit cell corners"""
                 fe.SubDomain.__init__(self, tolerance)
@@ -180,7 +180,7 @@ class Fenics2DHomogenization(object):
     def LocalizationU(self):
         try:
             out = self.localization['U']
-        except AttributeError:
+        except KeyError:
 
             u = [fe.interpolate(fe.Constant((1., 0.)), self.V),
                  fe.interpolate(fe.Constant((0., 1.)), self.V)]
@@ -199,7 +199,7 @@ class Fenics2DHomogenization(object):
         '''
         try:
             out = self.localization['E']
-        except AttributeError:
+        except KeyError:
             f = [fe.Constant((0, 0)), fe.Constant((0, 0)), fe.Constant((0, 0))]
             Fload = [fe.interpolate(fo, self.V) for fo in f]
             epsilon0 = [fe.Constant((1, 0, 0)), fe.Constant((0, 1, 0)), fe.Constant((0, 0, 1))]
@@ -217,7 +217,7 @@ class Fenics2DHomogenization(object):
         '''
         try:
             out = self.localization['Ebis']
-        except AttributeError:
+        except KeyError:
             epsilon0 = [fe.Constant((1, 0, 0)), fe.Constant((0, 1, 0)), fe.Constant((0, 0, 1))]
             Epsilon0 = [fe.interpolate(eps, self.W) for eps in epsilon0]
 
@@ -234,7 +234,7 @@ class Fenics2DHomogenization(object):
         '''
         try:
             out = self.localization['EG']
-        except AttributeError:
+        except KeyError:
             self.LocalizationE()
 
             Fload = self.Sigma2Fload(self.localization['E']['Sigma'])
@@ -252,7 +252,7 @@ class Fenics2DHomogenization(object):
         '''
         try:
             out = self.localization['EGbis']
-        except AttributeError:
+        except KeyError:
             # h = self.lamination.total_thickness
             self.LocalizationE()
 
@@ -275,7 +275,7 @@ class Fenics2DHomogenization(object):
         '''
         try:
             out = self.localization['EGG']
-        except AttributeError:
+        except KeyError:
             self.LocalizationEG()
 
             Fload = self.Sigma2Fload(self.localization['EG']['Sigma'])
@@ -286,7 +286,7 @@ class Fenics2DHomogenization(object):
             out = {'U': u, 'Sigma': sigma, 'Epsilon': epsilon}
             self.localization['EGG'] = out
         return out
-     
+
     def LocalizationEGGbis(self):
         '''
         return GradGradE stress/strain localization fields for the EGG model $u^EG\diads\delta$ (as function of macro GradGradE)
@@ -298,8 +298,8 @@ class Fenics2DHomogenization(object):
         '''
         try:
             out = self.localization['EGGbis']
-        except AttributeError:
-#             h = self.lamination.total_thickness
+        except KeyError:
+            # h = self.lamination.total_thickness
             self.LocalizationEG()
 
             Epsilon0 = self.Displacement2Epsilon0(self.localization['EG']['U'])
@@ -323,7 +323,7 @@ class Fenics2DHomogenization(object):
             BEps = self.localization['E']['Sigma']
             n = len(BEps)
             BSigma = [[BEps[i][j] * C for j in range(n)] for i in range(n)]
-                    # Assembling the constitutive matrix
+            # Assembling the constitutive matrix
             BSigma_i = []
             for i in range(n):
                 BSigma_j = []
@@ -346,13 +346,14 @@ class Fenics2DHomogenization(object):
             self.localization['EG'] = out
         return out
 
+
     def CrossEnergy(self, Key1, Key2, Loc1, Loc2):
         ''' Calcul l'energie croisee des tenseurs de localisation Loc1 et Loc2
         Si Loc1 est un champ de contraintes alors Loc2 doit etre un champ de deformations (et inversement)
         '''
         try:
             C = self.ConstitutiveTensors[Key1][Key2]
-        except:
+        except KeyError:
             print('Compute cross energy '+Key1+' and '+Key2)
             if Key1 == Key2:
                 K = len(Loc1)
@@ -370,21 +371,24 @@ class Fenics2DHomogenization(object):
                         C[k, l] = self.rve.StrainCrossEnergy(Loc1[k], Loc2[l])
             try:
                 self.ConstitutiveTensors[Key1][Key2] = C
-            except:
+            except KeyError:
                 self.ConstitutiveTensors[Key1] = {}
                 self.ConstitutiveTensors[Key1][Key2] = C
 
             try:
                 self.ConstitutiveTensors[Key2][Key1] = C.T
-            except:
+            except KeyError:
                 self.ConstitutiveTensors[Key2] = {}
                 self.ConstitutiveTensors[Key2][Key1] = C.T
         return C
 
     def genericAuxiliaryProblem(self, Fload, Epsilon0):
-        '''This function compute the auxiliary problem of order N given the sources (of auxiliary problem N-1). It returns new localizations'''
+        """
+        This function compute the auxiliary problem of order N
+        given the sources (of auxiliary problem N-1).
 
-        d = self.topo_dim
+        It returns new localizations
+        """
 
         U2 = []
         S2 = []
@@ -482,6 +486,7 @@ class Fenics2DHomogenization(object):
 
         return Epsilon0
 
+
 if __name__ == "__main__":
     import os
     import site
@@ -500,7 +505,9 @@ if __name__ == "__main__":
 
     logger_root = logging.getLogger()
     logger_root.setLevel(logging.INFO)
-    formatter =logging.Formatter('%(asctime)s :: %(levelname)s :: %(name)s :: %(message)s',"%Y-%m-%d %H:%M:%S")
+    formatter = logging.Formatter(
+        '%(asctime)s :: %(levelname)s :: %(name)s :: %(message)s',
+        "%Y-%m-%d %H:%M:%S")
     log_path = Path.home().joinpath('Desktop/activity.log')
     file_handler = RotatingFileHandler(str(log_path), 'a', 1000000, 10)
     file_handler.setLevel(logging.DEBUG)
@@ -512,7 +519,7 @@ if __name__ == "__main__":
     stream_handler.setFormatter(formatter)
     logger_root.addHandler(stream_handler)
 
-    E_NAMES = ('E11','E22','E12')
+    E_NAMES = ('E11', 'E22', 'E12')
 
     def test_homogeneous_pantograph_cell():
         """ Test élémentaire.
