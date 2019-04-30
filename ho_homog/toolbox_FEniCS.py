@@ -66,3 +66,31 @@ def facet_plot2d(facet_func,mesh, mesh_edges=True, markers=None, exclude_val=(0,
     if mesh_edges:
         plots.append(fe.plot(facet_func.mesh()))
     return plots
+
+
+def function_from_xdmf(function_space, function_name, xdmf_path):
+    """Read a finite element function from a xdmf file with checkpoint format.
+
+    Parameters
+    ----------
+    function_space : dolfin.FunctionSpace
+        Function space appropriate for the previously saved function.
+        The mesh must be identical to the one used for the saved function.
+    function_name : str
+        The name of the saved function.
+    xdmf_path : pathlib.Path
+        Path of the xdmf file. It can be a Path object or a string.
+        Extension must be '.xmdf'
+
+    Returns
+    -------
+    dolfin.Function
+        New function that is identical to the previously saved function.
+    """
+    f = fe.Function(function_space)
+    file_in = fe.XDMFFile(str(xdmf_path))
+    file_in.read_checkpoint(f, function_name)
+    file_in.close()
+    return f
+
+
