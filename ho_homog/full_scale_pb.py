@@ -130,7 +130,13 @@ class FullScaleModel(object):
         self.solver = None
 
     def set_solver(self, solver_type='LU', solver_method='mumps', preconditioner='default'):
-        """Choose the type of the solver and its method."""
+        """
+        Choose the type of the solver and its method.
+
+        An up-to-date list of the available solvers and preconditioners
+        can be obtained with dolfin.list_linear_solver_methods() and
+        dolfin.list_krylov_solver_preconditioners().
+        """
 
         if solver_type == 'Krylov':
             self.solver = fe.KrylovSolver(self.K, solver_method)
@@ -140,6 +146,8 @@ class FullScaleModel(object):
             raise TypeError
         if preconditioner != 'default':
             self.solver.parameters.preconditioner = preconditioner
+        self._solver = {'type': solver_type, 'method': solver_method,
+                        'preconditioner': preconditioner}
         return self.solver
 
     def set_loads(self, loads):
@@ -219,9 +227,11 @@ class FullScaleModel(object):
         logger.info('Solving system...')
         self.solver.solve(K, self.u_sol.vector(), res)
         logger.info('Solving system : done')
-
-        self.eps_sol = fe.project(self.part.epsilon(self.u_sol), self.strain_fspace)
-
+        logger.info('Computing strain solution...')
+        self.eps_sol = fe.project(self.part.epsilon(self.u_sol),
+                                  self.strain_fspace,
+                                  solver_type=self._solver['method'])
+        logger.info('Saving results...')
         if results_file is not None:
             try:
                 if results_file.suffix != '.xdmf':
