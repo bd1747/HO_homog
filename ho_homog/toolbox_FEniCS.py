@@ -94,3 +94,40 @@ def function_from_xdmf(function_space, function_name, xdmf_path):
     return f
 
 
+def function_errornorm(u, v, norm_type='L2', enable_diff_fspace=False):
+    """Compute the difference between two functions
+    defined on the same functionspace with the given norm.
+
+    If the two objects are not functions defined in the same functionspace
+    the FEniCS function errornorm should be used.
+    Alternatively the constraint of function space equality can be relaxed
+    with caution with the enable_diff_fspace flag.
+
+    Based of the FEniCS functions errornorm and norm.
+
+    Parameters
+    ----------
+    u, v : dolfin.functions.function.Function
+    norm_type : string
+        Type of norm. The :math:`L^2` -norm is default.
+        For other norms, see :py:func:`norm <dolfin.fem.norms.norm>`.
+    enable_diff_fspace: bool
+        Relax the constraint of function space equality
+
+    Returns
+    -------
+    float
+        Norm of the difference
+    """
+    if u.function_space() == v.function_space():
+        difference = fe.Function(u.function_space())
+        difference.assign(u)
+        difference.vector().axpy(-1.0, v.vector())
+    elif enable_diff_fspace:
+        logger.warning(f"Function spaces not equals. A projection is done to compute the difference between {u} and {v}")
+        difference = fe.project(u-v, u.function_space())
+    else:
+        raise RuntimeError(
+            "Cannot compute error norm, Function spaces do not match.")
+    return fe.norm(difference, norm_type)
+

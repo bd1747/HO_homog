@@ -15,7 +15,8 @@ import numpy as np
 import sympy as sp
 
 from ho_homog import (GEO_TOLERANCE, full_scale_pb, geometry, homog2d,
-                      materials, mesh_generate_2D, part, pckg_logger)
+                      materials, mesh_generate_2D, part, pckg_logger,
+                      toolbox_FEniCS)
 
 logger = logging.getLogger('demo_full_compare')
 logger_root = logging.getLogger()
@@ -323,12 +324,9 @@ exact_sol = {'u': model.u_sol, 'eps': model.eps_sol}
 errors = dict()
 for f_name in reconstr_sol.keys():
     dim = exact_sol[f_name].ufl_shape[0]
-    exact_norm = fe.errornorm(
-        exact_sol[f_name], fe.Constant([0.0]*dim),
-        'L2', degree_rise=0, mesh=model.part.mesh)
-    difference = fe.errornorm(
-        reconstr_sol[f_name], exact_sol[f_name],
-        'L2', degree_rise=0, mesh=model.part.mesh)
+    exact_norm = fe.norm(exact_sol[f_name], 'L2')
+    difference = toolbox_FEniCS.function_errornorm(
+        reconstr_sol[f_name], exact_sol[f_name], 'L2')
     error = difference/exact_norm
     errors[f_name] = error
     print(f_name, error, difference, exact_norm)
