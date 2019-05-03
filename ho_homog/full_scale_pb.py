@@ -390,7 +390,10 @@ class PeriodicDomain(fe.SubDomain):
                               dim, tolerance)
 
 
-def reconstruction(localization_tensors: dict, macro_kinematic: dict, function_spaces: dict, localization_rules: dict={}, trunc_order: int=0, translation_microstructure=None, output_request=('u', 'eps')):
+def reconstruction(
+    localization_tensors: dict, macro_kinematic: dict, function_spaces: dict,
+    localization_rules: dict = {}, trunc_order: int = 0,
+    output_request=('u', 'eps'), proj_solver=None):
     """
     One argument among localization_rules and trunc_order must be used.
 
@@ -418,12 +421,12 @@ def reconstruction(localization_tensors: dict, macro_kinematic: dict, function_s
     trunc_order : int, optional
         Order of truncation for the reconstruction of the displacement field
         following the higher order homogenization scheme defined in ???.
-    translation_microstructure: np.array, optional
-        Vector, 1D array (shape (2,) or (3,)), position origin used for the description of the RVE with regards to the macroscopic origin.
     output_request : tuple of strings, optional
         Which fields have to be calculated.
         This can contain : 'u', eps' and 'sigma'
         (the default is ('u', 'eps'), displacement and strain fields will be reconstructed)
+    proj_solver : string
+        impose the use of a desired solver for the projections.
 
     Return
     ------
@@ -438,6 +441,14 @@ def reconstruction(localization_tensors: dict, macro_kinematic: dict, function_s
 
     # TODO : récupérer topo_dim à partir des tenseurs de localisation, ou mieux, à partir des espaces fonctionnels
     # TODO : choisir comment on fixe la len des listes correspondantes aux composantes de u et de epsilon.
+
+    # TODO : permettre la translation du RVE par rapport à la structure macro autre part
+    # TODO :  translation_microstructure: np.array, optional
+    # TODO :         Vector, 1D array (shape (2,) or (3,)), position origin used for the description of the RVE with regards to the macroscopic origin.
+
+    solver_param = {}
+    if proj_solver:
+        solver_param = {"solver_type": proj_solver}
 
     # Au choix, utilisation de trunc_order ou localization_rules dans les kargs
     if localization_rules:
@@ -495,7 +506,8 @@ def reconstruction(localization_tensors: dict, macro_kinematic: dict, function_s
         field = fe.Function(fspace)
         components_proj = list()
         for scl_field in components:
-            components_proj.append(fe.project(scl_field, scalar_fspace))
+            components_proj.append(
+                fe.project(scl_field, scalar_fspace, **solver_param))
         if len(value_shape) == 0:
             components_proj = components_proj[0]
         assigner.assign(field, components_proj)
