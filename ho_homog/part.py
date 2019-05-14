@@ -69,7 +69,7 @@ class FenicsPart(object):
         Parameters
         ----------
         mesh_path : string or Path
-            Relative or absolute path to the mesh file (format Dolfin XML or MSH version 2)
+            Relative or absolute path to the mesh file (format Dolfin XML, XDMF or MSH version 2)
         global_dimensions : 2D-array
             shape : 2×2 if 2D problem
             dimensions of the RVE
@@ -88,13 +88,19 @@ class FenicsPart(object):
         if not isinstance(mesh_path, Path):
             mesh_path = Path(mesh_path)
         name = mesh_path.stem
-        if mesh_path.suffix != '.xml':
+        if mesh_path.suffix == 'xml':
+            mesh = fe.Mesh(str(mesh_path))
+        elif mesh_path.suffix == '.xdmf':
+            mesh = fe.Mesh()
+            with fe.XDMFFile(str(mesh_path)) as file_in:
+                file_in.read(mesh)
+        else:
             cmd = (f"dolfin-convert {mesh_path} {mesh_path.with_suffix('.xml')}")
             run(cmd, shell=True, check=True)
             mesh_path = mesh_path.with_suffix('.xml')
-
-        mesh = fe.Mesh(str(mesh_path))
+            mesh = fe.Mesh(str(mesh_path))
         if subdomains_import:
+            # ! Faire adaptation pour xdmf
             subdo_path = mesh_path.with_name(name+'_physical_region.xml')
             facet_path = mesh_path.with_name(name+'_facet_region.xml')
             if subdo_path.exists():
@@ -120,12 +126,17 @@ class FenicsPart(object):
 
         if plots:
             plt.figure()
-            subdo_plt = fe.plot(subdomains)
-            plt.colorbar(subdo_plt)
-            plt.figure()
-            cmap = plt.cm.get_cmap('viridis', max(facets_val[1])-min(facets_val[1]))
-            facets_plt = fetools.facet_plot2d(facets, mesh, cmap=cmap)
-            plt.colorbar(facets_plt[0])
+            fe.plot(mesh, title=f'Mesh of {name}')
+            if subdomains_import:
+                plt.figure()
+                subdo_plt = fe.plot(subdomains, mesh,
+                                    title=f'Subdomains imported for {name}')
+                plt.colorbar(subdo_plt)
+                plt.figure()
+                facets_val_range = max(facets_val[1])-min(facets_val[1])
+                cmap = plt.cm.get_cmap('viridis', facets_val_range)
+                facets_plt = fetools.facet_plot2d(facets, mesh, cmap=cmap)
+                plt.colorbar(facets_plt[0])
             plt.show()
         logger.info(f'Import of the mesh : DONE')
 
@@ -148,12 +159,16 @@ class Fenics2DRVE(FenicsPart):
         self.gen_vect = generating_vectors
         self.rve_area = np.linalg.det(self.gen_vect)
         self.mat_area = fe.assemble(fe.Constant(1)*fe.dx(mesh))
-        self.mesh_dim = mesh.topology().dim() #dimension d'espace de depart
+        self.mesh_dim = mesh.topology().dim() # dimension d'espace de depart
         self.materials = material_dict
         self.subdomains = subdomains
         self.facet_regions = facet_regions
 
-        self.C_per = mat.mat_per_subdomains(self.subdomains, self.materials, self.mesh_dim)
+        if isinstance(self.materials, mat.Material):
+            self.C_per = fe.as_matrix(self.materials.get_C())
+        else:
+            self.C_per = mat.mat_per_subdomains(
+                self.subdomains, self.materials, self.mesh_dim)
 
     def epsilon(self,u):
         return mat.epsilon(u)
@@ -247,27 +262,31 @@ class Fenics2DRVE(FenicsPart):
         facet_path = mesh_path.with_name(name+'_facet_region.xml')
         if subdo_path.exists():
             subdomains = fe.MeshFunction('size_t', mesh, subdo_path.as_posix())
+            subdo_val = fetools.get_MeshFunction_val(subdomains)
+            logger.info(f'{subdo_val[0]} physical regions imported. Tags : {subdo_val[1]}')
         else:
             logger.info(f"For mesh file {mesh_path.name}, _physical_region.xml file is missing.")
             subdomains = None
         if facet_path.exists():
             facets = fe.MeshFunction('size_t', mesh, facet_path.as_posix())
+            facets_val = fetools.get_MeshFunction_val(facets)
+            logger.info(f'{facets_val[0]} facet regions imported. Tags : {facets_val[1]}')
         else:
             logger.info(f"For mesh file {mesh_path.name}, _facet_region.xml file is missing.")
             facets = None
 
-        subdo_val = fetools.get_MeshFunction_val(subdomains)
-        facets_val = fetools.get_MeshFunction_val(facets)
-        logger.info(f'{subdo_val[0]} physical regions imported. The values of their tags are : {subdo_val[1]}')
-        logger.info(f'{facets_val[0]} facet regions imported. The values of their tags are : {facets_val[1]}')
         if plots:
             plt.figure()
-            subdo_plt = fe.plot(subdomains)
-            plt.colorbar(subdo_plt)
-            plt.figure()
-            cmap = plt.cm.get_cmap('viridis', max(facets_val[1])-min(facets_val[1]))
-            facets_plt = fetools.facet_plot2d(facets, mesh, cmap=cmap)
-            plt.colorbar(facets_plt[0])
+            fe.plot(mesh)
+            if subdomains is not None:
+                plt.figure()
+                subdo_plt = fe.plot(subdomains)
+                plt.colorbar(subdo_plt)
+            if facets is not None:
+                plt.figure()
+                cmap = plt.cm.get_cmap('viridis', max(facets_val[1])-min(facets_val[1]))
+                facets_plt = fetools.facet_plot2d(facets, mesh, cmap=cmap)
+                plt.colorbar(facets_plt[0])
             plt.draw()
         logger.info(f'Import of the mesh : DONE')
 
