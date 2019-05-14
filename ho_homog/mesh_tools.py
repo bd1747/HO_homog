@@ -330,14 +330,16 @@ def translation2matrix(v, dist=None):
     else:
         raise TypeError("The numpy array can not correspond to a translation vector.")
     transform_matx = np.identity(4)
-    transform_matx[:,3] += v_
+    transform_matx[:, 3] += v_
     return transform_matx.flatten().tolist()
+
 
 def set_periodicity_pairs(slaves, masters, translation_v=np.array(())):
     """
     A rédiger #TODO
 
-    #! Idée : Il n'est pas nécessaire de donner le vecteur translation explicitement, on se sert des points des éléments de slaves et master pour le définir
+    Il n'est pas nécessaire de donner le vecteur translation explicitement,
+    on se sert des points des éléments de slaves et master pour le définir
     """
     if all(isinstance(s, geo.Curve) for s in slaves) and all(isinstance(m, geo.Curve) for m in masters):
         geo_dim = 1
@@ -351,7 +353,10 @@ def set_periodicity_pairs(slaves, masters, translation_v=np.array(())):
     else:
         vect = (slaves[0].def_pts[0].coord - masters[0].def_pts[0].coord)
     # logger.debug(f"translation vector in set_periodicity_pairs : {vect}")
+    print([s.tag for s in slaves])
+    print([m.tag for m in masters])
     model.mesh.setPeriodic(geo_dim, [s.tag for s in slaves], [m.tag for m in masters], translation2matrix(vect))
+
 
 def sort_function_factory(dir_v):
     """
@@ -362,6 +367,7 @@ def sort_function_factory(dir_v):
     return sort_function
 
 
+# ! A changer d'endroit : mettre dans geometry
 def order_curves(curves, dir_v, orientation=False):
     """
     Ordonne une liste de courbes.
