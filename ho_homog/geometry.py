@@ -12,6 +12,7 @@ sources :
 
 import copy
 import logging
+from logging.handlers import RotatingFileHandler
 import math
 from pathlib import Path
 import warnings
@@ -21,6 +22,24 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 bndry_logger = logging.getLogger("bndry")
+bndry_logger.setLevel(logging.DEBUG)
+bndry_logger.propagate = False
+log_path = Path('~/ho_homog_log/gmsh_getBoundary_output.log').expanduser()
+if not log_path.parent.exists():
+    log_path.parent.mkdir(mode=0o777, parents=True)
+file_handler = RotatingFileHandler(str(log_path), 'a', 1000000, 1)
+file_handler.setLevel(logging.DEBUG)
+file_handler.setFormatter(
+    logging.Formatter('%(asctime)s :: %(levelname)s :: %(message)s'))
+bndry_logger.addHandler(file_handler)
+bndry_logger.warning("***Output of the getBoundary function of the gmsh API***")
+bndry_logger.warning("""
+*****
+This logger and the associated handler are a hacky workaround to avoid errors
+related to gmsh.model.occ.getBoundary(). Therefore they should not be removed
+or deactivated.
+*****""")
+
 
 # nice shortcuts
 model = gmsh.model
