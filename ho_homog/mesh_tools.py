@@ -5,9 +5,9 @@ Created on 22/10/2018
 
 Définition de classes d'objets géométriques et de fonctions permettant de créer un modèle géométrique de RVE dans gmsh.
 
-Outils pour controler la partie maillage dans gmsh, en complément des outils utiles pour la construction du modèle géoémtrique. 
-Deux fonctionnalités : 
-        - Raffinement du maillage autour de points d'intérêts, en utilisant des champs scalaire pour prescire la taille caractéristiques des éléments. 
+Outils pour controler la partie maillage dans gmsh, en complément des outils utiles pour la construction du modèle géoémtrique.
+Deux fonctionnalités :
+        - Raffinement du maillage autour de points d'intérêts, en utilisant des champs scalaire pour prescire la taille caractéristiques des éléments.
         - Maillage "périodique" : identique sur les parties du bords du RVE en vis à vis.
 """
 
@@ -44,9 +44,9 @@ class Field(object):
 
     def add_gmsh(self):
         """
-        Partie générique des intructions nécessaires pour ajouter un field de contrôle de la taille des éléments. 
+        Partie générique des intructions nécessaires pour ajouter un field de contrôle de la taille des éléments.
         """
-        
+
         if self.tag: # That means that the field has already been instantiated in the gmsh model.
             return self.tag #The tag is returned for information purposes only.
         if self.parents:
@@ -60,13 +60,13 @@ class Field(object):
 class AttractorField(Field):
     """
     Field de type Attractor. Calcul la distance entre un point courant du domaine sur lequel le maillage doit être défini et les attracteurs qui peuvent être des Points, des Lines ou des Arcs.
-    Paramètres : 
+    Paramètres :
             points : liste d'instances de Point utilisés comme attracteurs;
             curves : liste d'instances de Line ou Arc utilisés comme attracteurs;
             nb_pts_discretization : Nb de points utilisés pour la discrétisation de chaque élément 1D de 'curves'.
     """
 
-    def __init__(self, points=[], curves=[], nb_pts_discretization=10): #! C'est nb_pts_discretization - 2 points pris à l'intérieur de la courbe ! 
+    def __init__(self, points=[], curves=[], nb_pts_discretization=10): #! C'est nb_pts_discretization - 2 points pris à l'intérieur de la courbe !
         Field.__init__(self, "Attractor")
         self.points = points if points else None
         self.curves = curves if curves else None
@@ -96,7 +96,7 @@ class ThresholdField(Field):
         lc_min : caracteristic element size inside balls of raduis d_min and centered at each attractor;
         lc_max : caracteristic element size outside balls of raduis d_max and centered at each attractor;
         attract_field : field that define the attractors that are used as centers for the d_min and d_max radii balls.
- 
+
     F = LCMin if Field[IField] <= DistMin,
     F = LCMax if Field[IField] >= DistMax,
     F = interpolation between LcMin and LcMax if DistMin < Field[IField] < Dist-Max
@@ -151,14 +151,15 @@ class RestrictField(Field):
 class MathEvalField(Field):
     """
      Evaluate a mathematical expression.
-    
-    Des champs peuvent être utilisés dans l'expression. Dans ce cas, les faire apparaitre dans le paramètre inpt_fields. 
+
+    Des champs peuvent être utilisés dans l'expression.
+    Dans ce cas, les faire apparaitre dans le paramètre inpt_fields.
     """
 
     def __init__(self, formula_str, inpt_fields=[]):
         Field.__init__(self, "MathEval", inpt_fields)
         self.formula = formula_str
-    
+
     def set_params(self):
         api_field.setString(self.tag, "F", self.formula)
 
@@ -201,12 +202,12 @@ def set_mesh_refinement(d_min_max, lc_min_max, attractors={'points':[],'curves':
         The distance from those points is used to compute the distance from the attractor curves during the mesh generation.
         nb_pts_discretization is the number of those points.
     sigmoid_interpol = bool, optional
-        If False, the element size that is prescribe between d_min and d_max is calculated with a linear interpolation between lc_min and lc_max. 
+        If False, the element size that is prescribe between d_min and d_max is calculated with a linear interpolation between lc_min and lc_max.
         If True, a sigmoid function is used for this interpolation.
     restrict_domain : dictionnary, optional
         It is possible to impose The application of the refinement constraint can be restricted to selected geometrical entities.
         Geometrical points, curves and surfaces can be given, in lists, using the three keys : 'points', 'curves' and 'surfaces'. They have to be instances of the Point, Line/Arc and PlaneSurface classes respectively.
-    
+
     Returns
     -------
     major_field : fied
@@ -253,17 +254,17 @@ def set_mesh_refinement(d_min_max, lc_min_max, attractors={'points':[],'curves':
 def set_background_mesh(fields):
     """
     Set the background scalar field that will be used in order to prescribe all the element size constraints during the mesh generation process.
-    
+
     Only one background field can be given for the mesh generation. (gmsh reference manual 26/09/2018, 6.3.1 Specifying mesh element size)
     If multiple fields are specified in the unique parameter, the related element size constrains will be combined and reduce to a single field by means of a Minimum operation.
     The whole domain on which a mesh is going to be generated should be covered by at least one specified element size field.
-    
+
     Parameters
     ----------
     fields : a single field object or a list of fields
         The specified fields must be instances of the subclasses of the Field base class.
         It (or they) describe the element size that it is desired over the whole material domain on which a mesh is going to be generated.
-    
+
     """
     if not isinstance(fields, list):
         final_field = fields
@@ -272,6 +273,7 @@ def set_background_mesh(fields):
     final_field.add_gmsh()
     api_field.setAsBackgroundMesh(final_field.tag)
     return final_field
+
 
 #TODO : Pourquoi pas mettre dans un fichier à part
 #*#*#*
@@ -291,7 +293,7 @@ def translation2matrix(v, dist=None):
         The user can implicitely define the translation in the (e_x, e_y) plane and give a (2,) array for the v value.
     d : float, optional
         Distance of translation.
-    
+
     Returns
     -------
     transform_matx : list of 16 float values
@@ -322,9 +324,9 @@ def translation2matrix(v, dist=None):
     else:
         v_ = v
     if v_.shape == (3,):
-        v_ = np.append(v_,[0])
+        v_ = np.append(v_, [0])
     elif v_.shape == (2,):
-        v_ = np.append(v_,[0, 0])
+        v_ = np.append(v_, [0, 0])
     else:
         raise TypeError("The numpy array can not correspond to a translation vector.")
     transform_matx = np.identity(4)
@@ -363,7 +365,7 @@ def sort_function_factory(dir_v):
 def order_curves(curves, dir_v, orientation=False):
     """
     Ordonne une liste de courbes.
-    dir_v correspond globalement à la direction des courbes. Le produit scalaire avec ce vecteur directeur est utilisé pour définir l'ordre des courbes. 
+    dir_v correspond globalement à la direction des courbes. Le produit scalaire avec ce vecteur directeur est utilisé pour définir l'ordre des courbes.
     orientation:
         Si True, l'orientation des courbes est corrigée de sorte à ce qu'elles soient toutes dans le même sens.
 
@@ -375,19 +377,13 @@ def order_curves(curves, dir_v, orientation=False):
     Info
     "La seul différence est que sort() retourne None et modifie sur place, tandis que sorted() retourne une nouvelle liste. sorted() est un peu moins performant."
     http://sametmax.com/ordonner-en-python/
-    #TODO : Choisir, utiliser sort ou sorted ? 
 
     """
-    # def sort_function(curve, dir_v):
-    #     print("dans order_curves : ", curve.def_pts[0].coord.shape, dir_v.shape)
-    #     return np.dot(curve.def_pts[0].coord + curve.def_pts[-1].coord, dir_v)
 
-    #ordered = sorted(curves, key=sort_function_factory(dir_v))
     curves.sort(key=sort_function_factory(dir_v))
     if orientation:
         for c in curves:
             if np.dot(c.def_pts[0].coord, dir_v) > np.dot(c.def_pts[-1].coord, dir_v):
                 c.def_pts.reverse()
-                # print("[Info] orientation d'une courbe inversée. Nouvelles coordonnées : ", [pt.coord for pt in c.def_pts]) #! Debug only
-    # return ordered
+                logger.debug("Orientation d'une courbe inversée. Nouvelles coordonnées : ", [pt.coord for pt in c.def_pts])
     return None

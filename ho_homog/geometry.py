@@ -594,7 +594,7 @@ class LineLoop(object):
         """ Méthode permettant de générer automatiquement les segments reliant les sommets, stockés dans l'argument sides.
         Si une opération round_corner est utilisé, cette opération est inutile."""
         if self.sides:
-            print("Warning : attribut sides d'une LineLoop écrasé lors de l'utilisation de la méthode vertices_2_sides.")
+            logger.warning("Warning : attribut sides d'une LineLoop écrasé lors de l'utilisation de la méthode vertices_2_sides.")
         self.sides = [Line(self.vertices[i - 1], self.vertices[i]) for i in range(len(self.vertices))]
 
 
@@ -1295,7 +1295,7 @@ def rotation_matrix(angle, direction, point=None):
         # rotation not around origin
         point = np.array(point[:3], dtype=np.float64, copy=False)
         M[:3, 3] = point - np.dot(R, point)
-    print(M)
+    logger.debug(M)
     return M
 
 def rotation_basis(pt_coord, angle, direction, point=None):

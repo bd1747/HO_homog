@@ -20,6 +20,7 @@ log_path = Path('~/ho_homog_log/activity.log').expanduser()
 if not log_path.parent.exists():
     log_path.parent.mkdir(mode=0o777, parents=True)
 pckg_logger = logging.getLogger(__name__)
+pckg_logger.setLevel(logging.DEBUG)
 formatter = logging.Formatter('%(asctime)s :: %(levelname)s :: %(name)s :: %(message)s',"%Y-%m-%d %H:%M:%S")
 
 

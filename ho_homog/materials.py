@@ -140,7 +140,6 @@ class MaterialsPerDomains(object):
         self.mat_dict = mat_dict
 
         C = []
-        print(f"topo dim : {topo_dim} nb de valeurs pour i et j : {topo_dim * (topo_dim + 1)/2}")
         nb_val = int(topo_dim * (topo_dim + 1)/2)
         for i in range(nb_val):
             Cj = []

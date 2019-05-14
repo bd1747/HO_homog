@@ -354,7 +354,7 @@ class Fenics2DHomogenization(object):
         try:
             C = self.ConstitutiveTensors[Key1][Key2]
         except KeyError:
-            print('Compute cross energy '+Key1+' and '+Key2)
+            logger.info(f"Compute cross energy {Key1} and {Key2}")
             if Key1 == Key2:
                 K = len(Loc1)
                 C = np.zeros((K, K))
@@ -438,9 +438,9 @@ class Fenics2DHomogenization(object):
         Epsilon = []
 
         for i in range(order):
-            print(i)
+            logger.info(i)
             if i > 0:
-                print('compute load')
+                logger.info('compute load')
                 Fload = self.Sigma2Fload(Sigma[i-1])
                 Epsilon0 = self.Displacement2Epsilon0(U[i-1])
 
