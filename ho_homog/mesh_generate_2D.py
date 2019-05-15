@@ -11,9 +11,7 @@ The Gmsh2DRVE class has been specially designed for the generation of meshes tha
 import copy
 import logging
 import math
-import os
-from pathlib import Path
-from subprocess import run
+from pathlib import Path, PurePath
 
 import gmsh
 import numpy as np
@@ -51,10 +49,10 @@ def duplicate_pattern(cell_ll, nb_cells, gen_vect):
         Repeated lineloops that define the pattern over the whole domain associated with the given numbers of cells.
     """
     repeated_ll = cell_ll
-    if gen_vect.shape != (3,3):
-        gen_vect_3D = np.zeros((3,3))
-        gen_vect_3D[:gen_vect.shape[0],:gen_vect.shape[1]] = gen_vect
-    else :
+    if gen_vect.shape != (3, 3):
+        gen_vect_3D = np.zeros((3, 3))
+        gen_vect_3D[:gen_vect.shape[0], :gen_vect.shape[1]] = gen_vect
+    else:
         gen_vect_3D = gen_vect
     # moins générique : gen_vect_3D = np.pad(a,((0, 1), (0, 1)),'constant',constant_values=0)
     # source : https://stackoverflow.com/questions/35751306/python-how-to-pad-numpy-array-with-zeros
@@ -84,7 +82,7 @@ def offset_pattern(cell_ll, offset, cell_vect):
     if cell_vect.shape != (3,3):
         cell_vect_3D = np.zeros((3,3))
         cell_vect_3D[:cell_vect.shape[0],:cell_vect.shape[1]] = cell_vect
-    else :
+    else:
         cell_vect_3D = cell_vect
     offset_vect_relat = np.zeros(3)
     for i, val in enumerate(offset):
@@ -119,14 +117,15 @@ class Gmsh2DRVE(object):
             Can also be = None or empty.
             It represent the points that will be used as attractors in the definition of the element characteristic length fields.
             Attractors are geometrical elements of the cell around which mesh refinement constraints will be set.
-
+        name : string or Path
         """
-        self.name = name
+
+        self.name = name.stem if isinstance(name, PurePath) else name
         model.add(self.name)
         model.setCurrent(self.name)
 
         if offset.any():
-            nb_pattern = [math.ceil(val+1) if offset[i] != 0 else math.ceil(val) for i,val in enumerate(nb_cells)]
+            nb_pattern = [math.ceil(val+1) if offset[i] != 0 else math.ceil(val) for i, val in enumerate(nb_cells)]
             nb_pattern = np.array(nb_pattern, dtype=np.int8)
             pattern_ll = offset_pattern(pattern_ll, offset, cell_vect)
         else:
@@ -135,9 +134,9 @@ class Gmsh2DRVE(object):
         if not np.equal(nb_pattern, 1).all():
             duplicate_pattern(pattern_ll, nb_pattern, cell_vect)
 
-        rve_vect = cell_vect * nb_cells[:,np.newaxis]
+        rve_vect = cell_vect * nb_cells[:, np.newaxis]
         O = np.zeros((3,))
-        macro_vtx = [O, rve_vect[0], rve_vect[0] + rve_vect[1] , rve_vect[1]]
+        macro_vtx = [O, rve_vect[0], rve_vect[0] + rve_vect[1], rve_vect[1]]
         macro_ll = geo.LineLoop([geo.Point(c) for c in macro_vtx])
         macro_s = geo.PlaneSurface(macro_ll)
 
@@ -165,7 +164,6 @@ class Gmsh2DRVE(object):
         rve_s_phy = geo.PhysicalGroup(rve_s, 2, "microstruct_domain")
         phy_surf.append(rve_s_phy)
         if soft_mat:
-            # soft_s = geo.AbstractSurface.bool_intersect(macro_s, pattern_s) #! Abandon, cut rve_s plus efficace car évite la création d'une seconde frontière (éléments 1D)
             soft_s = geo.AbstractSurface.bool_cut(macro_s, rve_s)
             soft_s_phy = geo.PhysicalGroup(soft_s, 2, "soft_domain")
             phy_surf.append(soft_s_phy)
@@ -174,9 +172,9 @@ class Gmsh2DRVE(object):
         if attractors:
             need_sync = False
             for entity in attractors:
-                    if not entity.tag:
-                        entity.add_gmsh()
-                        need_sync = True
+                if not entity.tag:
+                    entity.add_gmsh()
+                    need_sync = True
             if need_sync:
                 factory.synchronize() #? Pourrait être enlevé ?
 
@@ -193,7 +191,10 @@ class Gmsh2DRVE(object):
         logger.debug(f"All physical groups in the model : {data}")
         logger.debug(f"Physical groups details : \n {details}")
         logger.info('Done generating the gmsh geometrical model')
-        gmsh.write("%s.brep"%name)
+        if isinstance(name, PurePath):
+            gmsh.write(str(name.with_suffix('.brep')))
+        else:
+            gmsh.write(f'{name}.brep')
 
         macro_bndry = macro_ll.sides
         if soft_mat:
@@ -529,3 +530,9 @@ class Gmsh2DRVE(object):
         fine_pts = geo.remove_duplicates(constr_pts)
 
         return Gmsh2DRVE(pattern_ll, cell_vect, nb_cells, offset, fine_pts, soft_mat, name)
+
+
+# TODO Créer une classe qui s'appuie sur Gmsh2DRVE mais pour laquelle on peut modifier la périodicité ?
+# ? class Gmsh2DFullScalePart(Gmsh2DRVE):
+    # ? pass
+    # ? en entrée : la frontière du domaine macro, la périodicité si nécessaire

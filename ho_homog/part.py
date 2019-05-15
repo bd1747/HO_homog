@@ -225,12 +225,14 @@ class Fenics2DRVE(FenicsPart):
 
     @staticmethod
     def file_2_Fenics_2DRVE(mesh_path, generating_vectors, material_dict, plots=True):
-        """Generate an instance of Fenics2DRVE from a .xml or .msh file that contains the mesh.
+        """Generate an instance of Fenics2DRVE from a .xml, .msh or .xdmf
+        file that contains the mesh.
 
         Parameters
         ----------
         mesh_path : string or Path
-            Relative or absolute path to the mesh file (format Dolfin XML or MSH version 2)
+            Relative or absolute path to the mesh file
+            (format Dolfin XML, XDMF or MSH version 2)
         generating_vectors : 2D-array
             dimensions of the RVE
         material_dict : dictionnary
@@ -247,17 +249,17 @@ class Fenics2DRVE(FenicsPart):
             mesh_path = Path(mesh_path)
         name = mesh_path.stem
 
-        if mesh_path.suffix != '.xml':
-            cmd = (
-                "dolfin-convert "
-                + mesh_path.as_posix()
-                + ' '
-                + mesh_path.with_suffix('.xml').as_posix()
-                )
+        if mesh_path.suffix == 'xml':
+            mesh = fe.Mesh(str(mesh_path))
+        elif mesh_path.suffix == '.xdmf':
+            mesh = fe.Mesh()
+            with fe.XDMFFile(str(mesh_path)) as file_in:
+                file_in.read(mesh)
+        else:
+            cmd = (f"dolfin-convert {mesh_path} {mesh_path.with_suffix('.xml')}")
             run(cmd, shell=True, check=True)
             mesh_path = mesh_path.with_suffix('.xml')
 
-        mesh = fe.Mesh(mesh_path.as_posix())
         subdo_path = mesh_path.with_name(name+'_physical_region.xml')
         facet_path = mesh_path.with_name(name+'_facet_region.xml')
         if subdo_path.exists():
