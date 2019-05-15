@@ -162,7 +162,7 @@ def init_geo_tools():
     set_gmsh_option("Mesh.SaveAll", 0)
     set_gmsh_option("Mesh.Binary", 0)
     set_gmsh_option('Mesh.MshFileVersion', 2.2)
-    set_gmsh_option('Mesh.Algorithm', 1) #* 2D mesh algorithm (1=MeshAdapt, 2=Automatic,...)
+    set_gmsh_option('Mesh.Algorithm', 5) #* 2D mesh algorithm (1=MeshAdapt, 2=Automatic,...)
     logger.info("Gmsh SDK version : %s", gmsh.option.getString("General.Version"))
 
 
@@ -874,6 +874,7 @@ def macro_line_fragments(curves, main_line):
     main_line : instance of Curve subclass
 
     """
+
     for ln in curves + [main_line]:
         if not ln.tag:
             ln.add_gmsh()

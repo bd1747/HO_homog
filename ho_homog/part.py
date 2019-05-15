@@ -43,11 +43,6 @@ class FenicsPart(object):
                 self.subdomains, self.materials, self.dim)
         else:
             raise TypeError("materials parameter must be an instance of Material or a dictionnary that contains Material instances.")
-    def epsilon(self, u):
-        return mat.epsilon(u)
-
-    def sigma(self, eps):
-        return mat.sigma(self.elasticity_tensor, eps)
 
     def mat_area(self):
         try:

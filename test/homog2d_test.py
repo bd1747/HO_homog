@@ -6,17 +6,31 @@ Created on 09/01/2019
 """
 
 import numpy as np
-
+import gmsh
 import meshio
 from ho_homog import geometry, homog2d, materials, mesh_generate_2D, part
 from pytest import approx
+import logging
+import time
 
+logger = logging.getLogger("Test_homog2d")
+logger.setLevel(logging.DEBUG)
+formatter = logging.Formatter(
+    '%(asctime)s :: %(levelname)s :: %(name)s :: %(message)s',
+    "%H:%M:%S")
+stream_handler = logging.StreamHandler()
+stream_handler.setLevel(logging.DEBUG)
+stream_handler.setFormatter(formatter)
+logger.addHandler(stream_handler)
+
+np.set_printoptions(suppress=False, floatmode='fixed', precision=8,
+                    linewidth=150)
 
 def test_homog_EGG_pantograph_1x1(generate_mesh=False):
+    logger.debug("Start test_homog_EGG_pantograph_1x1")
+    start = time.time()
     if generate_mesh:
         geometry.init_geo_tools()
-        geometry.set_gmsh_option("General.Verbosity", 4)
-        geometry.set_gmsh_option('Mesh.Algorithm', 5)
         geometry.set_gmsh_option('Mesh.MshFileVersion', 4.1)
         a = 1
         b, k = a, a/3
@@ -26,14 +40,17 @@ def test_homog_EGG_pantograph_1x1(generate_mesh=False):
         lc_ratio = 1/6
         lc_min_max = (lc_ratio*r*a, lc_ratio*a)
         panto_test.main_mesh_refinement((2*r*a, a), lc_min_max, False)
-
         panto_test.mesh_generate()
+        gmsh.model.mesh.renumberNodes()
+        gmsh.model.mesh.renumberElements()
+        gmsh.write("panto_rve_1x1.msh")
         mesh = meshio.read("panto_rve_1x1.msh")
         mesh.points = mesh.points[:, :2]
         geo_only = meshio.Mesh(
             points=mesh.points,
             cells={"triangle": mesh.cells["triangle"]})
         meshio.write("panto_rve_1x1.xdmf", geo_only)
+        geometry.reset()
 
     E, nu = 1., 0.3
     material = materials.Material(E, nu, 'cp')
@@ -43,9 +60,6 @@ def test_homog_EGG_pantograph_1x1(generate_mesh=False):
 
     hom_model = homog2d.Fenics2DHomogenization(rve)
     *localzt_dicts, constit_tensors = hom_model.homogenizationScheme('EGG')
-
-    np.set_printoptions(suppress=False, floatmode='fixed', precision=8,
-                        linewidth=150)
 
     Chom_ref = np.array(
         [[2.58608139e-04, 3.45496903e-04, 5.16572422e-12],
@@ -64,13 +78,73 @@ def test_homog_EGG_pantograph_1x1(generate_mesh=False):
     G = constit_tensors['E']['EGGbis']
     D = (constit_tensors['EG']['EG']
          - np.vstack((G[:, :6], G[:, 6:])) - np.vstack((G[:, :6], G[:, 6:])).T)
-
     print(Chom)
-    print(Chom == approx(Chom_ref))
     print(D)
-    print(D == approx(D_ref))
     assert Chom == approx(Chom_ref)
     assert D == approx(D_ref)
+    logger.debug("End test_homog_EGG_pantograph_1x1")
+    logger.debug(f"Duration : {start - time.time()}")
 
 
-test_homog_EGG_pantograph_1x1(False)
+def test_homogeneous_pantograph(generate_mesh=False):
+    """ Test élémentaire.
+
+    Homogénéisation d'une cellule homogène,
+    construite avec la géométrie du 'pantographe'.
+    #* test_homogeneous_pantograph_cell()
+    #* >> [[ 1.0989  0.3297 -0.    ]
+    #*     [ 0.3297  1.0989 -0.    ]
+    #*     [-0.     -0.      0.7692]]
+
+    """
+    logger.debug("Start test_homogeneous_pantograph")
+    start = time.time()
+    if generate_mesh:
+        geometry.init_geo_tools()
+        geometry.set_gmsh_option('Mesh.MshFileVersion', 4.1)
+        a = 1
+        b, k, r = a, a/3, 0.1*a
+        geo_model = mesh_generate_2D.Gmsh2DRVE.pantograph(
+            a, b, k, r, soft_mat=True, name='homogeneous_panto')
+        lc_ratio = 1
+        lc_min_max = (lc_ratio*r, lc_ratio)
+        d_min_max = (2*r, a)
+        geo_model.main_mesh_refinement(d_min_max, lc_min_max, False)
+        geo_model.soft_mesh_refinement(d_min_max, lc_min_max, False)
+        geo_model.mesh_generate()
+        gmsh.model.mesh.renumberNodes()
+        gmsh.model.mesh.renumberElements()
+        gmsh.write("homogeneous_panto.msh")
+        mesh = meshio.read("homogeneous_panto.msh")
+        mesh.points = mesh.points[:, :2]
+        geo_only = meshio.Mesh(
+            points=mesh.points,
+            cells={"triangle": mesh.cells["triangle"]})
+        meshio.write("homogeneous_panto.xdmf", geo_only)
+        geometry.reset()
+
+    E, nu = 1., 0.3
+    material = materials.Material(E, nu, 'cp')
+    gen_vect = np.array([[4., 0.], [0., 8.]])
+    rve = part.Fenics2DRVE.file_2_Fenics_2DRVE(
+        "homogeneous_panto.xdmf", gen_vect, material)
+    hom_model = homog2d.Fenics2DHomogenization(rve)
+    *localzt_dicts, constit_tensors = hom_model.homogenizationScheme('EGG')
+    Chom_ref = np.array(
+        [[1.09890110, 0.329670330, 0],
+         [0.329670330, 1.09890110, 0],
+         [0, 0, 0.769230769]])
+    D_ref = np.zeros((6, 6))
+    Chom = constit_tensors['E']['E']
+    G = constit_tensors['E']['EGGbis']
+    D = (constit_tensors['EG']['EG']
+         - np.vstack((G[:, :6], G[:, 6:])) - np.vstack((G[:, :6], G[:, 6:])).T)
+    print(Chom)
+    assert Chom == approx(Chom_ref)
+    assert D == approx(D_ref)
+    logger.debug("End test_homogeneous_pantograph")
+    logger.debug(f"Duration : {start - time.time()}")
+
+
+test_homog_EGG_pantograph_1x1(True)
+# test_homogeneous_pantograph(False)

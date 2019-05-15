@@ -3,15 +3,11 @@
 import dolfin as fe
 import numpy as np
 import logging
-import ho_homog
+from ho_homog import GEO_TOLERANCE
+from ho_homog.materials import sigma, epsilon
 np.set_printoptions(precision=4, linewidth=150)
 np.set_printoptions(suppress=True)
 
-'''TODO:
-    - implementer Stress gradient
-'''
-
-GEO_TOLERANCE = ho_homog.GEO_TOLERANCE
 
 logger = logging.getLogger(__name__)
 
@@ -112,8 +108,8 @@ class Fenics2DHomogenization(object):
 
         # bilinear form
         self.a = (fe.inner(
-                    self.rve.sigma(self.rve.epsilon(self.u)),
-                    self.rve.epsilon(self.v)
+                    sigma(self.rve.C_per, epsilon(self.u)),
+                    epsilon(self.v)
                     ) * fe.dx
                   + fe.dot(self.lamb_, self.u)*fe.dx
                   + fe.dot(self.lamb, self.v)*fe.dx)
@@ -204,8 +200,8 @@ class Fenics2DHomogenization(object):
             Fload = [fe.interpolate(fo, self.V) for fo in f]
             epsilon0 = [fe.Constant((1, 0, 0)), fe.Constant((0, 1, 0)), fe.Constant((0, 0, 1))]
             Epsilon0 = [fe.interpolate(eps, self.W) for eps in epsilon0]
-            u, sigma, epsilon = self.genericAuxiliaryProblem(Fload, Epsilon0)
-            out = {'U': u, 'Sigma': sigma, 'Epsilon': epsilon}
+            u, sigm, eps = self.genericAuxiliaryProblem(Fload, Epsilon0)
+            out = {'U': u, 'Sigma': sigm, 'Epsilon': eps}
             self.localization['E'] = out
         return out
 
@@ -222,7 +218,7 @@ class Fenics2DHomogenization(object):
             Epsilon0 = [fe.interpolate(eps, self.W) for eps in epsilon0]
 
             out = {
-                'Sigma': [self.rve.sigma(Epsilon0[i]) for i in range(3)],
+                'Sigma': [sigma(self.rve.C_per, Epsilon0[i]) for i in range(3)],
                 'Epsilon': Epsilon0}
             self.localization['Ebis'] = out
         return out
@@ -240,8 +236,8 @@ class Fenics2DHomogenization(object):
             Fload = self.Sigma2Fload(self.localization['E']['Sigma'])
             Epsilon0 = self.Displacement2Epsilon0(self.localization['E']['U'])
 
-            u, sigma, epsilon = self.genericAuxiliaryProblem(Fload, Epsilon0)
-            out = {'U': u, 'Sigma': sigma, 'Epsilon': epsilon}
+            u, sigm, eps = self.genericAuxiliaryProblem(Fload, Epsilon0)
+            out = {'U': u, 'Sigma': sigm, 'Epsilon': eps}
             self.localization['EG'] = out
         return out
 
@@ -259,7 +255,7 @@ class Fenics2DHomogenization(object):
             Epsilon0 = self.Displacement2Epsilon0(self.localization['E']['U'])
 
             out = {
-                'Sigma': [self.rve.sigma(Epsilon0[i]) for i in range(6)],
+                'Sigma': [sigma(self.rve.C_per, Epsilon0[i]) for i in range(6)],
                 'Epsilon': Epsilon0}
             self.localization['EGbis'] = out
         return out
@@ -281,9 +277,9 @@ class Fenics2DHomogenization(object):
             Fload = self.Sigma2Fload(self.localization['EG']['Sigma'])
             Epsilon0 = self.Displacement2Epsilon0(self.localization['EG']['U'])
 
-            u, sigma, epsilon = self.genericAuxiliaryProblem(Fload, Epsilon0)
+            u, sigm, eps = self.genericAuxiliaryProblem(Fload, Epsilon0)
 
-            out = {'U': u, 'Sigma': sigma, 'Epsilon': epsilon}
+            out = {'U': u, 'Sigma': sigm, 'Epsilon': eps}
             self.localization['EGG'] = out
         return out
 
@@ -305,7 +301,7 @@ class Fenics2DHomogenization(object):
             Epsilon0 = self.Displacement2Epsilon0(self.localization['EG']['U'])
 
             out = {
-                'Sigma': [self.rve.sigma(Epsilon0[i]) for i in range(12)],
+                'Sigma': [sigma(self.rve.C_per, Epsilon0[i]) for i in range(12)],
                 'Epsilon': Epsilon0}
             self.localization['EGGbis'] = out
         return out
@@ -340,9 +336,9 @@ class Fenics2DHomogenization(object):
             epsilon0 = [fe.Constant((0, 0, 0))] * 6
             Epsilon0 = [fe.interpolate(eps, self.W) for eps in epsilon0]
 
-            u, sigma, epsilon = self.genericAuxiliaryProblem(Fload, Epsilon0)
+            u, sigm, eps = self.genericAuxiliaryProblem(Fload, Epsilon0)
 
-            out = {'U': u, 'Sigma': sigma, 'Epsilon': epsilon}
+            out = {'U': u, 'Sigma': sigm, 'Epsilon': eps}
             self.localization['EG'] = out
         return out
 
@@ -395,7 +391,9 @@ class Fenics2DHomogenization(object):
         E2 = []
         for i in range(len(Fload)):
             logger.info("Progression : load %i / %i", i+1, len(Fload))
-            L = fe.dot(Fload[i], self.v) * fe.dx + fe.inner(-self.rve.sigma(Epsilon0[i]), self.rve.epsilon(self.v)) * fe.dx
+            L = (fe.dot(Fload[i], self.v)
+                 + fe.inner(-sigma(self.rve.C_per, Epsilon0[i]), epsilon(self.v))
+                 ) * fe.dx
 
             # u_s = fe.Function(self.V)
             res = fe.assemble(L)
@@ -411,10 +409,10 @@ class Fenics2DHomogenization(object):
             # u_s = fe.project(u_s - u_av,self.V)
             # # u_s = u_s - u_av
 
-            self.u_s = fe.project(u_s, self.V) #? Pas un autre moyen de le faire ?
+            self.u_s = fe.project(u_s, self.V)  # ? Pas un autre moyen de le faire ?
             U2 = U2 + [self.u_s]
-            E2 = E2 + [fe.project(self.rve.epsilon(u_s) + Epsilon0[i], self.W)]
-            S2 = S2 + [fe.project(self.rve.sigma(E2[i]), self.W)]
+            E2 = E2 + [fe.project(epsilon(u_s) + Epsilon0[i], self.W)]
+            S2 = S2 + [fe.project(sigma(self.rve.C_per, E2[i]), self.W)]
             # e2 = fe.Function(self.W)
             # e2.assign(self.RVE.epsilon(u_s) + Epsilon0[i])
             # E2 = E2 + [e2]
@@ -444,10 +442,10 @@ class Fenics2DHomogenization(object):
                 Fload = self.Sigma2Fload(Sigma[i-1])
                 Epsilon0 = self.Displacement2Epsilon0(U[i-1])
 
-            u, sigma, epsilon = self.genericAuxiliaryProblem(Fload, Epsilon0)
+            u, sigm, eps = self.genericAuxiliaryProblem(Fload, Epsilon0)
             U = U + [u]
-            Sigma = Sigma + [sigma]
-            Epsilon = Epsilon + [epsilon]
+            Sigma = Sigma + [sigm]
+            Epsilon = Epsilon + [eps]
 
         return U, Sigma, Epsilon
 
@@ -485,90 +483,3 @@ class Fenics2DHomogenization(object):
             Epsilon0 = Epsilon0 + [fe.as_vector((fe.interpolate(fe.Constant(0.),self.X), U[i][1], U[i][0]/fe.sqrt(2)))]
 
         return Epsilon0
-
-
-if __name__ == "__main__":
-    import os
-    import site
-    CUR_DIR = os.path.dirname(os.path.realpath(__file__))
-    site.addsitedir(CUR_DIR)
-    #Pour que seulement ce qui est indiqué dans le .pth soit importable et non l'intégralité de ce dossier:
-    #site.addpackage(CUR_DIR, '.pth', set())
-    import mesh_generate_2D
-    import materials
-    import part
-    import geometry
-    import matplotlib.pyplot as plt
-    from pathlib import Path
-
-    geometry.init_geo_tools()
-
-    logger_root = logging.getLogger()
-    logger_root.setLevel(logging.INFO)
-    formatter = logging.Formatter(
-        '%(asctime)s :: %(levelname)s :: %(name)s :: %(message)s',
-        "%Y-%m-%d %H:%M:%S")
-    log_path = Path.home().joinpath('Desktop/activity.log')
-    file_handler = RotatingFileHandler(str(log_path), 'a', 1000000, 10)
-    file_handler.setLevel(logging.DEBUG)
-    file_handler.setFormatter(formatter)
-    logger_root.addHandler(file_handler) #Pour écriture d'un fichier log
-    formatter = logging.Formatter('%(asctime)s :: %(levelname)s :: %(message)s',"%H:%M")
-    stream_handler = logging.StreamHandler()
-    stream_handler.setLevel(logging.INFO)
-    stream_handler.setFormatter(formatter)
-    logger_root.addHandler(stream_handler)
-
-    E_NAMES = ('E11', 'E22', 'E12')
-
-    def test_homogeneous_pantograph_cell():
-        """ Test élémentaire.
-
-        Homogénéisation d'une cellule homogène, construite avec la géométrie du 'pantographe'.
-
-        """
-        logger.info("Test : Homogeneization of a homogeneous cell with a pantograph geometry. Order : EGG")
-        a = 1
-        b, k = a, a/3
-        junction_r = a/10
-        geo_model = mesh_generate_2D.Gmsh2DRVE.pantograph(a, b, k, 0.1, soft_mat=True, name='homogeneous_panto')
-        lc_ratio = 1/3
-        d_min_max = (2*junction_r, a)
-        geo_model.main_mesh_refinement(d_min_max, (lc_ratio*junction_r, lc_ratio*a), False)
-        geo_model.soft_mesh_refinement(d_min_max, (lc_ratio*junction_r, lc_ratio*a), False)
-        geo_model.mesh_generate()
-
-        E, nu = 1., 0.3
-        subdo_tags = tuple([subdo.tag for subdo in geo_model.phy_surf])
-        material_dict = dict()
-        for tag in subdo_tags:
-            material_dict[tag] = materials.Material(E, nu, 'cp')
-
-        rve = part.Fenics2DRVE.gmsh_2_Fenics_2DRVE(geo_model, material_dict,plots=False)
-        hom_model = Fenics2DHomogenization(rve)
-        results = hom_model.homogenizationScheme('E')
-        localization_u, localization_sigma, localization_eps, constitutive_tens_dict = results
-        print(constitutive_tens_dict['E']['E'])
-        #* >> [[ 1.0989  0.3297 -0.    ]
-        #*     [ 0.3297  1.0989 -0.    ]
-        #*     [-0.     -0.      0.7692]]
-
-
-        # print(constitutive_tens_dict['EG']['EG'])
-
-        loc_E_u_file = fe.XDMFFile("homogeneous_cell_loc_E_u.xdmf")
-        loc_E_u_file.parameters["flush_output"] = False
-        loc_E_u_file.parameters["functions_share_mesh"] = True
-        for field, E_name in zip(localization_u['E'], E_NAMES):
-            print(localization_u['E'])
-            print(type(localization_u['E']))
-            print(type(localization_u['E'][0]))
-            field.rename(f"loc_{E_name}_u", f"localization of displacement for {E_name}, homogeneous cell")
-            loc_E_u_file.write(field, 0.)
-        plt.figure()
-        fe.plot(fe.project(0.1*localization_u['E'][2],hom_model.V), mode='displacement')
-        plt.savefig("homogeneous_cell_loc_E12_u.pdf")
-        return hom_model, results
-
-    hom_model, results = test_homogeneous_pantograph_cell()
-    plt.show()

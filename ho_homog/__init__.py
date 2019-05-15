@@ -11,9 +11,9 @@ __version__ = "0.1"
 
 GEO_TOLERANCE = 1e-12
 
-
-from . import (full_scale_pb, geometry, homog2d, materials, mesh_generate_2D,
-               mesh_tools, part, toolbox_FEniCS)
+from . import geometry, materials
+from . import (full_scale_pb, homog2d, mesh_generate_2D, mesh_tools,
+               part, toolbox_FEniCS)
 
 log_level = logging.DEBUG
 log_path = Path('~/ho_homog_log/activity.log').expanduser()
