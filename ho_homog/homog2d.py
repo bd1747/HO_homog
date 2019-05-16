@@ -387,7 +387,7 @@ class Fenics2DHomogenization(object):
         S2 = []
         E2 = []
         for i in range(len(Fload)):
-            logger.info("Progression : load %i / %i", i+1, len(Fload))
+            logger.info(f"Progression : load {i+1} / {len(Fload)}")
             L = (fe.dot(Fload[i], self.v)
                  + fe.inner(-sigma(self.rve.C_per, Epsilon0[i]), epsilon(self.v))
                  ) * fe.dx
@@ -399,24 +399,19 @@ class Fenics2DHomogenization(object):
             self.solver.solve(self.w.vector(), res)
             #* More info : https://fenicsproject.org/docs/dolfin/1.5.0/python/programmers-reference/cpp/la/PETScLUSolver.html
 
-            (u_s, lamb) = fe.split(self.w)
-            # Not need anymore.
-            # u_av = [fe.assemble(u_s[k]*fe.dx)/self.rve.mat_area for k in range(d) ]
-            # u_av = fe.interpolate(fe.Constant(u_av), self.V)
-            # u_s = fe.project(u_s - u_av,self.V)
-            # # u_s = u_s - u_av
-
-            self.u_s = fe.project(u_s, self.V)  # ? Pas un autre moyen de le faire ?
-            U2 = U2 + [self.u_s]
-            E2 = E2 + [local_project(epsilon(u_s) + Epsilon0[i], self.W)]
-            S2 = S2 + [local_project(sigma(self.rve.C_per, E2[i]), self.W)]
-            # e2 = fe.Function(self.W)
-            # e2.assign(self.RVE.epsilon(u_s) + Epsilon0[i])
-            # E2 = E2 + [e2]
-
-            # s2 = fe.Function(self.W)
-            # s2.assign(self.RVE.sigma(E2[i]))
-            # S2 = S2 + [s2]
+            u_only = fe.interpolate(self.w.sub(0), self.V)
+            # ? Essayer de faire fe.assign(self.u_only, self.w.sub(0)) ?
+            # ? Pour le moment u_only vit dans V et V n'est pas extrait
+            # ? de l'espace fonctionnel mixte. Est-ce que cela marcherait si V
+            # ? est extrait de M ?
+            U2.append(u_only)
+            eps = epsilon(u_only) + Epsilon0[i]
+            E2.append(local_project(eps, self.W))
+            S2.append(local_project(sigma(self.rve.C_per, eps), self.W))
+            # TODO : Comparer les options :
+            # TODO         e2 = fe.Function(self.W); e2.assign(self.RVE.epsilon(u_s) + Epsilon0[i])
+            # TODO         interpolation
+            # TODO         projection (locale)
 
         return U2, S2, E2
 

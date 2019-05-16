@@ -6,7 +6,6 @@ Created on 16/05/2019
 
 from ho_homog import periodicity
 import numpy as np
-import dolfin as fe
 import logging
 from pytest import approx
 
