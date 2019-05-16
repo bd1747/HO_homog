@@ -12,6 +12,7 @@ from ho_homog import geometry, homog2d, materials, mesh_generate_2D, part
 from pytest import approx
 import logging
 import time
+import dolfin as fe
 
 logger = logging.getLogger("Test_homog2d")
 logger.setLevel(logging.DEBUG)
@@ -25,6 +26,7 @@ logger.addHandler(stream_handler)
 
 np.set_printoptions(suppress=False, floatmode='fixed', precision=8,
                     linewidth=150)
+
 
 def test_homog_EGG_pantograph_1x1(generate_mesh=False):
     logger.debug("Start test_homog_EGG_pantograph_1x1")
@@ -83,10 +85,10 @@ def test_homog_EGG_pantograph_1x1(generate_mesh=False):
     assert Chom == approx(Chom_ref)
     assert D == approx(D_ref)
     logger.debug("End test_homog_EGG_pantograph_1x1")
-    logger.debug(f"Duration : {start - time.time()}")
+    logger.debug(f"Duration : {time.time() - start}")
 
 
-def test_homogeneous_pantograph(generate_mesh=False):
+def test_homogeneous_pantograph(generate_mesh=False, save_results=False):
     """ Test élémentaire.
 
     Homogénéisation d'une cellule homogène,
@@ -140,11 +142,20 @@ def test_homogeneous_pantograph(generate_mesh=False):
     D = (constit_tensors['EG']['EG']
          - np.vstack((G[:, :6], G[:, 6:])) - np.vstack((G[:, :6], G[:, 6:])).T)
     print(Chom)
+    if save_results:
+        with fe.XDMFFile("homogeneous_panto_results.xdmf") as ofile:
+            ofile.parameters["flush_output"] = False
+            ofile.parameters["functions_share_mesh"] = True
+            for i, E_ in enumerate(('E11', 'E22', 'E12')):
+                loc_eps = fe.project(localzt_dicts[2]['E'][i], hom_model.W)
+                loc_eps.rename(E_, E_)
+                ofile.write(loc_eps, 0.)
     assert Chom == approx(Chom_ref)
     assert D == approx(D_ref)
     logger.debug("End test_homogeneous_pantograph")
-    logger.debug(f"Duration : {start - time.time()}")
+    logger.debug(f"Duration : {time.time() - start}")
 
 
-test_homog_EGG_pantograph_1x1(True)
-# test_homogeneous_pantograph(False)
+
+test_homog_EGG_pantograph_1x1(False)
+# test_homogeneous_pantograph(False, True)

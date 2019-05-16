@@ -10,6 +10,25 @@ import numpy as np
 import dolfin as fe
 import matplotlib.pyplot as plt
 
+DOLFIN_KRYLOV_METHODS = {
+    'bicgstab': "Biconjugate gradient stabilized method",
+    'cg': "Conjugate gradient method",
+    'default': "default Krylov method",
+    'gmres': "Generalized minimal residual method",
+    'minres': "Minimal residual method",
+    'richardson': "Richardson method",
+    'tfqmr': "Transpose-free quasi-minimal residual method"
+}
+
+DOLFIN_LU_METHODS = {
+    'default': "default LU solver",
+    'mumps': "MUMPS (MUltifrontal Massively Parallel Sparse direct Solver)",
+    'petsc': "PETSc built in LU solver",
+    'superlu': "SuperLU",
+    'umfpack': "UMFPACK (Unsymmetric MultiFrontal sparse LU factorization)"
+}
+
+
 def get_MeshFunction_val(msh_fctn):
     """
     Get information about the set of values that a given MeshFunction outputs.
@@ -131,3 +150,33 @@ def function_errornorm(u, v, norm_type='L2', enable_diff_fspace=False):
             "Cannot compute error norm, Function spaces do not match.")
     return fe.norm(difference, norm_type)
 
+
+def local_project(v, fspace, metadata:dict={}):
+    """
+    Info : https://comet-fenics.readthedocs.io/en/latest/tips_and_tricks.html#efficient-projection-on-dg-or-quadrature-spaces
+
+    Parameters
+    ----------
+    v : [type]
+        [description]
+    fspace : [type]
+        [description]
+    metadata : dict, optional
+        This can be used to deﬁne diﬀerent quadrature degrees for diﬀerent
+        terms in a form, and to override other form compiler speciﬁc options
+        separately for diﬀerent terms. By default {}
+        See UFL user manual for more information
+
+    Returns
+    -------
+    Function
+    """
+    dv = fe.TrialFunction(fspace)
+    v_ = fe.TestFunction(fspace)
+    a_proj = fe.inner(dv, v_)*fe.dx(metadata=metadata)
+    b_proj = fe.inner(v, v_)*fe.dx(metadata=metadata)
+    solver = fe.LocalSolver(a_proj, b_proj)
+    solver.factorize()
+    u = fe.Function(fspace)
+    solver.solve_local_rhs(u)
+    return u

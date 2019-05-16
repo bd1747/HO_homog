@@ -1,103 +1,100 @@
 # coding: utf-8
 
 import dolfin as fe
-import numpy as np
 import logging
-from ho_homog import GEO_TOLERANCE
-from ho_homog.materials import sigma, epsilon
+import numpy as np
+
+from ho_homog import periodicity
+from ho_homog.materials import epsilon, sigma
+from ho_homog.toolbox_FEniCS import (DOLFIN_KRYLOV_METHODS, DOLFIN_LU_METHODS,
+                                     local_project)
+
+SOLVER_METHOD = 'mumps'
+
 np.set_printoptions(precision=4, linewidth=150)
 np.set_printoptions(suppress=True)
-
-
-logger = logging.getLogger(__name__)
 
 logging.getLogger('UFL').setLevel(logging.DEBUG)
 logging.getLogger('FFC').setLevel(logging.DEBUG)
 # https://fenicsproject.org/qa/3669/how-can-i-diable-log-and-debug-messages-from-ffc/
+logger = logging.getLogger(__name__)
 
 
 class Fenics2DHomogenization(object):
     ''' Homogenization of 2D orthotropic periodic laminates in plane strain. The direction of lamination is 3 and the invariant direction is 1
     '''
-    def __init__(self, fenics_2d_rve):
+    def __init__(self, fenics_2d_rve, **kwargs):
+        """[summary]
+
+        Parameters
+        ----------
+        object : [type]
+            [description]
+        fenics_2d_rve : [type]
+            [description]
+        element : tuple or dict
+            Type and degree of element for displacement FunctionSpace
+            Ex: ('CG', 2) or {'family':'Lagrange', degree:2}
+        solver : dict
+            Choose the type of the solver, its method and the preconditioner.
+            An up-to-date list of the available solvers and preconditioners
+            can be obtained with dolfin.list_linear_solver_methods() and
+            dolfin.list_krylov_solver_preconditioners().
+
+        """
         self.rve = fenics_2d_rve
-        topo_dim = fenics_2d_rve.mesh_dim
-        self.topo_dim = topo_dim
-        self.basis = [fe.as_vector(fenics_2d_rve.gen_vect[:, i]) for i in range(topo_dim)]
-        gv_dual = np.linalg.inv(fenics_2d_rve.gen_vect).T
-        self.dualbasis = [fe.as_vector(gv_dual[:, i]) for i in range(topo_dim)]
+        self.topo_dim = topo_dim = fenics_2d_rve.mesh_dim
+        self.pbc = periodicity.PeriodicDomain.pbc_dual_base(
+            fenics_2d_rve.gen_vect, 'XY', topo_dim)
 
-        basis = self.basis
-        dualbasis = self.dualbasis
+        solver = kwargs.pop('solver', {})
+        # {'type': solver_type, 'method': solver_method, 'preconditioner': preconditioner}
+        s_type = solver.pop('type', None)
+        s_method = solver.pop('method', SOLVER_METHOD)
+        s_precond = solver.pop('preconditioner', None)
+        if s_type is None:
+            if s_method in DOLFIN_KRYLOV_METHODS.keys():
+                s_type = "Krylov"
+            elif s_method in DOLFIN_LU_METHODS.keys():
+                s_type = "LU"
+            else:
+                raise RuntimeError("The indicated solver method is unknown.")
+        self._solver = dict(type=s_type, method=s_method)
+        if s_precond:
+            self._solver['preconditioner'] = s_precond
 
-        class PeriodicDomain(fe.SubDomain):
-            # ? Source : https://comet-fenics.readthedocs.io/en/latest/demo/periodic_homog_elas/periodic_homog_elas.html
-            def __init__(self, tolerance=GEO_TOLERANCE):
-                """ vertices stores the coordinates of the 4 unit cell corners"""
-                fe.SubDomain.__init__(self, tolerance)
-                self.tol = tolerance
+        element = kwargs.pop('element', ('Lagrange', 2))
+        if isinstance(element, dict):
+            element = (element['family'], element['degree'])
+        self._element = element
 
-            def inside(self, x, on_boundary):
-                # return True if on left or bottom boundary AND NOT on one of the two slave edges
-                # Left boundary
-                Left = fe.near(float(x.dot(dualbasis[0])), 0., self.tol)
-                # Bottom Boundary
-                Bottom = fe.near(float(x.dot(dualbasis[1])), 0., self.tol)
-                # Slave Right
-                SlaveR = fe.near(float((x - basis[0]).dot(dualbasis[0])), 0., self.tol)
-                # Slave Top
-                SlaveT = fe.near(float((x - basis[1]).dot(dualbasis[1])), 0., self.tol)
-
-                return (Left or Bottom) and not(SlaveR or SlaveT) and on_boundary
-
-            def map(self, x, y):
-                # Slave Right
-                SlaveR = fe.near(float((x - basis[0]).dot(dualbasis[0])), 0., self.tol)
-                # Slave Top
-                SlaveT = fe.near(float((x - basis[1]).dot(dualbasis[1])), 0., self.tol)
-
-                if SlaveR and SlaveT: # if on top-right corner
-                    for i in range(topo_dim):
-                        y[i] = x[i] - basis[0][i] - basis[1][i]
-                elif SlaveR: # if on right boundary
-                    for i in range(topo_dim):
-                        y[i] = x[i] - basis[0][i]
-                elif SlaveT:
-                    for i in range(topo_dim):
-                        y[i] = x[i] - basis[1][i]
-                else:
-                    for i in range(topo_dim):
-                        y[i] = 1000 * (basis[1][i] + basis[0][i])
-
-        self.pbc = PeriodicDomain()
-
-        elemType = 'CG'
-        order = 2
-        # Espace fonctionnel 3D pour la representation de voigt des deformations
-        self.T = fe.VectorElement(
-            elemType, self.rve.mesh.ufl_cell(), order,
-            dim=int(self.topo_dim*(self.topo_dim+1)/2)
-            )
-        self.W = fe.FunctionSpace(self.rve.mesh, self.T, constrained_domain=self.pbc)
-
-        # Espace fonctionel 1D
-        self.Q = fe.FiniteElement(elemType, self.rve.mesh.ufl_cell(), order)
-        self.X = fe.FunctionSpace(self.rve.mesh, self.Q, constrained_domain=self.pbc)
-
+        # * Function spaces
+        cell = self.rve.mesh.ufl_cell()
+        self.scalar_FE = fe.FiniteElement(element[0], cell, element[1])
+        self.displ_FE = fe.VectorElement(element[0], cell, element[1])
+        strain_deg = element[1] - 1 if element[1] >= 1 else 0
+        strain_dim = int(topo_dim * (topo_dim + 1) / 2)
+        self.strain_FE = fe.VectorElement('DG', cell, strain_deg,
+                                          dim=strain_dim)
+        # Espace fonctionel scalaire
+        self.X = fe.FunctionSpace(self.rve.mesh, self.scalar_FE,
+                                  constrained_domain=self.pbc)
+        # Espace fonctionnel 3D : deformations, notations de Voigt
+        self.W = fe.FunctionSpace(self.rve.mesh, self.strain_FE,
+                                  constrained_domain=self.pbc)
         # Espace fonctionel 2D pour les champs de deplacement
-        self.V = fe.VectorFunctionSpace(
-            self.rve.mesh, elemType, order,
-            constrained_domain=self.pbc
-            )
-            # TODO : reprendre le Ve défini pour l'espace fonctionnel mixte. Par ex: V = FunctionSpace(mesh, Ve)
+        # TODO : reprendre le Ve défini pour l'espace fonctionnel mixte. Par ex: V = FunctionSpace(mesh, Ve)
+        self.V = fe.VectorFunctionSpace(self.rve.mesh, element[0], element[1],
+                                        constrained_domain=self.pbc)
+
 
         # * Espace fonctionel mixte pour la résolution : 2D pour les champs + scalaire pour multiplicateur de Lagrange
-        self.Ve = fe.VectorElement(elemType, self.rve.mesh.ufl_cell(), order)
+
         # Pour le multiplicateur de Lagrange : Real element with one global degree of freedom
-        self.Re = fe.VectorElement("R", self.rve.mesh.ufl_cell(), 0)
+        self.real_FE = fe.VectorElement("R", cell, 0)
         self.M = fe.FunctionSpace(
             self.rve.mesh,
-            fe.MixedElement([self.Ve, self.Re]),
+            fe.MixedElement([self.displ_FE, self.real_FE]),
             constrained_domain=self.pbc
             )
 
@@ -411,8 +408,8 @@ class Fenics2DHomogenization(object):
 
             self.u_s = fe.project(u_s, self.V)  # ? Pas un autre moyen de le faire ?
             U2 = U2 + [self.u_s]
-            E2 = E2 + [fe.project(epsilon(u_s) + Epsilon0[i], self.W)]
-            S2 = S2 + [fe.project(sigma(self.rve.C_per, E2[i]), self.W)]
+            E2 = E2 + [local_project(epsilon(u_s) + Epsilon0[i], self.W)]
+            S2 = S2 + [local_project(sigma(self.rve.C_per, E2[i]), self.W)]
             # e2 = fe.Function(self.W)
             # e2.assign(self.RVE.epsilon(u_s) + Epsilon0[i])
             # E2 = E2 + [e2]

@@ -11,7 +11,7 @@ __version__ = "0.1"
 
 GEO_TOLERANCE = 1e-12
 
-from . import geometry, materials
+from . import geometry, materials, periodicity
 from . import (full_scale_pb, homog2d, mesh_generate_2D, mesh_tools,
                part, toolbox_FEniCS)
 

@@ -14,6 +14,8 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 GEO_TOLERANCE = ho_homog.GEO_TOLERANCE
+mat = ho_homog.materials
+
 # * For mechanical fields reconstruction
 MACRO_FIELDS_NAMES = ['U', 'E', 'EG', 'EGG']
 
@@ -110,8 +112,8 @@ class FullScaleModel(object):
         self.v = fe.TestFunction(self.displ_fspace)
         self.u = fe.TrialFunction(self.displ_fspace)
         self.a = fe.inner(
-                    self.part.sigma(self.part.epsilon(self.u)),
-                    self.part.epsilon(self.v)
+                    mat.sigma(self.part.elasticity_tensor, mat.epsilon(self.u)),
+                    mat.epsilon(self.v)
                 ) * self.measures[self.part.dim]
         self.K = fe.assemble(self.a)
 
