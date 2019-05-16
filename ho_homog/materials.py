@@ -65,7 +65,7 @@ class Material(object):
     def get_C(self):
         """ Renvoie la matrice de raideur 3D, cp ou dp dans un format adapté pour FEniCs."""
         # return fe.Constant(self.C)
-        return self.C  #  Correction, plus rapide
+        return self.C  # Correction, plus rapide
 
 
 class StiffnessComponent(fe.UserExpression):
@@ -82,6 +82,10 @@ class StiffnessComponent(fe.UserExpression):
     def eval_cell(self, values, x, cell):
         subdomain_id = self.cell_function[cell.index]
         values[0] = self.mat_dict[subdomain_id].get_C()[self.i, self.j]
+
+    def value_shape(self):
+        return ()
+
 
 def mat_per_subdomains(cell_function, mat_dict, topo_dim):
     """Définir un comportement hétérogène par sous domaine.
@@ -110,55 +114,6 @@ def mat_per_subdomains(cell_function, mat_dict, topo_dim):
         C = C + [Cj]
     C_per = fe.as_matrix(C)
     return C_per
-
-
-class MaterialsPerDomains(object):
-    """
-    Définir un comportement hétérogène par sous domaine.
-    """
-    class StiffnessComponent(fe.UserExpression):
-        def __init__(self, cell_function, mat_dict, i, j, **kwargs):
-            warnings.warn("Deprecated. Should use the mat_per_subdomains function instead.", DeprecationWarning)
-            #! LA on rencontre une erreure majeure.
-            #! Message :
-            #! [Previous line repeated 324 more times] RecursionError: maximum recursion depth exceeded
-            #? Solution ? Regarder la solution de substitution à fe.Expression mise en place dans FEniCS 2018
-            self.cell_function = cell_function
-            self.mat_dict = mat_dict
-            self.i = i
-            self.j = j
-            super().__init__(degree=kwargs["degree"])
-            #? Info : https://docs.python.org/fr/3/library/functions.html#super,
-            #? and http://folk.uio.no/kent-and/hpl-fem-book/doc/pub/book/pdf/fem-book-4print-2up.pdf
-
-        def eval_cell(self, values, x, cell):
-            subdomain_id = self.cell_function[cell.index]
-            values[0] = self.mat_dict[subdomain_id].get_C()[self.i, self.j]
-
-    def __init__(self, cell_function, mat_dict, topo_dim, **kwargs): #Todo : supprimer kwargs ?
-        self.cell_function = cell_function
-        self.mat_dict = mat_dict
-
-        C = []
-        nb_val = int(topo_dim * (topo_dim + 1)/2)
-        for i in range(nb_val):
-            Cj = []
-            for j in range(nb_val):
-                Cj = Cj + [self.StiffnessComponent(self.cell_function, mat_dict, i, j, degree=0)]
-            C = C + [Cj]
-        logger.debug("C_per before conversion %s", C)
-        self.C_per = fe.as_matrix(C) #TODO : remplacer classe par une fonction
-
-### TO DO : essayer de sortir cette nested définition de classe de la classe MatDomains2
-
-    #     # Assembling the constitutive matrix
-    #     Ci = []
-    #     for i in range(self.dim * (self.dim + 1)/2):
-    #         Cj = []
-    #         for j in range(self.dim * (self.dim + 1)/2):
-    #             Cj = Cj + [StiffnessComponent(self.materials, listOfMaterials,i,j, degree=0)]
-    #         Ci = Ci + [Cj]
-    # self.Cper = fe.as_matrix(Ci)
 
 
 def epsilon(u):

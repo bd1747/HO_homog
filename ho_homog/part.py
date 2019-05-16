@@ -244,7 +244,7 @@ class Fenics2DRVE(FenicsPart):
             mesh_path = Path(mesh_path)
         name = mesh_path.stem
 
-        if mesh_path.suffix == 'xml':
+        if mesh_path.suffix == '.xml':
             mesh = fe.Mesh(str(mesh_path))
         elif mesh_path.suffix == '.xdmf':
             mesh = fe.Mesh()
@@ -254,6 +254,7 @@ class Fenics2DRVE(FenicsPart):
             cmd = (f"dolfin-convert {mesh_path} {mesh_path.with_suffix('.xml')}")
             run(cmd, shell=True, check=True)
             mesh_path = mesh_path.with_suffix('.xml')
+            mesh = fe.Mesh(str(mesh_path))
 
         subdo_path = mesh_path.with_name(name+'_physical_region.xml')
         facet_path = mesh_path.with_name(name+'_facet_region.xml')
