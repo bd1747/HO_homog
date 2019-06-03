@@ -130,3 +130,13 @@ def strain_cross_energy(sig, eps, mesh, area):
     """
 
     return fe.assemble(fe.inner(sig, eps) * fe.dx(mesh))/area
+
+def cross_energy(sig, eps, mesh):
+    """
+    Calcul de l'energie croisée des champs de contrainte sig et de deformation eps.
+    """
+    return fe.assemble(fe.inner(sig, eps) * fe.dx(mesh))
+# def energy_norm()
+#     return fe.assemble(fe.inner(sig, eps) * fe.dx(mesh))/area
+
+# code energy_norm : https://bitbucket.org/fenics-project/ufl/src/master/ufl/formoperators.py

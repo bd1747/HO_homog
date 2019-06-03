@@ -11,21 +11,21 @@ import dolfin as fe
 import matplotlib.pyplot as plt
 
 DOLFIN_KRYLOV_METHODS = {
-    'bicgstab': "Biconjugate gradient stabilized method",
-    'cg': "Conjugate gradient method",
-    'default': "default Krylov method",
-    'gmres': "Generalized minimal residual method",
-    'minres': "Minimal residual method",
-    'richardson': "Richardson method",
-    'tfqmr': "Transpose-free quasi-minimal residual method"
+    "bicgstab": "Biconjugate gradient stabilized method",
+    "cg": "Conjugate gradient method",
+    "default": "default Krylov method",
+    "gmres": "Generalized minimal residual method",
+    "minres": "Minimal residual method",
+    "richardson": "Richardson method",
+    "tfqmr": "Transpose-free quasi-minimal residual method",
 }
 
 DOLFIN_LU_METHODS = {
-    'default': "default LU solver",
-    'mumps': "MUMPS (MUltifrontal Massively Parallel Sparse direct Solver)",
-    'petsc': "PETSc built in LU solver",
-    'superlu': "SuperLU",
-    'umfpack': "UMFPACK (Unsymmetric MultiFrontal sparse LU factorization)"
+    "default": "default LU solver",
+    "mumps": "MUMPS (MUltifrontal Massively Parallel Sparse direct Solver)",
+    "petsc": "PETSc built in LU solver",
+    "superlu": "SuperLU",
+    "umfpack": "UMFPACK (Unsymmetric MultiFrontal sparse LU factorization)",
 }
 
 
@@ -50,11 +50,14 @@ def get_MeshFunction_val(msh_fctn):
     nb = len(val)
     return (nb, val)
 
-def facet_plot2d(facet_func,mesh, mesh_edges=True, markers=None, exclude_val=(0,), **kargs):
+
+def facet_plot2d(
+    facet_func, mesh, mesh_edges=True, markers=None, exclude_val=(0,), **kargs
+):
     """
     Source : https://bitbucket.org/fenics-project/dolfin/issues/951/plotting-facetfunctions-in-matplotlib-not
     """
-    x_list, y_list = [],[]
+    x_list, y_list = [], []
     if markers == None:
         for facet in fe.facets(mesh):
             mp = facet.midpoint()
@@ -70,7 +73,7 @@ def facet_plot2d(facet_func,mesh, mesh_edges=True, markers=None, exclude_val=(0,
                 x_list.append(mp.x())
                 y_list.append(mp.y())
                 values.append(facet_func[i])
-            i+=1
+            i += 1
     if exclude_val:
         filtered_data = [], [], []
         for x, y, val in zip(x_list, y_list, values):
@@ -113,7 +116,7 @@ def function_from_xdmf(function_space, function_name, xdmf_path):
     return f
 
 
-def function_errornorm(u, v, norm_type='L2', enable_diff_fspace=False):
+def function_errornorm(u, v, norm_type="L2", enable_diff_fspace=False):
     """Compute the difference between two functions
     defined on the same functionspace with the given norm.
 
@@ -141,17 +144,19 @@ def function_errornorm(u, v, norm_type='L2', enable_diff_fspace=False):
     if u.function_space() == v.function_space():
         difference = fe.Function(u.function_space())
         difference.assign(u)
-        difference.vector().axpy(-1.0, v.vector())
+        difference.vector().axpy(
+            -1.0, v.vector())
     elif enable_diff_fspace:
-        logger.warning(f"Function spaces not equals. A projection is done to compute the difference between {u} and {v}")
-        difference = fe.project(u-v, u.function_space())
+        logger.warning(
+            f"Function spaces not equals. A projection is done to compute the difference between {u} and {v}"
+        )
+        difference = fe.project(u - v, u.function_space())
     else:
-        raise RuntimeError(
-            "Cannot compute error norm, Function spaces do not match.")
+        raise RuntimeError("Cannot compute error norm, Function spaces do not match.")
     return fe.norm(difference, norm_type)
 
 
-def local_project(v, fspace, metadata:dict={}):
+def local_project(v, fspace, solver_method: str = "", metadata: dict = {}):
     """
     Info : https://comet-fenics.readthedocs.io/en/latest/tips_and_tricks.html#efficient-projection-on-dg-or-quadrature-spaces
 
@@ -161,6 +166,8 @@ def local_project(v, fspace, metadata:dict={}):
         [description]
     fspace : [type]
         [description]
+    solver_method : str, optional
+        "LU" or "Cholesky" factorization
     metadata : dict, optional
         This can be used to deﬁne diﬀerent quadrature degrees for diﬀerent
         terms in a form, and to override other form compiler speciﬁc options
@@ -173,10 +180,42 @@ def local_project(v, fspace, metadata:dict={}):
     """
     dv = fe.TrialFunction(fspace)
     v_ = fe.TestFunction(fspace)
-    a_proj = fe.inner(dv, v_)*fe.dx(metadata=metadata)
-    b_proj = fe.inner(v, v_)*fe.dx(metadata=metadata)
-    solver = fe.LocalSolver(a_proj, b_proj)
+    a_proj = fe.inner(dv, v_) * fe.dx(metadata=metadata)
+    b_proj = fe.inner(v, v_) * fe.dx(metadata=metadata)
+    if solver_method == "LU":
+        solver = fe.LocalSolver(
+            a_proj, b_proj, solver_type=fe.cpp.fem.LocalSolver.SolverType.LU
+        )
+    elif solver_method == "Cholesky":
+        solver = fe.LocalSolver(
+            a_proj, b_proj, solver_type=fe.cpp.fem.LocalSolver.SolverType.Cholesky
+        )
+    else:
+        solver = fe.LocalSolver(a_proj, b_proj)
     solver.factorize()
     u = fe.Function(fspace)
     solver.solve_local_rhs(u)
     return u
+
+
+def _wrap_in_list(obj, name, types=type):
+    """
+    Transform single object or a collection of objects into a list.
+
+    Source
+    ------
+    python/dolfin/fem/assembling.py, commit 4c72333
+    """
+
+    if obj is None:
+        lst = []
+    elif hasattr(obj, "__iter__"):
+        lst = list(obj)
+    else:
+        lst = [obj]
+    for obj in lst:
+        if not isinstance(obj, types):
+            raise TypeError(
+                "expected a (list of) %s as '%s' argument" % (str(types), name)
+            )
+    return lst

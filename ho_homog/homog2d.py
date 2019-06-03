@@ -5,7 +5,7 @@ import logging
 import numpy as np
 
 from ho_homog import periodicity
-from ho_homog.materials import epsilon, sigma
+from ho_homog.materials import epsilon, sigma, cross_energy
 from ho_homog.toolbox_FEniCS import (DOLFIN_KRYLOV_METHODS, DOLFIN_LU_METHODS,
                                      local_project)
 
@@ -119,8 +119,6 @@ class Fenics2DHomogenization(object):
         # print("Solver parameters : ")
         # fe.info(self.solver.parameters, True)
 
-        # Areas
-        self.one = fe.interpolate(fe.Constant(1),self.X)
 
         self.localization = {}  # dictionary of localization field objects, to be filled up when calling auxiliary problems (lazy evaluation)
         self.ConstitutiveTensors = {}  # dictionary of homogenized constitutive tensors, to be filled up when calling auxiliary problems and averaging localization fields.
@@ -341,27 +339,31 @@ class Fenics2DHomogenization(object):
 
 
     def CrossEnergy(self, Key1, Key2, Loc1, Loc2):
-        ''' Calcul l'energie croisee des tenseurs de localisation Loc1 et Loc2
-        Si Loc1 est un champ de contraintes alors Loc2 doit etre un champ de deformations (et inversement)
-        '''
+        """
+        Calcul l'energie croisee des tenseurs de localisation Loc1 et Loc2.
+        Si Loc1 est un champ de contraintes alors Loc2 doit etre un champ de
+        deformations (et inversement)
+        """
         try:
             C = self.ConstitutiveTensors[Key1][Key2]
         except KeyError:
             logger.info(f"Compute cross energy {Key1} and {Key2}")
             if Key1 == Key2:
-                K = len(Loc1)
-                C = np.zeros((K, K))
-                for k in range(K):
-                    for l in range(k, K):
-                        C[k, l] = self.rve.StrainCrossEnergy(Loc1[k], Loc2[l])
+                len_1 = len(Loc1)
+                C = np.zeros((len_1, len_1))
+                for k in range(len_1):
+                    for l in range(k, len_1):
+                        C[k, l] = (cross_energy(Loc1[k], Loc2[l], self.rve.mesh)
+                                   / self.rve.rve_area)
                         C[l, k] = C[k, l]
             else:
-                K = len(Loc1)
-                L = len(Loc2)
-                C = np.zeros((K, L))
-                for k in range(K):
-                    for l in range(L):
-                        C[k, l] = self.rve.StrainCrossEnergy(Loc1[k], Loc2[l])
+                len_1 = len(Loc1)
+                len_2 = len(Loc2)
+                C = np.zeros((len_1, len_2))
+                for k in range(len_1):
+                    for l in range(len_2):
+                        C[k, l] = (cross_energy(Loc1[k], Loc2[l], self.rve.mesh)
+                                   / self.rve.rve_area)
             try:
                 self.ConstitutiveTensors[Key1][Key2] = C
             except KeyError:
