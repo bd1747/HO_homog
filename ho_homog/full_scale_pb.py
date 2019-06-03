@@ -6,10 +6,15 @@ Created on 08/04/2019
 
 import logging
 import dolfin as fe
-import ho_homog
 import numpy as np
+import ho_homog
 from pathlib import Path
-
+from fenicstools import interpolate_nonmatching_mesh_any
+from ho_homog.toolbox_FEniCS import (
+    DOLFIN_KRYLOV_METHODS,
+    DOLFIN_LU_METHODS,
+    local_project,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +22,7 @@ GEO_TOLERANCE = ho_homog.GEO_TOLERANCE
 mat = ho_homog.materials
 
 # * For mechanical fields reconstruction
-MACRO_FIELDS_NAMES = ['U', 'E', 'EG', 'EGG']
+MACRO_FIELDS_NAMES = ["U", "E", "EG", "EGG"]
 
 
 class FullScaleModel(object):
@@ -67,54 +72,64 @@ class FullScaleModel(object):
         for bc in boundary_conditions:
             if isinstance(bc, dict):
                 bc_ = bc
-                bc = [bc_['type'], bc_['constraint']]
+                bc = [bc_["type"], bc_["constraint"]]
                 try:
-                    bc.append(bc_['facet_function'])
-                    bc.append(bc_['facet_idx'])
+                    bc.append(bc_["facet_function"])
+                    bc.append(bc_["facet_idx"])
                 except KeyError:
                     pass
             bc_type, *bc_data = bc
-            if bc_type == 'Periodic':
+            if bc_type == "Periodic":
                 if self.per_bc is not None:
-                    raise AttributeError("Only one periodic boundary condition can be prescribed.")
+                    raise AttributeError(
+                        "Only one periodic boundary condition can be prescribed."
+                    )
                 self.per_bc = bc_data[0]
-            elif bc_type == 'Dirichlet':
+            elif bc_type == "Dirichlet":
                 if len(bc_data) == 2 or len(bc_data) == 3:
                     bc_data = tuple(bc_data)
                 else:
-                    raise AttributeError("Too much parameter for the definition of a Dirichlet boundary condition.")
+                    raise AttributeError(
+                        "Too much parameter for the definition of a Dirichlet BC."
+                    )
                 self.Dirichlet_bc.append(bc_data)
 
-        self.measures = {self.part.dim: fe.dx, self.part.dim-1: fe.ds}
+        self.measures = {self.part.dim: fe.dx, self.part.dim - 1: fe.ds}
 
         # * Function spaces
         try:
-            self.elmt_family = family = element['family']
-            self.elmt_degree = degree = element['degree']
+            self.elmt_family = family = element["family"]
+            self.elmt_degree = degree = element["degree"]
         except TypeError:  # Which means that element is not a dictionnary
             self.element_family, self.element_degree = element
             family, degree = element
         cell = self.part.mesh.ufl_cell()
-        Voigt_strain_dim = int(self.part.dim*(self.part.dim+1)/2)
+        Voigt_strain_dim = int(self.part.dim * (self.part.dim + 1) / 2)
+        strain_deg = degree - 1 if degree >= 1 else 0
+        strain_FE = fe.VectorElement("DG", cell, strain_deg, dim=Voigt_strain_dim)
         self.scalar_fspace = fe.FunctionSpace(
             self.part.mesh,
             fe.FiniteElement(family, cell, degree),
-            constrained_domain=self.per_bc)
+            constrained_domain=self.per_bc,
+        )
         self.displ_fspace = fe.FunctionSpace(
             self.part.mesh,
             fe.VectorElement(family, cell, degree, dim=self.part.dim),
-            constrained_domain=self.per_bc)
+            constrained_domain=self.per_bc,
+        )
         self.strain_fspace = fe.FunctionSpace(
-            self.part.mesh,
-            fe.VectorElement(family, cell, degree, dim=Voigt_strain_dim),
-            constrained_domain=self.per_bc)
+            self.part.mesh, strain_FE, constrained_domain=self.per_bc
+        )
 
         self.v = fe.TestFunction(self.displ_fspace)
         self.u = fe.TrialFunction(self.displ_fspace)
-        self.a = fe.inner(
-                    mat.sigma(self.part.elasticity_tensor, mat.epsilon(self.u)),
-                    mat.epsilon(self.v)
-                ) * self.measures[self.part.dim]
+        self.a = (
+            fe.inner(
+                mat.sigma(self.part.elasticity_tensor, mat.epsilon(self.u)),
+                mat.epsilon(self.v),
+            )
+            * self.measures[self.part.dim]
+        )
         self.K = fe.assemble(self.a)
 
         # * Create suitable objects for Dirichlet boundary conditions
@@ -131,25 +146,44 @@ class FullScaleModel(object):
         # * Prepare attribute for the solver
         self.solver = None
 
-    def set_solver(self, solver_type='LU', solver_method='mumps', preconditioner='default'):
+    def set_solver(self, solver_method="mumps", **kwargs):
         """
         Choose the type of the solver and its method.
 
         An up-to-date list of the available solvers and preconditioners
         can be obtained with dolfin.list_linear_solver_methods() and
         dolfin.list_krylov_solver_preconditioners().
-        """
 
-        if solver_type == 'Krylov':
-            self.solver = fe.KrylovSolver(self.K, solver_method)
-        elif solver_type == 'LU':
-            self.solver = fe.LUSolver(self.K, solver_method)
+        kwargs:
+        type e.g. 'LU',
+        preconditioner e.g. 'default'
+        """
+        s_type = kwargs.pop("type", None)
+        s_precond = kwargs.pop("preconditioner", "default")
+
+        if s_type is None:
+            if solver_method in DOLFIN_KRYLOV_METHODS.keys():
+                s_type = "Krylov"
+            elif solver_method in DOLFIN_LU_METHODS.keys():
+                s_type = "LU"
+            else:
+                raise RuntimeError("The indicated solver method is unknown.")
         else:
-            raise TypeError
-        if preconditioner != 'default':
-            self.solver.parameters.preconditioner = preconditioner
-        self._solver = {'type': solver_type, 'method': solver_method,
-                        'preconditioner': preconditioner}
+            if not (
+                solver_method in DOLFIN_KRYLOV_METHODS.keys()
+                or solver_method in DOLFIN_LU_METHODS.keys()
+            ):
+                raise RuntimeError("The indicated solver method is unknown.")
+        self._solver = dict(type=s_type, method=solver_method, preconditioner=s_precond)
+        if s_precond:
+            self._solver["preconditioner"] = s_precond
+
+        if s_type == "Krylov":
+            self.solver = fe.KrylovSolver(self.K, solver_method)
+        elif s_type == "LU":
+            self.solver = fe.LUSolver(self.K, solver_method)
+        if s_precond != "default":
+            self.solver.parameters.preconditioner = s_precond
         return self.solver
 
     def set_loads(self, loads):
@@ -182,17 +216,19 @@ class FullScaleModel(object):
                 mesh_fctn = load_data[1]
                 try:
                     if not mesh_fctn == self.load_subdomains[topo_dim]:
-                        raise ValueError("Only one mesh function for each topology dimension can be use for the definition of loads.")
+                        raise ValueError(
+                            "Only one mesh function for each topology dimension"
+                            " can be used for the definition of loads."
+                        )
                 except KeyError:
                     self.load_subdomains[topo_dim] = mesh_fctn
 
         # * Define load integrals
-        labels = {self.part.dim: 'dx', self.part.dim-1: 'ds'}
+        labels = {self.part.dim: "dx", self.part.dim - 1: "ds"}
         for topo_dim, partition in self.load_subdomains.items():
             self.measures[topo_dim] = fe.Measure(
-                labels[topo_dim],
-                domain=self.part.mesh,
-                subdomain_data=partition)
+                labels[topo_dim], domain=self.part.mesh, subdomain_data=partition
+            )
 
         self.load_integrals = dict()
         for topo_dim, loads in self.loads_data.items():
@@ -202,11 +238,14 @@ class FullScaleModel(object):
                 if len(load) == 1:
                     contrib = fe.dot(load[0], self.v) * dy
                 elif len(load) == 2:
-                    contrib = fe.dot(load[1]*load[0], self.v) * dy
+                    contrib = fe.dot(load[1] * load[0], self.v) * dy
                 elif len(load) == 3:
                     contrib = fe.dot(load[0], self.v) * dy(load[2])
                 else:
-                    raise AttributeError("Too much parameter for the definition of a load. Expecting 2, 3 or 4 parameters for each load.")
+                    raise AttributeError(
+                        "Too much parameter for the definition of a load. "
+                        "Expecting 2, 3 or 4 parameters for each load."
+                    )
                 self.load_integrals[topo_dim].append(contrib)
 
         return self.loads_data
@@ -220,182 +259,46 @@ class FullScaleModel(object):
                 L_terms += contrib_list
             L = sum(L_terms)
         else:
-            L = 0.
+            L = 0.0
 
-        logger.info('Assembling system...')
+        logger.info("Assembling system...")
         K, res = fe.assemble_system(self.a, L, self.Dirichlet_bc)
-        logger.info('Assembling system : done')
+        logger.info("Assembling system : done")
         self.u_sol = fe.Function(self.displ_fspace)
-        logger.info('Solving system...')
+        logger.info("Solving system...")
         self.solver.solve(K, self.u_sol.vector(), res)
-        logger.info('Solving system : done')
-        logger.info('Computing strain solution...')
-        self.eps_sol = fe.project(self.part.epsilon(self.u_sol),
-                                  self.strain_fspace,
-                                  solver_type=self._solver['method'])
-        logger.info('Saving results...')
+        logger.info("Solving system : done")
+        logger.info("Computing strain solution...")
+        eps = mat.epsilon(self.u_sol)
+        self.eps_sol = local_project(eps, self.strain_fspace, solver_method="LU")
+        logger.info("Saving results...")
         if results_file is not None:
             try:
-                if results_file.suffix != '.xdmf':
-                    results_file = results_file.with_suffix('.xdmf')
+                if results_file.suffix != ".xdmf":
+                    results_file = results_file.with_suffix(".xdmf")
             except AttributeError:
-                results_file = Path(results_file).with_suffix('.xdmf')
-            with fe.XDMFFile(results_file.as_posix()) as file_out:
-                file_out.parameters["flush_output"] = False
-                file_out.parameters["functions_share_mesh"] = True
-                self.u_sol.rename('displacement', 'displacement solution, full scale problem')
-                self.eps_sol.rename('strain', 'strain solution, full scale problem')
-                file_out.write(self.u_sol, 0.)
-                file_out.write(self.eps_sol, 0.)
-
+                results_file = Path(results_file).with_suffix(".xdmf")
+            with fe.XDMFFile(results_file.as_posix()) as ofile:
+                ofile.parameters["flush_output"] = False
+                ofile.parameters["functions_share_mesh"] = True
+                self.u_sol.rename(
+                    "displacement", "displacement solution, full scale problem"
+                )
+                self.eps_sol.rename("strain", "strain solution, full scale problem")
+                ofile.write(self.u_sol, 0.0)
+                ofile.write(self.eps_sol, 0.0)
         return self.u_sol
 
 
-class PeriodicDomain(fe.SubDomain):
-    """Representation of periodicity boundary conditions. For 2D only"""
-    # ? Source : https://comet-fenics.readthedocs.io/en/latest/demo/periodic_homog_elas/periodic_homog_elas.html
-
-    def __init__(self, per_vectors, master_tests, slave_tests, dim=2, tolerance=GEO_TOLERANCE):
-        fe.SubDomain.__init__(self, tolerance)
-        self.tol = tolerance
-        self.dim = dim
-        self.per_vectors = per_vectors
-        self.master_tests = master_tests
-        self.slave_tests = slave_tests
-        self.infinity = list()
-        for i in range(self.dim):
-            val = 9999 * sum([vect[i] for vect in self.per_vectors])
-            self.infinity.append(val)
-
-    def inside(self, x, on_boundary):
-        """ Detect if point x is on a master part of the boundary."""
-        if not on_boundary:
-            return False
-        if any(master(x) for master in self.master_tests):
-            if not any(slave(x) for slave in self.slave_tests):
-                return True
-        else:
-            return False
-
-    def map(self, x, y):
-        """ Link a point 'x' on a slave part of the boundary to the related point 'y' which belong to a master region."""
-        slave_flag = False
-        for slave, translat in zip(self.slave_tests, self.per_vectors):
-            if slave(x):
-                for i in range(self.dim):
-                    y[i] = x[i] - translat[i]
-                slave_flag = True
-        if not slave_flag:
-            for i in range(self.dim):
-                y[i] = self.infinity[i]
-
-    @staticmethod
-    def pbc_dual_base(part_vectors, per_choice: str, dim=2, tolerance=GEO_TOLERANCE):
-        """Create periodic boundary only array that indicate the dimensions of the part. Appropriate for parallelepipedic domain.
-
-        Parameters
-        ----------
-        part_vectors : np.array
-            shape 2×2. Dimensions of the domain.
-            Some of them will be used as periodicity vectors.
-        per_choice : str
-            Can contain X, Y (in the future : Z)
-        dim : int, optional
-            Dimension of the modeling space. (the default is 2)
-        tolerance : float, optional
-            geometrical tolerance for membership tests.
-
-        Returns
-        -------
-        PeriodicDomain
-        """
-        dual_vect = np.linalg.inv(part_vectors).T
-        basis, dualbasis = list(), list()
-        for i in range(np.size(part_vectors, 1)):
-            basis.append(fe.as_vector(part_vectors[:, i]))
-            dualbasis.append(fe.as_vector(dual_vect[:, i]))
-        master_tests, slave_tests, per_vectors = list(), list(), list()
-        if 'x' in per_choice.lower():
-            def left(x):
-                return fe.near(x.dot(dualbasis[0]), 0., tolerance)
-                # dot product return a <'ufl.constantvalue.FloatValue'>
-
-            def right(x):
-                return fe.near((x - basis[0]).dot(dualbasis[0]), 0., tolerance)
-            master_tests.append(left)
-            slave_tests.append(right)
-            per_vectors.append(basis[0])
-        if 'y' in per_choice.lower():
-            def bottom(x):
-                return fe.near(x.dot(dualbasis[1]), 0., tolerance)
-
-            def top(x):
-                return fe.near((x - basis[1]).dot(dualbasis[1]), 0., tolerance)
-            master_tests.append(bottom)
-            slave_tests.append(top)
-            per_vectors.append(basis[1])
-        return PeriodicDomain(per_vectors, master_tests, slave_tests,
-                              dim, tolerance)
-
-    @staticmethod
-    def pbc_facet_function(part_vectors, mesh, facet_function, per_choice: dict,
-                           dim=2, tolerance=GEO_TOLERANCE):
-        """[summary]
-
-        Parameters
-        ----------
-        part_vectors : np.array
-        mesh : Mesh
-        facet_function : MeshFunction
-        per_choice : dict
-            key can be : 'X', 'Y'
-            values : tuple (value of facetfunction for master, value for slave)
-            Ex : {'X' : (3,5)}
-        tolerance : float, optional
-
-        Returns
-        -------
-        PeriodicDomain
-        """
-
-        # ! Not tested yet
-        basis = list()
-        for i in range(np.size(part_vectors, 1)):
-            basis.append(fe.as_vector(part_vectors[:, i]))
-        per_values = [val for couple in per_choice for val in couple]
-        coordinates = dict()
-        mesh.init(1, 0)
-        for val in per_values:
-            points_for_val = list()
-            facet_idces = facet_function.where_equal(val)
-            for i in facet_idces:
-                vertices_idces = fe.Facet(mesh, i).entities(0)
-                for j in vertices_idces:
-                    coord = fe.Vertex(mesh, j).point().array()
-                    points_for_val.append(coord)
-            coordinates[val] = points_for_val
-        master_tests, slave_tests, per_vectors = list(), list(), list()
-        for key, (master_idx, slave_idx) in per_choice.items():
-            def master_test(x):
-                return any(np.allclose(x, pt, atol=tolerance) for pt in coordinates[master_idx])
-
-            def slave_test(x):
-                return any(np.allclose(x, pt, atol=tolerance) for pt in coordinates[slave_idx])
-            master_tests.append(master_test)
-            slave_tests.append(slave_test)
-            if key.lower() == 'x':
-                per_vectors.append(basis[0])
-            elif key.lower() == 'y':
-                per_vectors.append(basis[1])
-
-        return PeriodicDomain(per_vectors, master_tests, slave_tests,
-                              dim, tolerance)
-
-
 def reconstruction(
-    localization_tensors: dict, macro_kinematic: dict, function_spaces: dict,
-    localization_rules: dict = {}, trunc_order: int = 0,
-    output_request=('u', 'eps'), proj_solver=None):
+    localization_tensors: dict,
+    macro_kinematic: dict,
+    function_spaces: dict,
+    localization_rules: dict = {},
+    trunc_order: int = 0,
+    output_request=("u", "eps"),
+    proj_solver=None,
+):
     """
     One argument among localization_rules and trunc_order must be used.
 
@@ -436,8 +339,8 @@ def reconstruction(
         Mechanical fields with microscopic fluctuations. Keys are "eps", "sigma" and "u" respectively for the strain, stress and displacement fields.
     """
     # ? Changer les inputs ?
-        # ? Remplacer le dictionnaire de functionspace et output_request par un seul argument : list de tuples qui contiennent nom + function_space ?
-        # ? Comme ça on peut aussi imaginer reconstruire le même champs dans différents espaces ?
+    # ? Remplacer le dictionnaire de functionspace et output_request par un seul argument : list de tuples qui contiennent nom + function_space ?
+    # ? Comme ça on peut aussi imaginer reconstruire le même champs dans différents espaces ?
 
     # ! La construction de champs de localisation périodiques doit être faite en dehors de cette fonction.
 
@@ -457,8 +360,14 @@ def reconstruction(
         pass
     elif trunc_order:
         localization_rules = {
-            'u': [(MACRO_FIELDS_NAMES[i], MACRO_FIELDS_NAMES[i]) for i in range(trunc_order+1)],
-            'eps': [(MACRO_FIELDS_NAMES[i], MACRO_FIELDS_NAMES[i]) for i in range(1, trunc_order+1)]
+            "u": [
+                (MACRO_FIELDS_NAMES[i], MACRO_FIELDS_NAMES[i])
+                for i in range(trunc_order + 1)
+            ],
+            "eps": [
+                (MACRO_FIELDS_NAMES[i], MACRO_FIELDS_NAMES[i])
+                for i in range(1, trunc_order + 1)
+            ],
         }
     # * Ex. for truncation order = 2:
     # * localization_rules = {
@@ -478,38 +387,84 @@ def reconstruction(
             element = fe.FiniteElement(
                 fspace._ufl_element._family,
                 mesh.ufl_cell(),
-                fspace._ufl_element._degree
-                )
+                fspace._ufl_element._degree,
+            )
+            element_family = element.family()
             constrain = fspace.dofmap().constrained_domain
-            scalar_fspace = fe.FunctionSpace(mesh, element, constrained_domain=constrain)
-            assigner = fe.FunctionAssigner(fspace, [scalar_fspace]*vector_dim)
-            logger.debug(f"for reconstruction of {mecha_field}, vector_dim = {vector_dim}")
+            scalar_fspace = fe.FunctionSpace(
+                mesh, element, constrained_domain=constrain
+            )
+            assigner = fe.FunctionAssigner(fspace, [scalar_fspace] * vector_dim)
+            logger.debug(
+                f"for reconstruction of {mecha_field}, vector_dim = {vector_dim}"
+            )
         elif len(value_shape) == 0:
-            logger.warning("The value_shape attribute has not been found for the following function space. It is therefore assumed to be a scalar function space for the reconstruction : %s", fspace)
+            logger.warning(
+                "The value_shape attribute has not been found for the following function space. It is therefore assumed to be a scalar function space for the reconstruction : %s",
+                fspace,
+            )
             scalar_fspace = fspace
             vector_dim = 1
+            element_family = fspace._ufl_element._family
             assigner = fe.FunctionAssigner(fspace, scalar_fspace)
         else:
-            raise NotImplementedError("Only vector fields are supported by the reconstruction function for now.")
+            raise NotImplementedError(
+                "Only vector fields are supported by the reconstruction function for now."
+            )
+
+        macro_kin_funct = dict()
+        for key, field in macro_kinematic.items():
+            macro_kin_funct[key] = list()
+            for comp in field:
+                if comp:
+                    # macro_kin_funct[key].append(fe.interpolate(comp, scalar_fspace))
+                    macro_kin_funct[key].append(interpolate_nonmatching_mesh_any(comp, scalar_fspace))
+                else:
+                    macro_kin_funct[key].append(0)
 
         # * Reconstruction proper
         contributions = [list() for i in range(vector_dim)]
         for macro_key, localization_key in localization_rules[mecha_field]:
-            macro_f = macro_kinematic[macro_key]
+            macro_f = macro_kin_funct[macro_key]
             loc_tens = localization_tensors[localization_key][mecha_field]
             for macro_comp, loc_tens_comps in zip(macro_f, loc_tens):
                 if not macro_comp:
                     continue
                 for i in range(vector_dim):
-                    contributions[i].append(macro_comp * loc_tens_comps[i])
-        components = [sum(compnt_contrib) for compnt_contrib in contributions]
+                    # loc_comp = fe.interpolate(loc_tens_comps[i], scalar_fspace)
+                    loc_comp = interpolate_nonmatching_mesh_any(loc_tens_comps[i], scalar_fspace)
+                    contributions[i].append((macro_comp, loc_comp))
+
+        # components = [sum(compnt_contrib) for compnt_contrib in contributions]
+        components = [fe.Function(scalar_fspace) for i in range(vector_dim)]
+        for i in range(vector_dim):
+            vec = components[i].vector()
+            values = vec.get_local()
+            new_val = np.zeros_like(values)
+            for macro_kin, loc in contributions[i]:
+                loc_local_val = loc.vector().get_local()
+                kin_local_val = macro_kin.vector().get_local()
+                new_val += loc_local_val * kin_local_val
+            values[:] = new_val
+            vec.set_local(values)
+            vec.apply("insert")
+            # https://fenicsproject.org/docs/dolfin/2016.2.0/cpp/programmers-reference/la/GenericVector.html #noqa
 
         # * Components -> vector field
         field = fe.Function(fspace)
         components_proj = list()
-        for scl_field in components:
-            components_proj.append(
-                fe.project(scl_field, scalar_fspace, **solver_param))
+        logger.info(f"Projection of reconstructed {mecha_field}...")
+        components_proj = components
+        # for scl_field in components:
+        #     # if element_family in ("Discontinuous Lagrange", "Quadrature"):
+        #     #     comp = local_project(scl_field, scalar_fspace)
+        #     # else:
+        #     #     comp = fe.project(scl_field, scalar_fspace, **solver_param)
+        #     scl_field = scl_field.cpp_object()
+        #     f = fe.Function(scalar_fspace)
+        #     f.interpolate(scl_field)
+        #     components_proj.append(comp)
+        # logger.info(f"Projection of reconstructed {mecha_field} DONE")
         if len(value_shape) == 0:
             components_proj = components_proj[0]
         assigner.assign(field, components_proj)

@@ -164,6 +164,5 @@ def test_homogeneous_pantograph(generate_mesh=False, save_results=False):
     logger.debug(f"Duration : {time.time() - start}")
 
 
-
 test_homog_EGG_pantograph_1x1(False)
 # test_homogeneous_pantograph(False, True)

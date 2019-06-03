@@ -353,8 +353,6 @@ def set_periodicity_pairs(slaves, masters, translation_v=np.array(())):
     else:
         vect = (slaves[0].def_pts[0].coord - masters[0].def_pts[0].coord)
     # logger.debug(f"translation vector in set_periodicity_pairs : {vect}")
-    print([s.tag for s in slaves])
-    print([m.tag for m in masters])
     model.mesh.setPeriodic(geo_dim, [s.tag for s in slaves], [m.tag for m in masters], translation2matrix(vect))
 
 
