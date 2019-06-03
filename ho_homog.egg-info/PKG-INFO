@@ -3,7 +3,7 @@ Name: ho-homog
 Version: 0.1
 Summary: Numerical homogenization of periodic materials by use of a higher order homogenization scheme.
 Home-page: https://gitlab.enpc.fr/baptiste.durand/HO_homog
-Author: Baptiste Durand, Arthur LebÃ©e
+Author: Baptiste Durand, Arthur Lebée
 Author-email: baptiste.durand@enpc.fr
 License: UNKNOWN
 Description: <!-- # Project Title
@@ -56,13 +56,15 @@ Description: <!-- # Project Title
         ### Installing
         The **HO_homog** Python package can be installed with `pip`.
         - Install it from the gitlab repository directly (preferred way):
+        
         ```bash
-        pip install git+https://baptiste.durand@gitlab.enpc.fr/baptiste.durand/HO_homog.git#egg=ho_homog
+        pip3 install git+https://baptiste.durand@gitlab.enpc.fr/baptiste.durand/HO_homog.git#egg=ho_homog
         ```
+        
         - Or [download](https://gitlab.enpc.fr/baptiste.durand/HO_homog/repository/archive.tar?ref=master) the HO_homog repository files. Then, move to the HO_homog directory and use `pip` : 
+        
         ```bash
          pip3 install . --no-cache-dir
-        
         ```
         
         <!--
@@ -157,11 +159,11 @@ Description: <!-- # Project Title
         
         This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details -->
         
-        <!-- ## Acknowledgments
+        ## Acknowledgments
         
-        * Hat tip to anyone whose code was used
-        * Inspiration
-        * etc -->
+        The authors acknowledge the support of the French Agence Nationale de la Recherche (ANR), under grant ANR-17-CE08-0039 ([project ArchiMatHOS](http://www.agence-nationale-recherche.fr/Projet-ANR-17-CE08-0039)).
+        <img src="/img/ArchiMATHOS_ANR.png" height="250">
+        
         
         <!--
         ## Ressources pour la rédaction du fichier README
