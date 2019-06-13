@@ -24,12 +24,14 @@ api_field = model.mesh.field
 
 logger = logging.getLogger(__name__)
 
+
 class Field(object):
     """
     Class mère (=générique) pour représenter les champs scalaires utilisés pour prescrire la taile caractéristique des éléments dans gmsh.
     Info pour l'héritage : https://openclassrooms.com/fr/courses/235344-apprenez-a-programmer-en-python/233164-lheritage
     Tutorial : gmsh-4.0.2-Linux64/share/doc/gmsh/demos/api/t10.py
     """
+
     def __init__(self, f_type, parent_fields=[]):
         self.tag = None
         self.f_type = f_type
@@ -39,7 +41,7 @@ class Field(object):
         """
         Cette partie sera précisée pour chaque type de champ de scalaire.
         """
-        #? C'est a priori pas nécessaire de définir une méthode set_params dans cette classe.
+        # ? C'est a priori pas nécessaire de définir une méthode set_params dans cette classe.
         pass
 
     def add_gmsh(self):
@@ -47,8 +49,10 @@ class Field(object):
         Partie générique des intructions nécessaires pour ajouter un field de contrôle de la taille des éléments.
         """
 
-        if self.tag: # That means that the field has already been instantiated in the gmsh model.
-            return self.tag #The tag is returned for information purposes only.
+        if (
+            self.tag
+        ):  # That means that the field has already been instantiated in the gmsh model.
+            return self.tag  # The tag is returned for information purposes only.
         if self.parents:
             for p_field in self.parents:
                 if not p_field.tag:
@@ -66,7 +70,9 @@ class AttractorField(Field):
             nb_pts_discretization : Nb de points utilisés pour la discrétisation de chaque élément 1D de 'curves'.
     """
 
-    def __init__(self, points=[], curves=[], nb_pts_discretization=10): #! C'est nb_pts_discretization - 2 points pris à l'intérieur de la courbe !
+    def __init__(
+        self, points=[], curves=[], nb_pts_discretization=10
+    ):  #! C'est nb_pts_discretization - 2 points pris à l'intérieur de la courbe !
         Field.__init__(self, "Attractor")
         self.points = points if points else None
         self.curves = curves if curves else None
@@ -76,7 +82,7 @@ class AttractorField(Field):
     def set_params(self):
         if self.points:
             for pt in self.points:
-                #? La méthode add_gmsh contient déjà un test logique pour s'assurer que le Point n'est pas déjà dans le modèle. Est-ce que c'est mieux d'appeler la méthode et de faire le test de la méthode ou de faire un test, puis d'appeler la méthode (qui contient un second test) ?
+                # ? La méthode add_gmsh contient déjà un test logique pour s'assurer que le Point n'est pas déjà dans le modèle. Est-ce que c'est mieux d'appeler la méthode et de faire le test de la méthode ou de faire un test, puis d'appeler la méthode (qui contient un second test) ?
                 if not pt.tag:
                     pt.add_gmsh()
             api_field.setNumbers(self.tag, "NodesList", [pt.tag for pt in self.points])
@@ -85,7 +91,9 @@ class AttractorField(Field):
             for crv in self.curves:
                 if not crv.tag:
                     crv.add_gmsh()
-            api_field.setNumbers(self.tag, "EdgesList", [crv.tag for crv in self.curves])
+            api_field.setNumbers(
+                self.tag, "EdgesList", [crv.tag for crv in self.curves]
+            )
 
 
 class ThresholdField(Field):
@@ -102,7 +110,9 @@ class ThresholdField(Field):
     F = interpolation between LcMin and LcMax if DistMin < Field[IField] < Dist-Max
     """
 
-    def __init__(self, attract_field, d_min, d_max, lc_min, lc_max, sigmoid_interpol=False):
+    def __init__(
+        self, attract_field, d_min, d_max, lc_min, lc_max, sigmoid_interpol=False
+    ):
         Field.__init__(self, "Threshold", [attract_field])
         self.d = (d_min, d_max)
         self.lc = (lc_min, lc_max)
@@ -124,7 +134,7 @@ class RestrictField(Field):
     """
 
     def __init__(self, inpt_field, points=[], curves=[], surfaces=[]):
-        Field.__init__(self, "Restrict",  [inpt_field])
+        Field.__init__(self, "Restrict", [inpt_field])
         self.points = points if points else None
         self.curves = curves if curves else None
         self.surfaces = surfaces if surfaces else None
@@ -135,17 +145,23 @@ class RestrictField(Field):
             for pt in self.points:
                 if not pt.tag:
                     pt.add_gmsh()
-            api_field.setNumbers(self.tag, "VerticesList", [pt.tag for crv in self.points])
+            api_field.setNumbers(
+                self.tag, "VerticesList", [pt.tag for crv in self.points]
+            )
         if self.curves:
             for crv in self.curves:
                 if not crv.tag:
                     crv.add_gmsh()
-            api_field.setNumbers(self.tag, "EdgesList", [crv.tag for crv in self.curves])
+            api_field.setNumbers(
+                self.tag, "EdgesList", [crv.tag for crv in self.curves]
+            )
         if self.surfaces:
             for srf in self.surfaces:
                 if not srf.tag:
                     srf.add_gmsh()
-            api_field.setNumbers(self.tag, "FacesList", [srf.tag for srf in self.surfaces])
+            api_field.setNumbers(
+                self.tag, "FacesList", [srf.tag for srf in self.surfaces]
+            )
 
 
 class MathEvalField(Field):
@@ -175,9 +191,16 @@ class MinField(Field):
         api_field.setNumbers(self.tag, "FieldsList", [f.tag for f in self.parents])
 
 
-#? Est-ce que emballer tout ça dans un gros objet facilite l'utilisation et/ou la compréhension ? Pas sûr... même plutôt tendance à penser le contraire.
-#* Sous forme d'une fonction
-def set_mesh_refinement(d_min_max, lc_min_max, attractors={'points':[],'curves':[]}, nb_pts_discretization=10, sigmoid_interpol=False, restrict_domain={'points':[],'curves':[], 'surfaces':[]}):
+# ? Est-ce que emballer tout ça dans un gros objet facilite l'utilisation et/ou la compréhension ? Pas sûr... même plutôt tendance à penser le contraire.
+# * Sous forme d'une fonction
+def set_mesh_refinement(
+    d_min_max,
+    lc_min_max,
+    attractors={"points": [], "curves": []},
+    nb_pts_discretization=10,
+    sigmoid_interpol=False,
+    restrict_domain={"points": [], "curves": [], "surfaces": []},
+):
     """
     Create the fields that are required to impose mesh refinement constraints around some selected points or curves.
     Return the major field which that should be used in subsequent operations on fields.
@@ -216,11 +239,11 @@ def set_mesh_refinement(d_min_max, lc_min_max, attractors={'points':[],'curves':
 
     """
     try:
-        inpt_points = attractors['points']
+        inpt_points = attractors["points"]
     except KeyError:
         inpt_points = []
     try:
-        inpt_curves = attractors['curves']
+        inpt_curves = attractors["curves"]
     except KeyError:
         inpt_curves = []
     attract_field = AttractorField(inpt_points, inpt_curves, nb_pts_discretization)
@@ -229,26 +252,27 @@ def set_mesh_refinement(d_min_max, lc_min_max, attractors={'points':[],'curves':
     threshold_field = ThresholdField(attract_field, d_min, d_max, lc_min, lc_max)
     if restrict_domain:
         try:
-            rstrc_points = restrict_domain['points']
+            rstrc_points = restrict_domain["points"]
         except KeyError:
             rstrc_points = []
         try:
-            rstrc_curves = restrict_domain['curves']
+            rstrc_curves = restrict_domain["curves"]
         except KeyError:
             rstrc_curves = []
         try:
-            rstrc_surf = restrict_domain['surfaces']
+            rstrc_surf = restrict_domain["surfaces"]
         except KeyError:
             rstrc_surf = []
         restrict = True if (rstrc_points or rstrc_curves or rstrc_surf) else False
     else:
         restrict = False
     if restrict:
-        restrict_field = RestrictField(threshold_field, rstrc_points, rstrc_curves, rstrc_surf)
+        restrict_field = RestrictField(
+            threshold_field, rstrc_points, rstrc_curves, rstrc_surf
+        )
         return restrict_field
     else:
         return threshold_field
-
 
 
 def set_background_mesh(fields):
@@ -275,10 +299,11 @@ def set_background_mesh(fields):
     return final_field
 
 
-#TODO : Pourquoi pas mettre dans un fichier à part
-#*#*#*
-#* Tools for creating a periodic 2D mesh (may be generalized to 3D later)
-#*#*#*
+# TODO : Pourquoi pas mettre dans un fichier à part
+# *#*#*
+# * Tools for creating a periodic 2D mesh (may be generalized to 3D later)
+# *#*#*
+
 
 def translation2matrix(v, dist=None):
     """
@@ -320,7 +345,7 @@ def translation2matrix(v, dist=None):
     """
     if dist:
         v_ = geo.unit_vect(v)
-        v_ = dist*v_
+        v_ = dist * v_
     else:
         v_ = v
     if v_.shape == (3,):
@@ -341,27 +366,46 @@ def set_periodicity_pairs(slaves, masters, translation_v=np.array(())):
     Il n'est pas nécessaire de donner le vecteur translation explicitement,
     on se sert des points des éléments de slaves et master pour le définir
     """
-    if all(isinstance(s, geo.Curve) for s in slaves) and all(isinstance(m, geo.Curve) for m in masters):
+    all_entities = slaves + masters
+    if all(isinstance(e, geo.Curve) for e in all_entities):
         geo_dim = 1
+    elif all(
+        isinstance(e, (geo.AbstractSurface, geo.PlaneSurface)) for e in all_entities
+    ):
+        geo_dim = 2
     else:
-        raise TypeError("set_periodicity_pairs only suppports 1-D geometrical entities for now.")
-    for crve in slaves + masters:
-        if not crve.tag:
-            crve.add_gmsh()
+        raise TypeError(
+            "For set_periodicity_pairs, all entities must be of the same dimension. "
+            "1D and 2D geometrical entities supported."
+        )
+    for e in all_entities:
+        if not e.tag:
+            e.add_gmsh()
     if translation_v.any():
         vect = translation_v
     else:
-        vect = (slaves[0].def_pts[0].coord - masters[0].def_pts[0].coord)
-    # logger.debug(f"translation vector in set_periodicity_pairs : {vect}")
-    model.mesh.setPeriodic(geo_dim, [s.tag for s in slaves], [m.tag for m in masters], translation2matrix(vect))
+        if geo_dim == 1:
+            vect = slaves[0].def_pts[0].coord - masters[0].def_pts[0].coord
+        else:
+            raise ValueError(
+                "For 2D entities the translation vector must be explicitely given."
+            )
+    model.mesh.setPeriodic(
+        geo_dim,
+        [s.tag for s in slaves],
+        [m.tag for m in masters],
+        translation2matrix(vect),
+    )
 
 
 def sort_function_factory(dir_v):
     """
     Info : https://en.wikipedia.org/wiki/Closure_(computer_programming)
     """
+
     def sort_function(curve):
         return np.dot(curve.def_pts[0].coord + curve.def_pts[-1].coord, dir_v)
+
     return sort_function
 
 
@@ -389,5 +433,101 @@ def order_curves(curves, dir_v, orientation=False):
         for c in curves:
             if np.dot(c.def_pts[0].coord, dir_v) > np.dot(c.def_pts[-1].coord, dir_v):
                 c.def_pts.reverse()
-                logger.debug("Orientation d'une courbe inversée. Nouvelles coordonnées : ", [pt.coord for pt in c.def_pts])
+                logger.debug(
+                    "Orientation d'une courbe inversée. Nouvelles coordonnées : ",
+                    [pt.coord for pt in c.def_pts],
+                )
     return None
+
+
+def msh_conversion(
+    mesh, format_: str = ".xdmf", output_dir=None, subdomain: bool = False, dim: int = 2
+):
+    """
+    Convert a ".msh" mesh generated with Gmsh to a format suitable for FEniCS.
+
+    Parameters
+    ----------
+    mesh : Path or str
+        Path that points to the existing mesh file.
+    format : str
+        Suffix desired for the mesh file. (default: ".xdmf")
+        Supported suffixes :
+            - ".xdmf"
+            - ".xml" (DOLFIN xml format)
+    output_dir : Path, optional
+        Path of the directory where the converted mesh file must be written.
+        If None, the converted file is written in the same directory
+        as the input file. (default: None)
+    subdomain : bool, optional
+        If True, extra files are created to store information about subdomains.
+        (default: False)
+    dim: int, optional
+        Geometrical dimension of the mesh (2D or 3D). (default: 2)
+
+    Returns
+    -------
+    tuple
+        First element : Path to the main mesh file
+        Then paths to the extra files if subdomain conversion is requested.
+
+    Warning
+    -------
+    A specific version of the MSH format should be use in accordance with the
+    desired output format :
+        - ".xml" output -> MSH file format version 2;
+        - ".xdmf" output -> MSH file format version 4.
+    """
+
+    input_path = Path(mesh)
+    name = input_path.stem
+    if format_ not in (".xml", ".xdmf"):
+        raise TypeError
+    mesh_path = input_path.with_suffix(format_)
+    if output_dir:
+        mesh_path = output_dir.joinpath(mesh_path.name)
+    physical_region = mesh_path.with_name(name + "_physical_region" + format_)
+    facet_region = mesh_path.with_name(name + "_facet_region" + format_)
+    if physical_region.exists():
+        physical_region.unlink()
+    if facet_region.exists():
+        facet_region.unlink()
+    if format_ == ".xml":
+        cmd = f"dolfin-convert {input_path} {mesh_path}"
+        run(cmd, shell=True, check=True)
+    elif format_ == ".xdmf":
+        mesh = meshio.read(str(input_path))
+
+        if dim == 2:
+            mesh.points = mesh.points[:, :2]
+            geo_only = meshio.Mesh(
+                points=mesh.points, cells={"triangle": mesh.cells["triangle"]}
+            )
+            cell = "triangle"
+            face = "line"
+        elif dim == 3:
+            raise NotImplementedError("3D meshes are not supported yet.")
+        else:
+            ValueError
+        meshio.write(str(mesh_path), geo_only)
+        if subdomain:
+            cell_function = meshio.Mesh(
+                points=mesh.points,
+                cells={cell: mesh.cells[cell]},
+                cell_data={cell: {"cell_data": mesh.cell_data[cell]["gmsh:physical"]}},
+            )
+            meshio.write(str(physical_region), cell_function)
+            facet_function = meshio.Mesh(
+                points=mesh.points,
+                cells={face: mesh.cells[face]},
+                cell_data={face: {"facet_data": mesh.cell_data[face]["gmsh:physical"]}},
+            )
+            meshio.write(str(facet_region), facet_function)
+    if subdomain:
+        return (
+            mesh_path,
+            physical_region if physical_region.exist() else None,
+            facet_region if facet_region.exist() else None,
+        )
+    else:
+        return (mesh_path,)

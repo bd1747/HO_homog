@@ -988,6 +988,12 @@ class PhysicalGroup(object):
         model.setVisibility(dimtags, 1)
         model.setColor(dimtags, *rgba_color, recursive=recursive)
 
+    def set_visibility(self, val:bool, recursive:bool=False):
+        """Show or hide entities that belong to the physical group."""
+        dim_tags = [(self.dim, entity.tag) for entity in self.entities]
+        visibility = 1 if bool(val) else 0
+        model.setVisibility(dim_tags,visibility, bool(recursive))
+
     @classmethod
     def set_group_visibility(cls, val):
         """
@@ -1026,10 +1032,10 @@ class PhysicalGroup(object):
         """
         if val:
             cls.set_group_visibility(1)
-            gmsh.option.setNumber("Mesh.MeshOnlyVisible", 1)
+            set_gmsh_option("Mesh.MeshOnlyVisible", 1)
         else:
             cls.set_group_visibility(0)
-            gmsh.option.setNumber("Mesh.MeshOnlyVisible", 0)
+            set_gmsh_option("Mesh.MeshOnlyVisible", 0)
 
 
 def round_corner(inp_pt, pt_amt, pt_avl, r, junction_raduis=False, plot=False):

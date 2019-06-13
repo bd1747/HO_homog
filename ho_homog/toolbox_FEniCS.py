@@ -144,8 +144,7 @@ def function_errornorm(u, v, norm_type="L2", enable_diff_fspace=False):
     if u.function_space() == v.function_space():
         difference = fe.Function(u.function_space())
         difference.assign(u)
-        difference.vector().axpy(
-            -1.0, v.vector())
+        difference.vector().axpy(-1.0, v.vector())
     elif enable_diff_fspace:
         logger.warning(
             f"Function spaces not equals. A projection is done to compute the difference between {u} and {v}"
@@ -219,3 +218,5 @@ def _wrap_in_list(obj, name, types=type):
                 "expected a (list of) %s as '%s' argument" % (str(types), name)
             )
     return lst
+
+
