@@ -11,6 +11,7 @@ ho_homog/mesh_tools.py
 ho_homog/part.py
 ho_homog/periodicity.py
 ho_homog/toolbox_FEniCS.py
+ho_homog/toolbox_gmsh.py
 ho_homog.egg-info/PKG-INFO
 ho_homog.egg-info/SOURCES.txt
 ho_homog.egg-info/dependency_links.txt
@@ -18,3 +19,4 @@ ho_homog.egg-info/not-zip-safe
 ho_homog.egg-info/requires.txt
 ho_homog.egg-info/top_level.txt
 test/test_cpp_expression.py
+test/test_mesh_generate_2D.py

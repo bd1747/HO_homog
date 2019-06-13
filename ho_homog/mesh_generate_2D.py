@@ -15,9 +15,7 @@ from pathlib import Path, PurePath
 
 import gmsh
 import numpy as np
-import meshio
 from more_itertools import flatten, one, padded
-from subprocess import run
 from itertools import product, chain
 import ho_homog.geometry as geo
 import ho_homog.mesh_tools as msh

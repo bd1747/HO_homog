@@ -17,6 +17,9 @@ import numpy as np
 
 import ho_homog.geometry as geo
 import gmsh
+from pathlib import Path
+import  meshio
+from subprocess import run
 
 # nice shortcuts
 model = gmsh.model
