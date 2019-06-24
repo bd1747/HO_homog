@@ -45,7 +45,8 @@ or deactivated.
 model = gmsh.model
 factory = model.occ
 
-warnings.simplefilter("always") # ? Doc: https://docs.python.org/3.6/library/warnings.html
+warnings.simplefilter("always")
+# ? Doc: https://docs.python.org/3.6/library/warnings.html
 
 # info about gmsh module
 logger.info(f"gmsh module path : {Path(gmsh.__file__).resolve()}")
