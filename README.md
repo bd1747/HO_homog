@@ -43,7 +43,7 @@ source /path/to/project/project_name/bin/activate
 ```
 Now, the HO_homog package and its dependencies can be installed inside this virtual environment (see instructions below).
 
-Supposing FEniCS has been already installed on the system, the settings of the virtual environment can be modified to make it accessible. In `/path/to/project/project_name/pyenv.cfg` : `include-system-site-packages = true`.
+Supposing FEniCS has been already installed on the system, the settings of the virtual environment should be modified to make it accessible. In `/path/to/project/project_name/pyenv.cfg` : `include-system-site-packages = true`.
 
 ### Installing
 The **HO_homog** Python package can be installed with `pip`.
@@ -53,7 +53,7 @@ The **HO_homog** Python package can be installed with `pip`.
 pip3 install git+https://baptiste.durand@gitlab.enpc.fr/baptiste.durand/HO_homog.git#egg=ho_homog
 ```
 
-- Or [download](https://gitlab.enpc.fr/baptiste.durand/HO_homog/repository/archive.tar?ref=master) the HO_homog repository files. Then, move to the HO_homog directory and use `pip` : 
+- Or [download](https://gitlab.enpc.fr/baptiste.durand/HO_homog/repository/archive.tar?ref=master) the HO_homog repository files. Then, move to the HO_homog directory and use `pip` :
 
 ```bash
  pip3 install . --no-cache-dir
@@ -124,8 +124,8 @@ They make use of the following applications. The numbers in brackets represent t
 - Python 3 (3.6.7);
 - [Gmsh](http://gmsh.info/) - Used to generate finite element meshes, by means of its API for Python (4.0.6);
 - [FEniCS](https://fenicsproject.org/) - Finite element computing platform (2018.1.0)
-  
-<!-- 
+
+<!--
 ## Contributing
 
 Please read [CONTRIBUTING.md](https://gist.github.com/PurpleBooth/b24679402957c63ec426) for details on our code of conduct, and the process for submitting pull requests to us.
