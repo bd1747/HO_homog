@@ -198,7 +198,8 @@ class AbstractCurve(Curve):
 
     def get_boundary(self, get_coords=True):
         """
-        Récupérer les points correspondants aux extrémités de la courbe dans le modèle Gmsh.
+        Récupérer les points correspondants aux extrémités de la courbe
+        dans le modèle Gmsh.
 
         Parameters
         ----------

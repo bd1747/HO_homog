@@ -330,7 +330,7 @@ class AbstractSurface(object):
         return def_crv
 
 
-def surfaces_bool_cut(body, tool):
+def surface_bool_cut(body, tool):
     """
     Boolean operation of cutting performed on surfaces.
 
@@ -392,7 +392,7 @@ def surfaces_bool_cut(body, tool):
     return new_surf
 
 
-def bool_intersect(body, tool):
+def surface_bool_intersect(body, tool):
     """
     Boolean operation of intersection performed on surfaces.
 

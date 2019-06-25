@@ -67,6 +67,3 @@ class Point(object):
             return None  # for information purposes only.
         self.tag = factory.addPoint(*self.coord, self.mesh_size)
         return self.tag
-
-
-

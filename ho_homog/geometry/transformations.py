@@ -227,4 +227,3 @@ def rotation_basis(pt_coord, angle, direction, point=None):
 
 rotation = geo_transformation_factory(rotation_basis)
 # TODO : tester cette fonction
-
