@@ -49,7 +49,6 @@ class Curve(object):
         self.def_pts = def_pts_list
         self.tag = None
         self.gmsh_constructor = gmsh_api_add_function
-        Curve.all_instances.append(self)
 
     def __eq__(self, other):
         """
@@ -160,9 +159,9 @@ class Arc(Curve):
         """Représenter l'arc de cercle dans un plot matplotlib.
         Disponible seulement en 2D pour l'instant."""
 
-        self.def_pts[0].plot(end_pts_color, pt_size)
-        self.def_pts[2].plot(end_pts_color, pt_size)
-        self.def_pts[1].plot(center_color, pt_size)
+        self.def_pts[0].plot2D(end_pts_color, pt_size)
+        self.def_pts[2].plot2D(end_pts_color, pt_size)
+        self.def_pts[1].plot2D(center_color, pt_size)
         circle = plt.Circle(
             (self.def_pts[1].coord[0], self.def_pts[1].coord[1]),
             self.radius,

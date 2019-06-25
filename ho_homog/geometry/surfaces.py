@@ -101,7 +101,7 @@ class LineLoop(object):
         if not self.sides:
             self.vertices_2_sides()
         for elmt in self.sides:
-            elmt.plot(color)
+            elmt.plot2D(color)
 
     def add_gmsh(self):
         if self.tag:

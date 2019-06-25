@@ -19,34 +19,12 @@ import gmsh
 import matplotlib.pyplot as plt
 import numpy as np
 
-from .curves import AbstractCurve, Arc, Line, bndry_logger
-from .physical import PhysicalGroup
-from .point import Point
-from .surfaces import (
-    AbstractSurface,
-    LineLoop,
-    PlaneSurface,
-    surface_bool_cut,
-    surface_bool_intersect,
-)
-from .tools import (
-    angle_between,
-    bisector,
-    dual_base,
-    macro_line_fragments,
-    offset,
-    remove_duplicates,
-    round_corner,
-    unit_vect,
-)
-from .transformations import plane_reflection, point_reflection, rotation, translation
-
-logger = logging.getLogger(__name__)
-
-
 # nice shortcuts
 model = gmsh.model
 factory = model.occ
+
+logger = logging.getLogger(__name__)
+
 
 warnings.simplefilter("always")
 # ? Doc: https://docs.python.org/3.6/library/warnings.html
@@ -75,6 +53,29 @@ def set_gmsh_option(option, val):
     preval = getter(option)
     setter(option, val)
     logger.info(f"Gmsh option {option} set to {val} (previously : {preval}).")
+
+
+from .curves import AbstractCurve, Arc, Line, bndry_logger
+from .physical import PhysicalGroup
+from .point import Point
+from .surfaces import (
+    AbstractSurface,
+    LineLoop,
+    PlaneSurface,
+    surface_bool_cut,
+    surface_bool_intersect,
+)
+from .tools import (
+    angle_between,
+    bisector,
+    dual_base,
+    macro_line_fragments,
+    offset,
+    remove_duplicates,
+    round_corner,
+    unit_vect,
+)
+from .transformations import plane_reflection, point_reflection, rotation, translation
 
 
 def init_geo_tools():
@@ -112,7 +113,7 @@ __all__ = [
     "logger",
     "set_gmsh_option",
     "init_geo_tools",
-    "reset"
+    "reset",
     # * points
     "Point",
     # * curves

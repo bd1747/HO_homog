@@ -11,7 +11,7 @@ Perform diverse operations on numpy arrays, points or curves.
 from . import np, plt, logger, math
 from .point import Point
 from .curves import Line, Arc
-from .transformations import translation
+
 
 import copy
 
@@ -108,6 +108,7 @@ def round_corner(inp_pt, pt_amt, pt_avl, r, junction_raduis=False, plot=False):
     Ces segments orientés relient les deux points en amont et aval de l'angle à l'arc.
 
     """
+    from .transformations import translation
     # Direction en amont et en aval
     v_amt = unit_vect(pt_amt.coord - inp_pt.coord)
     v_avl = unit_vect(pt_avl.coord - inp_pt.coord)
@@ -149,15 +150,15 @@ def round_corner(inp_pt, pt_amt, pt_avl, r, junction_raduis=False, plot=False):
         colors = ["black", "red", "blue"]
         x, y = list(), list()
         for pt, color in zip(pts, colors):
-            pt.plot(color)
+            pt.plot2D(color)
             x.append(pt.coord[0])
             y.append(pt.coord[1])
-        pt_racc_amt.plot("black")
-        pt_racc_avl.plot("black")
-        pt_ctr.plot("purple")
-        racc_amt.plot("red")
-        racc_avl.plot("blue")
-        ax.add_patch(round_arc.plot("purple"))
+        pt_racc_amt.plot2D("black")
+        pt_racc_avl.plot2D("black")
+        pt_ctr.plot2D("purple")
+        racc_amt.plot2D("red")
+        racc_avl.plot2D("blue")
+        ax.add_patch(round_arc.plot2D("purple"))
         plt.axis("equal")
         plt.xlim(min(x), max(x))
         plt.ylim(min(y), max(y))

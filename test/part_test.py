@@ -157,14 +157,14 @@ def test_mat_area():
     surface = geo.PlaneSurface(contour)
     cut_vertices = list()
     for local_coord in [(H, 0., 0.), (0., H, 0.), (-H, 0., 0.), (0., -H, 0.)]:
-        vertex = geo.translation(contour.vertices[2], 
+        vertex = geo.translation(contour.vertices[2],
             np.array(local_coord))
         cut_vertices.append(vertex)
     cut_surface = geo.PlaneSurface(geo.LineLoop(cut_vertices,False))
     for s in [surface, cut_surface]:
         s.add_gmsh()
     factory.synchronize()
-    surface, = geo.AbstractSurface.bool_cut(surface, cut_surface)
+    surface, = geo.surface_bool_cut(surface, cut_surface)
     factory.synchronize()
     for dim_tag in model.getEntities(2):
         if not dim_tag[1] == surface.tag:
@@ -254,13 +254,13 @@ def test_get_domains_gmsh(plots=False):
     for coord in [(H/2, -H/2, 0.), (H/2, H/2, 0.), (-H/2, H/2, 0.), (-H/2, -H/2, 0.)]:
         vertex = geo.translation(geo.Point((L_x/2, L_y/2)), coord)
         inclusion_vertices.append(vertex)
-    inclusion = geo.PlaneSurface(geo.LineLoop(inclusion_vertices,False))
+    inclusion = geo.PlaneSurface(geo.LineLoop(inclusion_vertices, False))
     for s in [surface, inclusion]:
         s.add_gmsh()
     factory.synchronize()
-    stiff_s, = geo.AbstractSurface.bool_cut(surface, inclusion)
+    stiff_s, = geo.surface_bool_cut(surface, inclusion)
     factory.synchronize()
-    soft_s, = geo.AbstractSurface.bool_cut(surface, stiff_s)
+    soft_s, = geo.surface_bool_cut(surface, stiff_s)
     factory.synchronize()
     domains = {
         'stiff': geo.PhysicalGroup(stiff_s, 2),
@@ -297,7 +297,7 @@ def test_get_domains_gmsh(plots=False):
     W = fe.FunctionSpace(
         test_part.mesh,
         fe.VectorElement(elem_type, test_part.mesh.ufl_cell(), degree, dim=3),
-    )   
+    )
     boundary_conditions = {
         boundaries['N'].tag: fe.Expression(("x[0]-1", "1"), degree=1),
         boundaries['S'].tag: fe.Expression(("x[0]-1", "-1"), degree=1),
@@ -338,7 +338,7 @@ def test_get_domains_gmsh(plots=False):
         plt.show()
     error = fe.errornorm(strain, fe.Expression(("1","1","0"),degree=0),degree_rise=3, mesh=test_part.mesh)
     assert error == approx(0,abs=1e-12)
-    
+
     materials = {
         domains['soft'].tag: mat.Material(E_1, nu, 'cp'),
         domains['stiff'].tag: mat.Material(E_2, nu, 'cp')
