@@ -22,5 +22,3 @@ periodic.py
 activity.log
 test_convert_import_mesh/
 TODO.txt
-*.xdmf
-*.h5
