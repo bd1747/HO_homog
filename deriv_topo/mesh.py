@@ -36,21 +36,22 @@ panto_coarse = mesh_generate_2D.Gmsh2DRVE.pantograph(
 )
 panto_coarse.main_mesh_refinement((0.2, 0.5), (0.05, 0.3), True)
 panto_coarse.soft_mesh_refinement((0.2, 0.5), (0.05, 0.3), True)
-panto_coarse.mesh_generate()
-gmsh.model.mesh.renumberNodes()
-gmsh.model.mesh.renumberElements()
-gmsh.write(str(panto_coarse.mesh_abs_path))
+
 
 panto_fine = mesh_generate_2D.Gmsh2DRVE.pantograph(
     a, b, k, 0.1, nb_cells=(1, 1), soft_mat=True, name="panto_fine"
 )
 panto_fine.main_mesh_refinement((0.2, 0.5), (0.025, 0.1), True)
 panto_fine.soft_mesh_refinement((0.2, 0.5), (0.025, 0.1), True)
-panto_fine.mesh_generate()
-gmsh.model.mesh.renumberNodes()
-gmsh.model.mesh.renumberElements()
-gmsh.write(str(panto_fine.mesh_abs_path))
 
-# * Step 1 : Conversion of the mesh files
-mesh_tools.msh_conversion("panto_coarse.msh")
-mesh_tools.msh_conversion("panto_fine.msh")
+for model in (panto_coarse, panto_fine):
+    geo.set_gmsh_option("Mesh.MshFileVersion", 4.1)
+    model.mesh_generate()
+    gmsh.model.mesh.renumberNodes()
+    gmsh.model.mesh.renumberElements()
+    gmsh.write(str(model.mesh_abs_path))
+    mesh_tools.msh_conversion(model.mesh_abs_path, format_=".xdmf")
+    geo.set_gmsh_option("Mesh.MshFileVersion", 2)
+    model.mesh_generate()
+    mesh_tools.msh_conversion(model.mesh_abs_path, format_=".xml")
+

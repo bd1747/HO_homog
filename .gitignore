@@ -2,9 +2,17 @@
 old_lib & drafts/
 issues & misc/
 *.pyc
-*.brep
-*.msh
-*.xml
+demo/*.brep
+demo/*.msh
+test/*.brep
+test/*.msh
+test/*.xml
+test/*.xdmf
+test/*.h5
+demo/**/*.h5
+demo/**/*.xdmf
+demo/**/*.xml
+
 t1.py
 t10.py
 t10_modif.py
@@ -22,3 +30,4 @@ periodic.py
 activity.log
 test_convert_import_mesh/
 TODO.txt
+
