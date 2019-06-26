@@ -178,3 +178,54 @@ def cross_energy(sig, eps, mesh):
 #     return fe.assemble(fe.inner(sig, eps) * fe.dx(mesh))/area
 
 # code energy_norm : https://bitbucket.org/fenics-project/ufl/src/master/ufl/formoperators.py
+
+
+class StiffnessComponentLevelSet(fe.UserExpression):
+    def __init__(self, level_set, mat_dict, i, j, threshold: float = 0.0, **kwargs):
+        self.level_set = level_set
+        self.mat_dict = mat_dict
+        self.i = i
+        self.j = j
+        self.threshold = threshold
+        super().__init__(degree=kwargs["degree"])
+
+    def eval_cell(self, values, x, cell):
+        stiffness = 1 if self.level_set.eval(x) >= 0 else 0
+        values[0] = self.mat_dict[stiffness].get_C()[self.i, self.j]
+
+    def value_shape(self):
+        return ()
+
+
+def C_from_levelset(level_set, mat_dict, topo_dim, threshold: float = 0.0):
+    """Définir un comportement hétérogène par sous domaine.
+
+    Parameters
+    ----------
+    level_set : meshfunction
+        Denified on the cells. Scalar values
+    mat_dict : dictionnary
+        2 instances of Material.
+        keys, values :
+            - "0" : infinitely "soft" material;
+            - "1" : material with "standard" elastic properties
+    topo_dim : int
+        Dimension of the mesh (2D, 3D)
+    threshold : float
+        Threshold value for the interpretation of the levelset
+
+    Returns
+    -------
+    stiffness_matrix
+        FEniCS matrix that represents the stiffness inside the RVE.
+    """
+
+    C = []
+    nb_val = int(topo_dim * (topo_dim + 1) / 2)
+    for i in range(nb_val):
+        Cj = []
+        for j in range(nb_val):
+            Cj = Cj + [StiffnessComponent(cell_function, mat_dict, i, j, degree=0)]
+        C = C + [Cj]
+    stiffness_matrix = fe.as_matrix(C)
+    return stiffness_matrix
