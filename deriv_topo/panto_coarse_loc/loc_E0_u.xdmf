@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<Xdmf Version="3.0">
+  <Domain>
+    <Grid GridType="Collection" CollectionType="Temporal" Name="loc_E0_u">
+      <Grid Name="loc_E0_u_0" GridType="Uniform">
+        <Topology NumberOfElements="4174" TopologyType="Triangle" NodesPerElement="3">
+          <DataItem Dimensions="4174 3" NumberType="UInt" Format="HDF">loc_E0_u.h5:loc_E0_u/loc_E0_u_0/mesh/topology</DataItem>
+        </Topology>
+        <Geometry GeometryType="XY">
+          <DataItem Dimensions="2203 2" Format="HDF">loc_E0_u.h5:loc_E0_u/loc_E0_u_0/mesh/geometry</DataItem>
+        </Geometry>
+        <Time Value="0.000000" />
+        <Attribute ItemType="FiniteElementFunction" ElementFamily="CG" ElementDegree="2" ElementCell="triangle" Name="loc_E0_u" Center="Other" AttributeType="Vector">
+          <DataItem Dimensions="50088 1" NumberType="UInt" Format="HDF">loc_E0_u.h5:loc_E0_u/loc_E0_u_0/cell_dofs</DataItem>
+          <DataItem Dimensions="16696 1" NumberType="Float" Format="HDF">loc_E0_u.h5:loc_E0_u/loc_E0_u_0/vector</DataItem>
+          <DataItem Dimensions="4175 1" NumberType="UInt" Format="HDF">loc_E0_u.h5:loc_E0_u/loc_E0_u_0/x_cell_dofs</DataItem>
+          <DataItem Dimensions="4174 1" NumberType="UInt" Format="HDF">loc_E0_u.h5:loc_E0_u/loc_E0_u_0/cells</DataItem>
+        </Attribute>
+      </Grid>
+    </Grid>
+  </Domain>
+</Xdmf>
