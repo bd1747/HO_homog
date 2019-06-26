@@ -18,7 +18,7 @@ import numpy as np
 import ho_homog.geometry as geo
 import gmsh
 from pathlib import Path
-import  meshio
+import meshio
 from subprocess import run
 
 # nice shortcuts
@@ -437,8 +437,8 @@ def order_curves(curves, dir_v, orientation=False):
             if np.dot(c.def_pts[0].coord, dir_v) > np.dot(c.def_pts[-1].coord, dir_v):
                 c.def_pts.reverse()
                 logger.debug(
-                    "Orientation d'une courbe inversée. Nouvelles coordonnées : ",
-                    [pt.coord for pt in c.def_pts],
+                    "Orientation d'une courbe inversée."
+                    f"Nouvel ordre des definition points : {[p.coord for p in c.def_pts]}"
                 )
     return None
 
