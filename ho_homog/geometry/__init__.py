@@ -55,7 +55,7 @@ def set_gmsh_option(option, val):
     logger.info(f"Gmsh option {option} set to {val} (previously : {preval}).")
 
 
-from .curves import AbstractCurve, Arc, Line, bndry_logger
+from .curves import Curve, AbstractCurve, Arc, Line, bndry_logger
 from .physical import PhysicalGroup
 from .point import Point
 from .surfaces import (

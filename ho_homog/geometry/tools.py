@@ -73,7 +73,7 @@ def bisector(u, v):
     """
 
     u_, v_ = unit_vect(u), unit_vect(v)
-    bis = np.cross(u_ - v_, E3)
+    bis = np.cross(v_ - u_, E3)
     bis = unit_vect(bis)
     return bis
 
