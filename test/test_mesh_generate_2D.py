@@ -5,6 +5,7 @@ Created on 12/06/2019
 
 """
 from ho_homog import geometry as geo
+from ho_homog import mesh_tools
 from ho_homog import mesh_generate_2D as mesh2D
 import gmsh
 
@@ -29,5 +30,5 @@ def test_rve_2_part():
     gmsh.model.mesh.renumberElements()
     gmsh.write(str(panto_rve.mesh_abs_path))
     panto_part = mesh2D.Gmsh2DPartFromRVE(panto_rve, (2, 3))
-    mesh2D.msh_conversion(panto_rve.mesh_abs_path, ".xdmf")
-    mesh2D.msh_conversion(panto_part.mesh_abs_path, ".xdmf")
+    mesh_tools.msh_conversion(panto_rve.mesh_abs_path, ".xdmf")
+    mesh_tools.msh_conversion(panto_part.mesh_abs_path, ".xdmf")

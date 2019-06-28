@@ -6,9 +6,13 @@ Created on 17/01/2019
 Collection of tools designed to help users working with FEniCS objects.
 
 """
-import numpy as np
+import logging
+
 import dolfin as fe
 import matplotlib.pyplot as plt
+import numpy as np
+
+logger = logging.getLogger(__name__)
 
 DOLFIN_KRYLOV_METHODS = {
     "bicgstab": "Biconjugate gradient stabilized method",
@@ -55,10 +59,10 @@ def facet_plot2d(
     facet_func, mesh, mesh_edges=True, markers=None, exclude_val=(0,), **kargs
 ):
     """
-    Source : https://bitbucket.org/fenics-project/dolfin/issues/951/plotting-facetfunctions-in-matplotlib-not
+    Source : https://bitbucket.org/fenics-project/dolfin/issues/951/plotting-facetfunctions-in-matplotlib-not #noqa
     """
     x_list, y_list = [], []
-    if markers == None:
+    if markers is None:
         for facet in fe.facets(mesh):
             mp = facet.midpoint()
             x_list.append(mp.x())
@@ -146,9 +150,8 @@ def function_errornorm(u, v, norm_type="L2", enable_diff_fspace=False):
         difference.assign(u)
         difference.vector().axpy(-1.0, v.vector())
     elif enable_diff_fspace:
-        logger.warning(
-            f"Function spaces not equals. A projection is done to compute the difference between {u} and {v}"
-        )
+        logger.warning("Function spaces not equals.")
+        logger.warning(f"Projection to compute the difference between {u} and {v}")
         difference = fe.project(u - v, u.function_space())
     else:
         raise RuntimeError("Cannot compute error norm, Function spaces do not match.")
@@ -157,7 +160,7 @@ def function_errornorm(u, v, norm_type="L2", enable_diff_fspace=False):
 
 def local_project(v, fspace, solver_method: str = "", metadata: dict = {}):
     """
-    Info : https://comet-fenics.readthedocs.io/en/latest/tips_and_tricks.html#efficient-projection-on-dg-or-quadrature-spaces
+    Info : https://comet-fenics.readthedocs.io/en/latest/tips_and_tricks.html#efficient-projection-on-dg-or-quadrature-spaces #noqa
 
     Parameters
     ----------
@@ -218,5 +221,3 @@ def _wrap_in_list(obj, name, types=type):
                 "expected a (list of) %s as '%s' argument" % (str(types), name)
             )
     return lst
-
-

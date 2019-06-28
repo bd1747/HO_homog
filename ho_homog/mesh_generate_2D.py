@@ -162,7 +162,7 @@ class Gmsh2DRVE(object):
         logger.info("Start boolean operations on surfaces")
         phy_surf = list()
         pattern_s = [geo.PlaneSurface(ll) for ll in pattern_ll]
-        rve_s = geo.AbstractSurface.bool_cut(macro_s, pattern_s)
+        rve_s = geo.surface_bool_cut(macro_s, pattern_s)
         if len(rve_s) == 1:
             logger.info(
                 "The main material domain of the RVE is connected (topological property)."
@@ -178,7 +178,7 @@ class Gmsh2DRVE(object):
         rve_s_phy = geo.PhysicalGroup(rve_s, 2, "microstruct_domain")
         phy_surf.append(rve_s_phy)
         if soft_mat:
-            soft_s = geo.AbstractSurface.bool_cut(macro_s, rve_s)
+            soft_s = geo.surface_bool_cut(macro_s, rve_s)
             soft_s_phy = geo.PhysicalGroup(soft_s, 2, "soft_domain")
             phy_surf.append(soft_s_phy)
         logger.info("Done boolean operations on surfaces")

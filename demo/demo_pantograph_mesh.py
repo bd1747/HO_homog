@@ -112,7 +112,7 @@ macro_s = geo.PlaneSurface(macro_ll)
 
 logger.info("Start boolean operations on surfaces")
 pattern_s = [geo.PlaneSurface(ll) for ll in pattern_ll]
-rve_s = geo.AbstractSurface.bool_cut(macro_s, pattern_s)
+rve_s = geo.surface_bool_cut(macro_s, pattern_s)
 rve_s = rve_s[0]
 logger.info("Done boolean operations on surfaces")
 rve_s_phy = geo.PhysicalGroup([rve_s], 2, "partition_plein")

@@ -23,11 +23,13 @@ from ho_homog import (
     homog2d,
     materials,
     mesh_generate_2D,
+    mesh_tools,
     part,
     pckg_logger,
-    toolbox_FEniCS,
     periodicity,
 )
+from ho_homog.toolbox_FEniCS import function_errornorm
+from ho_homog.toolbox_gmsh import process_gmsh_log
 
 logger = logging.getLogger("demo_full_compare")
 logger_root = logging.getLogger()
@@ -54,40 +56,11 @@ logging.getLogger("UFL").setLevel(logging.DEBUG)
 logging.getLogger("FFC").setLevel(logging.DEBUG)
 fe.set_log_level(20)
 
-
-def process_gmsh_log(gmsh_log: list, detect_error=True):
-    """Treatment of log messages gathered with gmsh.logger.get()"""
-    err_msg, warn_msg = list(), list()
-    for line in gmsh_log:
-        if "error" in line.lower():
-            err_msg.append(line)
-        if "warning" in line.lower():
-            warn_msg.append(line)
-    gmsh_logger.info("**********")
-    gmsh_logger.info(
-        f"{len(gmsh_log)} logging messages got from Gmsh : "
-        f"{len(err_msg)} errors, {len(warn_msg)} warnings."
-    )
-    if err_msg:
-        gmsh_logger.error("Gmsh errors details :")
-        for line in err_msg:
-            gmsh_logger.error(line)
-    if warn_msg:
-        gmsh_logger.warning("Gmsh warnings details :")
-        for line in warn_msg:
-            gmsh_logger.warning(line)
-    gmsh_logger.debug("All gmsh messages :")
-    gmsh_logger.debug(gmsh_log)
-    gmsh_logger.info("**********")
-    if detect_error and err_msg:
-        raise AssertionError("Gmsh logging messages signal errors.")
-
-
 # * Step 1 : Modeling the geometry of the RVE
 geometry.init_geo_tools()
 geometry.set_gmsh_option("Mesh.Algorithm", 6)
 geometry.set_gmsh_option("Mesh.MshFileVersion", 4.1)
-gmsh.option.setNumber("Geometry.Tolerance", 1e-16)
+gmsh.option.setNumber("Geometry.Tolerance", 1e-15)
 gmsh.option.setNumber("Mesh.CharacteristicLengthExtendFromBoundary", 0)
 gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.1)
 gmsh.option.setNumber("Mesh.LcIntegrationPrecision", 1e-9)
@@ -113,7 +86,7 @@ gmsh.logger.stop()
 gmsh.model.mesh.renumberNodes()
 gmsh.model.mesh.renumberElements()
 gmsh.write(str(rve_geo.mesh_abs_path))
-rve_path, *_ = mesh_generate_2D.msh_conversion(rve_geo.mesh_abs_path, ".xdmf")
+rve_path, *_ = mesh_tools.msh_conversion(rve_geo.mesh_abs_path, ".xdmf")
 
 
 # * Step 3 : Build the mesh of the part from the mesh of the RVE
@@ -121,7 +94,7 @@ gmsh.logger.start()
 part_geo = mesh_generate_2D.Gmsh2DPartFromRVE(rve_geo, (75, 1))
 process_gmsh_log(gmsh.logger.get())
 gmsh.logger.stop()
-part_path, *_ = mesh_generate_2D.msh_conversion(part_geo.mesh_abs_path, ".xdmf")
+part_path, *_ = mesh_tools.msh_conversion(part_geo.mesh_abs_path, ".xdmf")
 
 # * Step 4 : Defining the material properties
 E, nu = 1.0, 0.3
@@ -245,54 +218,6 @@ macro_fields = {
     "EGG": [U_hom[3]] + [0] * 11,
 }
 
-per_scalar_fnct_cpp_code = """
-    #include <pybind11/pybind11.h>
-    #include <pybind11/eigen.h>
-    namespace py = pybind11;
-
-    #include <dolfin/function/Expression.h>
-    #include <dolfin/function/Function.h>
-
-    class PeriodicExpr : public dolfin::Expression
-    {
-    public:
-
-        PeriodicExpr() : dolfin::Expression() {}
-
-        void eval(
-            Eigen::Ref<Eigen::VectorXd> values,
-            Eigen::Ref<const Eigen::VectorXd> x, const ufc::cell& cell
-        ) const override
-        {
-        Eigen::Vector2d coord_equi;
-        coord_equi[0] = x[0] -per_x*floor(x[0]/per_x);
-        coord_equi[1] = x[1] -per_y*floor(x[1]/per_y);
-        f->eval(values, coord_equi);
-        //passer par un pointeur ? *f->eval(values, coord_equi);
-        }
-
-    std::shared_ptr<dolfin::Function> f;
-    double per_x;
-    double per_y;
-    };
-
-    PYBIND11_MODULE(SIGNATURE, m)
-    {
-    py::class_<PeriodicExpr, std::shared_ptr<PeriodicExpr>, dolfin::Expression>
-        (m, "PeriodicExpr", py::dynamic_attr())
-        .def(py::init<>())
-        .def_readwrite("f", &PeriodicExpr::f)
-        .def_readwrite("per_x", &PeriodicExpr::per_x)
-        .def_readwrite("per_y", &PeriodicExpr::per_y);
-    }
-    """
-
-
-class PeriodicExpr(fe.UserExpression):
-    def value_shape(self):
-        return ()
-
-
 key_conversion = {"U": "u", "Epsilon": "eps", "Sigma": "sigma"}
 localztn_expr = dict()
 for key, scd_dict in hom_model.localization.items():
@@ -307,16 +232,9 @@ for key, scd_dict in hom_model.localization.items():
         for i, field in enumerate(localztn_fields):
             new_fields = list()  # 1 field per component of U, Sigma and Epsilon
             for component in field.split():
-                per_field = PeriodicExpr(degree=3)
-                periodic_cppcode = fe.compile_cpp_code(
-                    per_scalar_fnct_cpp_code
-                ).PeriodicExpr()
-                periodic_cppcode.per_x = rve_geo.gen_vect[0, 0]
-                periodic_cppcode.per_y = rve_geo.gen_vect[1, 1]
-                component.set_allow_extrapolation(True)
-                periodic_cppcode.f = component.cpp_object()
-                # https://bitbucket.org/fenics-project/dolfin/issues/1041/compiledexpression-cant-be-initialized
-                per_field._cpp_object = periodic_cppcode
+                per_field = periodicity.PeriodicExpr(
+                    component, rve_geo.gen_vect, degree=3
+                )
                 new_fields.append(per_field)
             localztn_expr[key][updated_key2].append(new_fields)
 function_spaces = {"u": model.displ_fspace, "eps": model.strain_fspace}
@@ -356,11 +274,8 @@ errors = dict()
 for f_name in reconstr_sol.keys():
     dim = exact_sol[f_name].ufl_shape[0]
     exact_norm = fe.norm(exact_sol[f_name], "L2")
-    difference = toolbox_FEniCS.function_errornorm(
-        reconstr_sol[f_name], exact_sol[f_name], "L2"
-    )
+    difference = function_errornorm(reconstr_sol[f_name], exact_sol[f_name], "L2")
     error = difference / exact_norm
     errors[f_name] = error
     print(f_name, error, difference, exact_norm)
     logger.info(f"Relative error for {f_name} = {error}")
-

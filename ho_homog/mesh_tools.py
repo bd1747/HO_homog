@@ -18,7 +18,7 @@ import numpy as np
 import ho_homog.geometry as geo
 import gmsh
 from pathlib import Path
-import  meshio
+import meshio
 from subprocess import run
 
 # nice shortcuts
@@ -30,8 +30,9 @@ logger = logging.getLogger(__name__)
 
 class Field(object):
     """
-    Class mère (=générique) pour représenter les champs scalaires utilisés pour prescrire la taile caractéristique des éléments dans gmsh.
-    Info pour l'héritage : https://openclassrooms.com/fr/courses/235344-apprenez-a-programmer-en-python/233164-lheritage
+    Représentation des champs scalaires utilisés pour prescrire
+    la taile caractéristique des éléments dans gmsh.
+
     Tutorial : gmsh-4.0.2-Linux64/share/doc/gmsh/demos/api/t10.py
     """
 
@@ -41,27 +42,23 @@ class Field(object):
         self.parents = parent_fields
 
     def set_params(self):
-        """
-        Cette partie sera précisée pour chaque type de champ de scalaire.
-        """
-        # ? C'est a priori pas nécessaire de définir une méthode set_params dans cette classe.
+        """Cette méthode sera précisée pour chaque type de champ de scalaire."""
         pass
 
     def add_gmsh(self):
         """
-        Partie générique des intructions nécessaires pour ajouter un field de contrôle de la taille des éléments.
+        Fonction générique pour l'ajout d'un characteristic length field au modèle gmsh.
         """
 
-        if (
-            self.tag
-        ):  # That means that the field has already been instantiated in the gmsh model.
-            return self.tag  # The tag is returned for information purposes only.
+        if self.tag:
+            return None
         if self.parents:
             for p_field in self.parents:
                 if not p_field.tag:
                     p_field.add_gmsh()
         self.tag = api_field.add(self.f_type)
         self.set_params()
+        return self.tag
 
 
 class AttractorField(Field):
@@ -437,8 +434,8 @@ def order_curves(curves, dir_v, orientation=False):
             if np.dot(c.def_pts[0].coord, dir_v) > np.dot(c.def_pts[-1].coord, dir_v):
                 c.def_pts.reverse()
                 logger.debug(
-                    "Orientation d'une courbe inversée. Nouvelles coordonnées : ",
-                    [pt.coord for pt in c.def_pts],
+                    "Orientation d'une courbe inversée."
+                    f"Nouvel ordre des definition points : {[p.coord for p in c.def_pts]}"
                 )
     return None
 
