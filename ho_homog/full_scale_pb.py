@@ -356,8 +356,6 @@ def reconstruction(
             ===============  =====  =============================================
             Key              Type   Description
             ===============  =====  =============================================
-
-            proj_solver       str   The solver for the projections
             interp_fnct       str   The name of the desired function for the interpolations. Allowed values are : "dolfin.interpolate" and "interpolate_nonmatching_mesh_any"
             trunc_order       int    Order of truncation for the reconstruction of the displacement according to the notations used in ???. Override localization_rules parameter.
             ===============  ======  ============================================
@@ -373,9 +371,6 @@ def reconstruction(
     # TODO : permettre la translation du RVE par rapport à la structure macro autre part
     # TODO :  translation_microstructure: np.array, optional
     # TODO :         Vector, 1D array (shape (2,) or (3,)), position origin used for the description of the RVE with regards to the macroscopic origin.
-
-    proj_solver = kwargs.pop("proj_solver", None)
-    solver_param = {"solver_type": proj_solver} if proj_solver else dict()
 
     # Au choix, utilisation de trunc_order ou localization_rules dans les kargs
     trunc_order = kwargs.pop("trunc_order", None)
@@ -482,21 +477,8 @@ def reconstruction(
 
         # * Components -> vector field
         field = fe.Function(fspace)
-        components_proj = list()
-        logger.info(f"Projection of reconstructed {mecha_field}...")
-        components_proj = components
-        # for scl_field in components:
-        #     # if element_family in ("Discontinuous Lagrange", "Quadrature"):
-        #     #     comp = local_project(scl_field, scalar_fspace)
-        #     # else:
-        #     #     comp = fe.project(scl_field, scalar_fspace, **solver_param)
-        #     scl_field = scl_field.cpp_object()
-        #     f = fe.Function(scalar_fspace)
-        #     f.interpolate(scl_field)
-        #     components_proj.append(comp)
-        # logger.info(f"Projection of reconstructed {mecha_field} DONE")
         if len(value_shape) == 0:
-            components_proj = components_proj[0]
-        assigner.assign(field, components_proj)
+            components = components[0]
+        assigner.assign(field, components)
         reconstructed_fields[mecha_field] = field
     return reconstructed_fields
