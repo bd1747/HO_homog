@@ -5,11 +5,13 @@ Created on 08/04/2019
 """
 
 import logging
+import warnings
+from pathlib import Path
+
 import dolfin as fe
 import numpy as np
-import ho_homog
-from pathlib import Path
-from fenicstools import interpolate_nonmatching_mesh_any
+
+import ho_homog.materials as mat
 from ho_homog.toolbox_FEniCS import (
     DOLFIN_KRYLOV_METHODS,
     DOLFIN_LU_METHODS,
@@ -18,8 +20,12 @@ from ho_homog.toolbox_FEniCS import (
 
 logger = logging.getLogger(__name__)
 
-GEO_TOLERANCE = ho_homog.GEO_TOLERANCE
-mat = ho_homog.materials
+try:
+    from fenicstools import interpolate_nonmatching_mesh_any
+except ImportError:
+    warnings.warn("Import of fenicstools has failed.", ImportWarning)
+    logger.warning("Import : fenicstools cannot be imported.")
+
 
 # * For mechanical fields reconstruction
 MACRO_FIELDS_NAMES = ["U", "E", "EG", "EGG"]
@@ -295,9 +301,8 @@ def reconstruction(
     macro_kinematic: dict,
     function_spaces: dict,
     localization_rules: dict = {},
-    trunc_order: int = 0,
     output_request=("u", "eps"),
-    proj_solver=None,
+    **kwargs,
 ):
     """
     One argument among localization_rules and trunc_order must be used.
@@ -318,31 +323,49 @@ def reconstruction(
         None can be used to indicate a component that is equal to 0 or irrelevant.
     function_spaces : dictionnary
         Function space into which each mechanical field have to be built.
-        keys : 'u', 'eps' or 'sigma'
-        values : FEniCS function space
+            - keys : 'u', 'eps' or 'sigma'
+            - values : FEniCS function space
     localization_rules : dict, optional
-        Indicates the rules that have to be followed for the construction of the fluctuations.
-        (the default is {}, which means that the trunc_order argument will be used)
-    trunc_order : int, optional
-        Order of truncation for the reconstruction of the displacement field
-        following the higher order homogenization scheme defined in ???.
+        The rules that have to be followed for the construction of the fluctuations.
+        Defaults to {} i.e. the trunc_order parameter will be used.
     output_request : tuple of strings, optional
-        Which fields have to be calculated.
-        This can contain : 'u', eps' and 'sigma'
-        (the default is ('u', 'eps'), displacement and strain fields will be reconstructed)
-    proj_solver : string
-        impose the use of a desired solver for the projections.
+        Fields that have to be calculated.
+        The request must be consistent with the keys of other parameters :
+            - function_spaces
+            - localization_rules
+        outputs can be :
+            =======  ===================
+            name      Description
+            =======  ===================
+            'u'      displacement field
+            'eps'    strain field
+            'sigma'  stress field
+            =======  ===================
+        Defaults to ('u', 'eps').
 
     Return
     ------
     Dictionnary
-        Mechanical fields with microscopic fluctuations. Keys are "eps", "sigma" and "u" respectively for the strain, stress and displacement fields.
-    """
-    # ? Changer les inputs ?
-    # ? Remplacer le dictionnaire de functionspace et output_request par un seul argument : list de tuples qui contiennent nom + function_space ?
-    # ? Comme ça on peut aussi imaginer reconstruire le même champs dans différents espaces ?
+        Mechanical fields with microscopic fluctuations.
+        Keys are "eps", "sigma" and "u" respectively for the strain, stress and displacement fields.
 
-    # ! La construction de champs de localisation périodiques doit être faite en dehors de cette fonction.
+    Other Parameters
+    ----------------
+    **kwargs :
+        Valid kwargs are
+            ===============  =====  =============================================
+            Key              Type   Description
+            ===============  =====  =============================================
+
+            proj_solver       str   The solver for the projections
+            interp_fnct       str   The name of the desired function for the interpolations. Allowed values are : "dolfin.interpolate" and "interpolate_nonmatching_mesh_any"
+            trunc_order       int    Order of truncation for the reconstruction of the displacement according to the notations used in ???. Override localization_rules parameter.
+            ===============  ======  ============================================
+
+
+
+
+    """
 
     # TODO : récupérer topo_dim à partir des tenseurs de localisation, ou mieux, à partir des espaces fonctionnels
     # TODO : choisir comment on fixe la len des listes correspondantes aux composantes de u et de epsilon.
@@ -351,14 +374,12 @@ def reconstruction(
     # TODO :  translation_microstructure: np.array, optional
     # TODO :         Vector, 1D array (shape (2,) or (3,)), position origin used for the description of the RVE with regards to the macroscopic origin.
 
-    solver_param = {}
-    if proj_solver:
-        solver_param = {"solver_type": proj_solver}
+    proj_solver = kwargs.pop("proj_solver", None)
+    solver_param = {"solver_type": proj_solver} if proj_solver else dict()
 
     # Au choix, utilisation de trunc_order ou localization_rules dans les kargs
-    if localization_rules:
-        pass
-    elif trunc_order:
+    trunc_order = kwargs.pop("trunc_order", None)
+    if trunc_order:
         localization_rules = {
             "u": [
                 (MACRO_FIELDS_NAMES[i], MACRO_FIELDS_NAMES[i])
@@ -374,6 +395,17 @@ def reconstruction(
     # *    'u': [('U','U'), ('E','E'), ('EG','EG')],
     # *    'eps': [('E','E'), ('EG', 'EG')]
     # *}
+
+    interpolate = kwargs.pop("interp_fnct", None)
+    if interpolate:
+        if interpolate == "dolfin.interpolate":
+            interpolate = fe.interpolate
+        elif interpolate == "interpolate_nonmatching_mesh_any":
+            interpolate = interpolate_nonmatching_mesh_any
+        else:
+            interpolate = fe.interpolate
+    else:
+        interpolate = fe.interpolate
 
     reconstructed_fields = dict()
 
@@ -417,8 +449,7 @@ def reconstruction(
             macro_kin_funct[key] = list()
             for comp in field:
                 if comp:
-                    # macro_kin_funct[key].append(fe.interpolate(comp, scalar_fspace))
-                    macro_kin_funct[key].append(interpolate_nonmatching_mesh_any(comp, scalar_fspace))
+                    macro_kin_funct[key].append(interpolate(comp, scalar_fspace))
                 else:
                     macro_kin_funct[key].append(0)
 
@@ -431,8 +462,7 @@ def reconstruction(
                 if not macro_comp:
                     continue
                 for i in range(vector_dim):
-                    # loc_comp = fe.interpolate(loc_tens_comps[i], scalar_fspace)
-                    loc_comp = interpolate_nonmatching_mesh_any(loc_tens_comps[i], scalar_fspace)
+                    loc_comp = interpolate(loc_tens_comps[i], scalar_fspace)
                     contributions[i].append((macro_comp, loc_comp))
 
         # components = [sum(compnt_contrib) for compnt_contrib in contributions]

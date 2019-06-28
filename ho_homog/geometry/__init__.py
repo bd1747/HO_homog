@@ -117,6 +117,7 @@ __all__ = [
     # * points
     "Point",
     # * curves
+    "Curve",
     "AbstractCurve",
     "Arc",
     "Line",

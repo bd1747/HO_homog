@@ -12,7 +12,6 @@ from . import np, plt, logger, math
 from .point import Point
 from .curves import Line, Arc
 
-
 import copy
 
 E3 = np.array((0.0, 0.0, 1.0))
@@ -109,6 +108,7 @@ def round_corner(inp_pt, pt_amt, pt_avl, r, junction_raduis=False, plot=False):
 
     """
     from .transformations import translation
+
     # Direction en amont et en aval
     v_amt = unit_vect(pt_amt.coord - inp_pt.coord)
     v_avl = unit_vect(pt_avl.coord - inp_pt.coord)

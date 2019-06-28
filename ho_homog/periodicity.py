@@ -165,3 +165,87 @@ class PeriodicDomain(fe.SubDomain):
                 per_vectors.append(basis[1])
 
         return PeriodicDomain(per_vectors, master_tests, slave_tests, dim, tol)
+
+
+# * Periodic localization fields
+per_scalar_fnct_cpp_code = """
+    #include <pybind11/pybind11.h>
+    #include <pybind11/eigen.h>
+    namespace py = pybind11;
+
+    #include <dolfin/function/Expression.h>
+    #include <dolfin/function/Function.h>
+
+    class PeriodicExpr : public dolfin::Expression
+    {
+    public:
+
+        PeriodicExpr() : dolfin::Expression() {}
+
+        void eval(
+            Eigen::Ref<Eigen::VectorXd> values,
+            Eigen::Ref<const Eigen::VectorXd> x, const ufc::cell& cell
+        ) const override
+        {
+        Eigen::Vector2d coord_equi;
+        coord_equi[0] = x[0] -per_x*floor(x[0]/per_x);
+        coord_equi[1] = x[1] -per_y*floor(x[1]/per_y);
+        f->eval(values, coord_equi);
+        }
+
+    std::shared_ptr<dolfin::Function> f;
+    double per_x;
+    double per_y;
+    };
+
+    PYBIND11_MODULE(SIGNATURE, m)
+    {
+    py::class_<PeriodicExpr, std::shared_ptr<PeriodicExpr>, dolfin::Expression>
+        (m, "PeriodicExpr", py::dynamic_attr())
+        .def(py::init<>())
+        .def_readwrite("f", &PeriodicExpr::f)
+        .def_readwrite("per_x", &PeriodicExpr::per_x)
+        .def_readwrite("per_y", &PeriodicExpr::per_y);
+    }
+    """
+periodic_cppcode = fe.compile_cpp_code(per_scalar_fnct_cpp_code)
+
+
+class PeriodicExpr(fe.UserExpression):
+    """Periodic extension of a (periodic) function. Represented by an expression"""
+
+    def __init__(self, base_function, per_vectors, topo_dim=2, **kwargs):
+        """Create a periodic extension of a function which is defined only on a cell.
+
+        For now, only the case of periodic vectors aligned with the global basis
+        in 2D is supported.
+
+        Parameters
+        ----------
+        base_function : dolfin Function
+            Function that will be extended by periodicity.
+            Must be at least defined on a cell delimited by the 4 points :
+            O, vp1, vp2, vp1+vp2 where vp1 and vp2 are the periodicity vectors.
+        per_vectors : ndarray
+            periodicity vectors in column
+        topo_dim : int, optional
+            [description], by default 2
+        """
+        self.base_function = base_function
+        self.per_vectors = np.asarray(per_vectors)
+        assert self.per_vectors.shape == (2, 2), "Invalid shape. Only 2D supported"
+        diag_test = np.allclose(self.per_vectors[[0, 1], [1, 0]], [0.0, 0.0], atol=1e-12)
+        assert diag_test, "Periodicity vectors must be align with global basis."
+        # TODO : généralisation à des vecteurs de périodicité non alignés avec le repère.
+
+        super().__init__(degree=kwargs["degree"])
+
+        per_cpp_expr = periodic_cppcode.PeriodicExpr()
+        per_cpp_expr.per_x = self.per_vectors[0, 0]
+        per_cpp_expr.per_y = self.per_vectors[1, 1]
+        base_function.set_allow_extrapolation(True)
+        per_cpp_expr.f = base_function.cpp_object()
+        self._cpp_object = per_cpp_expr
+
+    def value_shape(self):
+        return ()
