@@ -26,7 +26,7 @@ fe.set_log_level(20)
 # * PROGRESS  = 16, // what's happening (broadly)
 # * TRACE     = 13, // what's happening (in detail)
 # * DBG       = 10  // sundry
-# * https://fenicsproject.org/qa/810/how-to-disable-message-solving-linear-variational-problem/
+# * https://fenicsproject.org/qa/810/how-to-disable-message-solving-linear-variational-problem/ #noqa
 
 
 # * Step 1 : Generating the mesh file
@@ -59,7 +59,8 @@ rve = part.Fenics2DRVE.gmsh_2_Fenics_2DRVE(panto_test, material_dict)
 
 # ! OR:
 
-# * Step 3.2 : Initialization of the Fenics2DRVE instance from a mesh file + generating vectors
+# * Step 3.2 : Initialization of the Fenics2DRVE instance from
+# *             a mesh file + generating vectors
 # mesh_path = panto_test.mesh_abs_path
 # gen_vect = panto_test.gen_vect #or explicitely : np.array([[4., 0.], [0., 8.]])
 # rve = part.Fenics2DRVE.file_2_Fenics_2DRVE(mesh_path, gen_vect, material_dict)
