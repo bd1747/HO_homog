@@ -47,9 +47,10 @@ fe.set_log_level(20)
 # * Step 1 : Generating the mesh file
 a = 1
 b, k = a, a/3
-panto_test = mesh_generate_2D.Gmsh2DRVE.pantograph(a, b, k, 0.01, nb_cells=(2, 2), soft_mat=True, name='panto_with_soft')
-panto_test.main_mesh_refinement((0.1, 0.5), (0.1, 0.3), False)
-panto_test.soft_mesh_refinement((0.1, 0.5), (0.1, 0.3), False)
+r = a/1e3
+panto_test = mesh_generate_2D.Gmsh2DRVE.pantograph(a, b, k, r, nb_cells=(1, 1), soft_mat=True, name='panto_with_soft')
+panto_test.main_mesh_refinement((3*r, a/2), (r/6, a/6), True)
+panto_test.soft_mesh_refinement((3*r, a/2), (r/6, a/6), True)
 panto_test.mesh_generate()
 
 # * Step 2 : Defining the material mechanical properties for each subdomain
@@ -83,17 +84,18 @@ DictOfLocalizationsU, DictOfLocalizationsSigma, DictOfLocalizationsEpsilon, Dict
 # * Step 6 : Postprocessing
 print(DictOfConstitutiveTensors)
 print(DictOfConstitutiveTensors['E']['E'])
-# * [[ 0.0726  0.0379 -0.    ]
-# *  [ 0.0379  0.1638  0.    ]
-# *  [-0.      0.      0.0906]]
+# *[[0.041  0.0156 0.    ]
+# * [0.0156 0.0688 0.    ]
+# * [0.     0.     0.0307]]
 
 print(DictOfConstitutiveTensors['EGbis']['EGbis'])
-# * [[ 0.3799  0.1405 -0.      0.      0.      0.0401]
-# *  [ 0.1405  0.14   -0.      0.      0.      0.0451]
-# *  [-0.     -0.      0.1428  0.0393  0.039  -0.    ]
-# *  [ 0.      0.      0.0393  0.292   0.1822 -0.    ]
-# *  [ 0.      0.      0.039   0.1822  0.2401 -0.    ]
-# *  [ 0.0401  0.0451 -0.     -0.     -0.      0.0676]]
+# * [[ 0.2831  0.078   0.      0.      0.      0.0336]
+# *  [ 0.078   0.0664 -0.      0.     -0.      0.0282]
+# *  [ 0.     -0.      0.0756  0.0343  0.0243 -0.    ]
+# *  [ 0.      0.      0.0343  0.2289  0.1113  0.    ]
+# *  [ 0.     -0.      0.0243  0.1113  0.1419  0.    ]
+# *  [ 0.0336  0.0282 -0.      0.      0.      0.0541]]
+
 
 plt.figure()
 fe.plot(fe.project(0.1*hom_model.localization['E']['U'][2],hom_model.V), mode='displacement')
