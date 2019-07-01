@@ -292,7 +292,7 @@ def xdmf_mesh(mesh_file, import_subdomains=False, facet_file="", physical_file="
         facet_vc = fe.MeshValueCollection("size_t", mesh, dim - 1)
         with fe.XDMFFile(str(facet_file)) as f_in:
             f_in.read(facet_vc, "facet_data")
-        facet_function = fe.cpp.mesh.MeshFunctionSizet(mesh, facet_vc)
+        facet_regions = fe.cpp.mesh.MeshFunctionSizet(mesh, facet_vc)
     if not physical_file.exists():
         subdomains = None
     else:

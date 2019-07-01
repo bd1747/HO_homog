@@ -44,7 +44,7 @@ def process_gmsh_log(gmsh_log: list, detect_error=True):
 
 
 def msh_conversion(
-    mesh, format_: str = ".xdmf", output_dir=None, subdomain: bool = False, dim: int = 2
+    mesh, format_: str = ".xdmf", output_dir=None, subdomains: bool = False, dim: int = 2
 ):
     """
     Convert a ".msh" mesh generated with Gmsh to a format suitable for FEniCS.
@@ -62,7 +62,7 @@ def msh_conversion(
         Path of the directory where the converted mesh file must be written.
         If None, the converted file is written in the same directory
         as the input file. (default: None)
-    subdomain : bool, optional
+    subdomains : bool, optional
         If True, extra files are created to store information about subdomains.
         (default: False)
     dim: int, optional
@@ -118,7 +118,7 @@ def msh_conversion(
         else:
             ValueError
         meshio.write(str(mesh_path), geo_only)
-        if subdomain:
+        if subdomains:
             cell_function = meshio.Mesh(
                 points=mesh.points,
                 cells={cell: mesh.cells[cell]},
@@ -131,11 +131,11 @@ def msh_conversion(
                 cell_data={face: {"facet_data": mesh.cell_data[face]["gmsh:physical"]}},
             )
             meshio.write(str(facet_region), facet_function)
-    if subdomain:
+    if subdomains:
         return (
             mesh_path,
-            physical_region if physical_region.exist() else None,
-            facet_region if facet_region.exist() else None,
+            physical_region if physical_region.exists() else None,
+            facet_region if facet_region.exists() else None,
         )
     else:
         return mesh_path
