@@ -9,12 +9,10 @@ import ho_homog.geometry as geo
 import ho_homog.mesh_tools as msh
 import numpy as np
 import logging
-from logging.handlers import RotatingFileHandler
 import gmsh
 import os
-import matplotlib.pyplot as plt
-from more_itertools import flatten
 from pathlib import Path
+from subprocess import run
 
 # nice shortcuts
 model = gmsh.model
@@ -23,28 +21,23 @@ factory = model.occ
 # * Logging
 logger = logging.getLogger(__name__)  # http://sametmax.com/ecrire-des-logs-en-python/
 logger.setLevel(logging.INFO)
-if __name__ == "__main__":
-    logger_root = logging.getLogger()
-    logger_root.setLevel(logging.INFO)
-    formatter = logging.Formatter(
-        "%(asctime)s :: %(levelname)s :: %(name)s :: %(message)s", "%Y-%m-%d %H:%M:%S"
-    )
-    log_path = Path.home().joinpath("Desktop/activity.log")
-    file_handler = RotatingFileHandler(str(log_path), "a", 1000000, 10)
-    file_handler.setLevel(logging.DEBUG)
-    file_handler.setFormatter(formatter)
-    logger_root.addHandler(file_handler)  # Pour écriture d'un fichier log
-    formatter = logging.Formatter(
-        "%(asctime)s :: %(levelname)s :: %(message)s", "%H:%M"
-    )
-    stream_handler = logging.StreamHandler()
-    stream_handler.setLevel(logging.INFO)
-    stream_handler.setFormatter(formatter)
-    logger_root.addHandler(stream_handler)
+
+formatter = logging.Formatter("%(asctime)s :: %(levelname)s :: %(message)s", "%H:%M")
+stream_handler = logging.StreamHandler()
+stream_handler.setLevel(logging.INFO)
+stream_handler.setFormatter(formatter)
+logger.addHandler(stream_handler)
 
 geo.init_geo_tools()
 name = "pantograph"
 model.add(name)
+
+root = Path(__file__).resolve().parent.joinpath(name)
+geo_file = root.with_suffix(".brep")
+mesh_file = root.with_suffix(".msh")
+
+os.path.realpath(__file__)
+
 
 logger.info("Start defining the pantograph geometry")
 a = 1
@@ -65,11 +58,11 @@ E1 = geo.Point(e1)
 E2 = geo.Point(e2)
 E1m = geo.Point(-1 * e1)
 E2m = geo.Point(-1 * e2)
-O = np.zeros((3,))
+O_pt = np.zeros((3,))
 L = geo.Point(2 * (e1 + e2))
 Lm = geo.Point(2 * (e1 - e2))
 M = geo.Point(e1 + 1.5 * e2 + b / 2)
-I = geo.Point(2 * (e1 + 1.5 * e2 + b / 2))
+N = geo.Point(2 * (e1 + 1.5 * e2 + b / 2))
 
 contours = list()
 contours.append([E1, E2, E1m, E2m])
@@ -87,26 +80,25 @@ contours.append(
 pattern_ll = [geo.LineLoop(pt_list, explicit=False) for pt_list in contours]
 
 pattern_ll += [geo.point_reflection(ll, M) for ll in pattern_ll]
-sym_ll = [geo.plane_reflection(ll, I, e1) for ll in pattern_ll]
+sym_ll = [geo.plane_reflection(ll, N, e1) for ll in pattern_ll]
 for ll in sym_ll:
     ll.reverse()
 pattern_ll += sym_ll
-sym_ll = [geo.plane_reflection(ll, I, e2) for ll in pattern_ll]
+sym_ll = [geo.plane_reflection(ll, N, e2) for ll in pattern_ll]
 for ll in sym_ll:
     ll.reverse()
 pattern_ll += sym_ll
 pattern_ll = geo.remove_duplicates(pattern_ll)
-logger.info(
-    f"Done removing of the line-loops duplicates. pattern_ll length : {len(pattern_ll)}"
-)
-# 13 no-redundant LineLoop to define the pantographe microstructure geometry in one cell.
+logger.info("Removing of the line-loops duplicates : Done")
+logger.info(f"pattern_ll length : {len(pattern_ll)}")
+# * 13 no-redundant LineLoops to define the pantograph microstructure geometry in 1 cell.
 
 
 for ll in pattern_ll:
     ll.round_corner_incircle(r)
-logger.info("Done rounding all corners of pattern line-loops")
+logger.info("Rounding all corners of pattern line-loops : Done")
 
-macro_vtcs = [O, gen_vect[0], gen_vect[0] + gen_vect[1], gen_vect[1]]
+macro_vtcs = [O_pt, gen_vect[0], gen_vect[0] + gen_vect[1], gen_vect[1]]
 macro_ll = geo.LineLoop([geo.Point(c) for c in macro_vtcs])
 macro_s = geo.PlaneSurface(macro_ll)
 
@@ -114,22 +106,20 @@ logger.info("Start boolean operations on surfaces")
 pattern_s = [geo.PlaneSurface(ll) for ll in pattern_ll]
 rve_s = geo.surface_bool_cut(macro_s, pattern_s)
 rve_s = rve_s[0]
-logger.info("Done boolean operations on surfaces")
+logger.info("Boolean operations on surfaces : Done")
 rve_s_phy = geo.PhysicalGroup([rve_s], 2, "partition_plein")
 factory.synchronize()
 
 rve_s_phy.add_gmsh()
 factory.synchronize()
 data = model.getPhysicalGroups()
-logger.info(
-    "All physical groups in the model "
-    + repr(data)
-    + " Names : "
-    + repr([model.getPhysicalName(*dimtag) for dimtag in data])
-)
-logger.info("Done generating the gmsh geometrical model")
-gmsh.write("%s.brep" % name)
-os.system("gmsh %s.brep &" % name)
+logger.info(f"All physical groups in the model : \n {data}")
+names = [model.getPhysicalName(*dimtag) for dimtag in data]
+logger.info(f"Physical group names: \n {names}")
+
+logger.info("Generate geometry model : Done")
+gmsh.write(str(geo_file))
+run(f"gmsh {str(geo_file)} &", shell=True, check=True)
 
 logger.info("Start defining a mesh refinement constraint")
 constr_pts = [pt for ll in pattern_ll for pt in ll.vertices]
@@ -143,21 +133,12 @@ for pt in fine_pts:
     pt.add_gmsh()
 factory.synchronize()
 f = msh.set_mesh_refinement(
-    [r, a], [r / 4, a / 3], attractors={"points": fine_pts}, sigmoid_interpol=True
+    (r, a), (r / 4, a / 3), attractors={"points": fine_pts}, sigmoid_interpol=True
 )
 msh.set_background_mesh(f)
-# logger.info('Test de rafinement du maillage autour des lignes du bord de la microstructure')
-# fine_lns = list(flatten([ll.sides for ll in pattern_ll]))
-# g = msh.set_mesh_refinement([r, a/3], [r/3, a/3], attractors={'curves':fine_lns}, sigmoid_interpol=True)
-# msh.set_background_mesh(g)
-if not gmsh.option.getNumber("Mesh.CharacteristicLengthExtendFromBoundary") == 0:
-    pre_val = gmsh.option.getNumber("Mesh.CharacteristicLengthExtendFromBoundary")
-    val = 0
-    gmsh.option.setNumber("Mesh.CharacteristicLengthExtendFromBoundary", val)
-    logging.info(
-        f"Option Mesh.CharacteristicLengthExtendFromBoundary set to {val}. Initial value : {pre_val}."
-    )
-logger.info("Done defining a mesh refinement constraint")
+logger.info("Mesh refinement constraint Done")
+
+logger.info("Start defining a periodicity constraint for the mesh")
 macro_bndry = macro_ll.sides
 rve_s.get_boundary(recursive=True)
 micro_bndry = [geo.macro_line_fragments(rve_s.boundary, M_ln) for M_ln in macro_bndry]
@@ -169,16 +150,18 @@ logger.debug("length of micro_bndry list : " + str(len(micro_bndry)))
 
 msh.set_periodicity_pairs(micro_bndry[0], micro_bndry[2])
 msh.set_periodicity_pairs(micro_bndry[1], micro_bndry[3])
+logger.info("Periodicity constraint : Done")
 
+logger.info("Cleaning model")
 factory.remove([(1, l.tag) for l in macro_ll.sides])
-for l in macro_ll.sides:
-    l.tag = None
-pre_val = gmsh.option.getNumber("Mesh.SaveAll")
-val = 0
-gmsh.option.setNumber("Mesh.SaveAll", val)
-logging.info(f"Option Mesh.SaveAll set to {val}. Initial value : {pre_val}.")
+factory.synchronize()
+factory.removeAllDuplicates()
+factory.synchronize()
+
+geo.set_gmsh_option("Mesh.CharacteristicLengthExtendFromBoundary", 0)
+geo.set_gmsh_option("Mesh.SaveAll", 0)
 geo.PhysicalGroup.set_group_mesh(1)
 gmsh.model.mesh.generate(2)
-gmsh.write("%s.msh" % name)
-os.system("gmsh %s.msh &" % name)
+gmsh.write(str(mesh_file))
+run(f"gmsh {str(mesh_file)} &", shell=True, check=True)
 gmsh.fltk.run()
