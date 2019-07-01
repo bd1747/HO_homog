@@ -29,7 +29,7 @@ from ho_homog import (
     periodicity,
 )
 from ho_homog.toolbox_FEniCS import function_errornorm
-from ho_homog.toolbox_gmsh import process_gmsh_log
+from ho_homog.toolbox_gmsh import process_gmsh_log, msh_conversion
 
 logger = logging.getLogger("demo_full_compare")
 logger_root = logging.getLogger()
@@ -86,7 +86,7 @@ gmsh.logger.stop()
 gmsh.model.mesh.renumberNodes()
 gmsh.model.mesh.renumberElements()
 gmsh.write(str(rve_geo.mesh_abs_path))
-rve_path, *_ = mesh_tools.msh_conversion(rve_geo.mesh_abs_path, ".xdmf")
+rve_path, = msh_conversion(rve_geo.mesh_abs_path, ".xdmf")
 
 
 # * Step 3 : Build the mesh of the part from the mesh of the RVE
@@ -94,7 +94,7 @@ gmsh.logger.start()
 part_geo = mesh_generate_2D.Gmsh2DPartFromRVE(rve_geo, (75, 1))
 process_gmsh_log(gmsh.logger.get())
 gmsh.logger.stop()
-part_path, *_ = mesh_tools.msh_conversion(part_geo.mesh_abs_path, ".xdmf")
+part_path, = msh_conversion(part_geo.mesh_abs_path, ".xdmf")
 
 # * Step 4 : Defining the material properties
 E, nu = 1.0, 0.3
