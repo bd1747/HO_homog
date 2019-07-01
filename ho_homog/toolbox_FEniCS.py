@@ -11,6 +11,7 @@ import logging
 import dolfin as fe
 import matplotlib.pyplot as plt
 import numpy as np
+from pathlib import Path, PurePath
 
 logger = logging.getLogger(__name__)
 
@@ -221,3 +222,83 @@ def _wrap_in_list(obj, name, types=type):
                 "expected a (list of) %s as '%s' argument" % (str(types), name)
             )
     return lst
+
+
+def xdmf_mesh(mesh_file, import_subdomains=False, facet_file="", physical_file=""):
+    """Create a FeniCS mesh from a mesh file with xdmf format.
+
+    Parameters
+    ----------
+    mesh_file : str or Path
+        Path of the file mesh (xdmf file)
+    import_subdomains : bool, optional
+        True if information about subdomains have to be imported.
+        The paths of the auxiliary files that contains information about subdomains
+        can be indicated with facet_file and physical_file.
+        The paths used by default are :
+            - "<mesh path>_facet_region.xdmf" and
+            - "<mesh path>_physical_region.xdmf" (for subdomains)
+    facet_file : str or Path, optional
+        Path to the mesh auxiliary file that contains subdomains data.
+        Defaults to "" i.e. the default path will be used.
+    physical_file : str or Path, optional
+        Path to the mesh auxiliary file that contains facet regions data.
+        Defaults to "" i.e. the default path will be used.
+
+    Returns
+    -------
+    Mesh / tuple
+        If subdomains are not requested :
+            - The Mesh instance
+        If subdomains are requested :
+            - The Mesh instance,
+            - The MeshFunction for subdomains if it exists else None,
+            - The MeshFunction for facets if it exists else None,
+
+    Source
+    ------
+    Gist meshtagging_mvc.py, June 2018, Michal Habera
+    https://gist.github.com/michalhabera/bbe8a17f788192e53fd758a67cbf3bed
+    """
+    if not isinstance(mesh_file, PurePath):
+        mesh_file = Path(mesh_file)
+    if not mesh_file.suffix == ".xdmf":
+        raise TypeError("Wrong suffix for the path to the mesh.")
+    mesh = fe.Mesh()
+    with fe.XDMFFile(str(mesh_file)) as f_in:
+        f_in.read(mesh)
+
+    if not import_subdomains:
+        return mesh
+
+    dim = mesh.geometric_dimension()
+
+    if not facet_file:
+        facet_file = mesh_file.with_name(f"{mesh_file.stem}_facet_region.xdmf")
+    else:
+        facet_file = Path(facet_file)
+        if not facet_file.suffix == ".xdmf":
+            raise TypeError("Wrong suffix for the path to facet regions.")
+    if not physical_file:
+        physical_file = mesh_file.with_name(f"{mesh_file.stem}_physical_region.xdmf")
+    else:
+        physical_file = Path(physical_file)
+        if not physical_file.suffix == ".xdmf":
+            raise TypeError("Wrong suffix for the path to subdomains.")
+
+    if not facet_file.exists():
+        facet_regions = None
+    else:
+        facet_vc = fe.MeshValueCollection("size_t", mesh, dim - 1)
+        with fe.XDMFFile(str(facet_file)) as f_in:
+            f_in.read(facet_vc, "facet_data")
+        facet_function = fe.cpp.mesh.MeshFunctionSizet(mesh, facet_vc)
+    if not physical_file.exists():
+        subdomains = None
+    else:
+        cell_vc = fe.MeshValueCollection("size_t", mesh, dim - 1)
+        with fe.XDMFFile(str(physical_file)) as f_in:
+            f_in.read(cell_vc, "cell_data")
+        subdomains = fe.cpp.mesh.MeshFunctionSizet(mesh, cell_vc)
+
+    return mesh, subdomains, facet_regions
