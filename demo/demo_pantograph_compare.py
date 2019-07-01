@@ -6,6 +6,7 @@ Created on 18/04/2018
 Compare the higher-order homogenized solution with the full-scale solution.
 Example : 2D, pantograph microstructure.
 """
+
 import logging
 from pathlib import Path
 
@@ -25,6 +26,7 @@ from ho_homog import (
     pckg_logger,
     periodicity,
     toolbox_FEniCS,
+    toolbox_gmsh
 )
 
 logger = logging.getLogger("demo_full_compare")
@@ -41,44 +43,13 @@ formatter = logging.Formatter(
     "%(asctime)s :: %(levelname)s :: %(name)s :: %(message)s", "%H:%M:%S"
 )
 stream_handler = logging.StreamHandler()
-stream_handler.setLevel(logging.DEBUG)
+stream_handler.setLevel(logging.INFO)
 stream_handler.setFormatter(formatter)
 logger_root.addHandler(stream_handler)
-
-gmsh_logger = logging.getLogger("gmsh")
-gmsh_logger.setLevel(logging.INFO)
 
 logging.getLogger("UFL").setLevel(logging.DEBUG)
 logging.getLogger("FFC").setLevel(logging.DEBUG)
 fe.set_log_level(20)
-
-
-def process_gmsh_log(gmsh_log: list, detect_error=True):
-    """Treatment of log messages gathered with gmsh.logger.get()"""
-    err_msg, warn_msg = list(), list()
-    for line in gmsh_log:
-        if "error" in line.lower():
-            err_msg.append(line)
-        if "warning" in line.lower():
-            warn_msg.append(line)
-    gmsh_logger.info("**********")
-    gmsh_logger.info(
-        f"{len(gmsh_log)} logging messages got from Gmsh : "
-        f"{len(err_msg)} errors, {len(warn_msg)} warnings."
-    )
-    if err_msg:
-        gmsh_logger.error("Gmsh errors details :")
-        for line in err_msg:
-            gmsh_logger.error(line)
-    if warn_msg:
-        gmsh_logger.warning("Gmsh warnings details :")
-        for line in warn_msg:
-            gmsh_logger.warning(line)
-    gmsh_logger.debug("All gmsh messages :")
-    gmsh_logger.debug(gmsh_log)
-    gmsh_logger.info("**********")
-    if detect_error and err_msg:
-        raise AssertionError("Gmsh logging messages signal errors.")
 
 
 # * Step 1 : Modeling the geometry of the part and the RVE
@@ -94,13 +65,13 @@ part_geo = mesh_generate_2D.Gmsh2DRVE.pantograph(
     a, b, k, r, nb_cells=(20, 1), soft_mat=False, name="panto_part"
 )
 # ! Utiliser autre chose que Gmsh2DRVE
-process_gmsh_log(gmsh.logger.get())
+toolbox_gmsh.process_gmsh_log(gmsh.logger.get())
 gmsh.logger.stop()
 gmsh.logger.start()
 rve_geo = mesh_generate_2D.Gmsh2DRVE.pantograph(
     a, b, k, r, nb_cells=(1, 1), soft_mat=False, name="panto_rve"
 )
-process_gmsh_log(gmsh.logger.get())
+toolbox_gmsh.process_gmsh_log(gmsh.logger.get())
 gmsh.logger.stop()
 
 # * Step 2 : Generating the meshes
@@ -111,7 +82,7 @@ for geo_model in [part_geo, rve_geo]:
     geo_model.main_mesh_refinement(d_min_max, lc_min_max, False)
     gmsh.logger.start()
     geo_model.mesh_generate()
-    process_gmsh_log(gmsh.logger.get())
+    toolbox_gmsh.process_gmsh_log(gmsh.logger.get())
     gmsh.logger.stop()
 
 # * Step 2 : Defining the material properties
@@ -123,7 +94,7 @@ material_dict_rve = {rve_geo.phy_surf[0].tag: materials.Material(E, nu, "cp")}
 
 # * Step 3 : Calculation of the full-scale solution
 # * Step 3.1 : Create a part object
-panto_part = part.Fenics2DRVE.file_2_FenicsPart(
+panto_part = part.FenicsPart.file_2_FenicsPart(
     part_geo.mesh_abs_path,
     material_dict_part,
     global_dimensions=part_geo.gen_vect,
@@ -232,71 +203,11 @@ macro_fields = {
     "EGG": [U_hom[3]] + [0] * 11,
 }
 
-per_scalar_fnct_cpp_code = """
-    #include <pybind11/pybind11.h>
-    #include <pybind11/eigen.h>
-    namespace py = pybind11;
-
-    #include <dolfin/function/Expression.h>
-    #include <dolfin/function/Function.h>
-
-    class PeriodicExpr : public dolfin::Expression
-    {
-    public:
-
-        PeriodicExpr() : dolfin::Expression() {}
-
-        void eval(
-            Eigen::Ref<Eigen::VectorXd> values,
-            Eigen::Ref<const Eigen::VectorXd> x, const ufc::cell& cell
-        ) const override
-        {
-        Eigen::Vector2d coord_equi;
-        coord_equi[0] = x[0] -per_x*floor(x[0]/per_x);
-        coord_equi[1] = x[1] -per_y*floor(x[1]/per_y);
-        f->eval(values, coord_equi);
-        //passer par un pointeur ? *f->eval(values, coord_equi);
-        }
-
-    std::shared_ptr<dolfin::Function> f;
-    double per_x;
-    double per_y;
-    };
-
-    PYBIND11_MODULE(SIGNATURE, m)
-    {
-    py::class_<PeriodicExpr, std::shared_ptr<PeriodicExpr>, dolfin::Expression>
-        (m, "PeriodicExpr", py::dynamic_attr())
-        .def(py::init<>())
-        .def_readwrite("f", &PeriodicExpr::f)
-        .def_readwrite("per_x", &PeriodicExpr::per_x)
-        .def_readwrite("per_y", &PeriodicExpr::per_y);
-    }
-    """
-
-
-# TODO Organisation du code à revoir
-# TODO Peut-on s'éviter la compilation du code à chaque fois qu'une instance de PeriodicExpr est crée ?
-# TODO la solution est peut-être dans un __init__ personnalisé :
-# TODO Idée : reprendre le init de la classe mère sans l'écraser totalement et simplement lui rajouter la partie :
-# TODO : __init(self, periodicity_vectors, local_function)
-# TODO : self._cpp_object = fe.compile_cpp_code(per_scalar_fnct_cpp_code).PeriodicExpr()
-# TODO self._cpp_object.per_x = per_x(periodicity_vectors) #per_x à définir, ajuster pour des cas où ce n'est pas un rectangle ?
-# TODO self._cpp_object.per_y = per_y(periodicity_vectors)
-class PeriodicExpr(fe.UserExpression):
-    def value_shape(self):
-        return ()
-
-    # TODO : Regarder si on peut faire un __init__ particulier,
-    # TODO tel qu'on conserve
-
-
-# periodic_cppcode = fe.compile_cpp_code(per_scalar_fnct_cpp_code).PeriodicExpr() #? Peut-on le sortir de la boucle ci-dessous ?
 
 key_conversion = {"U": "u", "Epsilon": "eps", "Sigma": "sigma"}
 localztn_expr = dict()
 for key, scd_dict in hom_model.localization.items():
-    if key == "EGGbis":  # ! Je passe avec une clé EGG ?! Pourquoi ?
+    if key == "EGGbis":
         continue
     localztn_expr[key] = dict()
     for scd_key, localztn_fields in scd_dict.items():
@@ -307,16 +218,9 @@ for key, scd_dict in hom_model.localization.items():
         for i, field in enumerate(localztn_fields):
             new_fields = list()  # 1 field per component of U, Sigma and Epsilon
             for component in field.split():
-                per_field = PeriodicExpr(degree=3)
-                periodic_cppcode = fe.compile_cpp_code(
-                    per_scalar_fnct_cpp_code
-                ).PeriodicExpr()
-                periodic_cppcode.per_x = rve_geo.gen_vect[0, 0]
-                periodic_cppcode.per_y = rve_geo.gen_vect[1, 1]
-                component.set_allow_extrapolation(True)
-                periodic_cppcode.f = component.cpp_object()
-                # https://bitbucket.org/fenics-project/dolfin/issues/1041/compiledexpression-cant-be-initialized
-                per_field._cpp_object = periodic_cppcode
+                per_field = periodicity.PeriodicExpr(
+                    component, rve_geo.gen_vect, degree=3
+                )
                 new_fields.append(per_field)
             localztn_expr[key][updated_key2].append(new_fields)
 function_spaces = {"u": model.displ_fspace, "eps": model.strain_fspace}
@@ -364,4 +268,3 @@ for f_name in reconstr_sol.keys():
     errors[f_name] = error
     print(f_name, error, difference, exact_norm)
     logger.info(f"Relative error for {f_name} = {error}")
-
