@@ -12,23 +12,8 @@ import matplotlib.pyplot as plt
 from ho_homog import homog2d as hom
 import dolfin as fe
 from ho_homog import geometry as geo
-from pathlib import Path
 import numpy as np
-import logging
-from logging.handlers import RotatingFileHandler
 
-
-
-plt.ioff()
-
-#* Logging
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s :: %(levelname)s :: %(message)s', "%H:%M")
-stream_handler = logging.StreamHandler()
-stream_handler.setLevel(logging.INFO)
-stream_handler.setFormatter(formatter)
-logger.addHandler(stream_handler)
 
 geo.init_geo_tools()
 
@@ -46,22 +31,26 @@ fe.set_log_level(20)
 
 # * Step 1 : Generating the mesh file
 a = 1
-b, k = a, a/3
-r = a/1e3
-panto_test = mesh_generate_2D.Gmsh2DRVE.pantograph(a, b, k, r, nb_cells=(1, 1), soft_mat=True, name='panto_with_soft')
-panto_test.main_mesh_refinement((3*r, a/2), (r/6, a/6), True)
-panto_test.soft_mesh_refinement((3*r, a/2), (r/6, a/6), True)
+b, k = a, a / 3
+r = a / 1e3
+panto_test = mesh_generate_2D.Gmsh2DRVE.pantograph(
+    a, b, k, r, nb_cells=(1, 1), soft_mat=True, name="panto_with_soft"
+)
+panto_test.main_mesh_refinement((3 * r, a / 2), (r / 6, a / 6), True)
+panto_test.soft_mesh_refinement((3 * r, a / 2), (r / 6, a / 6), True)
 panto_test.mesh_generate()
 
 # * Step 2 : Defining the material mechanical properties for each subdomain
-E1, nu1 = 1., 0.3
-E2, nu2 = E1/100., nu1
+E1, nu1 = 1.0, 0.3
+E2, nu2 = E1 / 100.0, nu1
 E_nu_tuples = [(E1, nu1), (E2, nu2)]
 
-subdo_tags = tuple([subdo.tag for subdo in panto_test.phy_surf]) # Here: soft_mat = True => tags = (1, 2)
+subdo_tags = tuple(
+    [subdo.tag for subdo in panto_test.phy_surf]
+)  # Here: soft_mat = True => tags = (1, 2)
 material_dict = dict()
 for coeff, tag in zip(E_nu_tuples, subdo_tags):
-    material_dict[tag] = mat.Material(coeff[0], coeff[1], 'cp')
+    material_dict[tag] = mat.Material(coeff[0], coeff[1], "cp")
 
 # * Step 3 : Creating the Python object that represents the RVE and is suitable for FEniCS
 # * Two alternatives :
@@ -79,16 +68,16 @@ rve = part.Fenics2DRVE.gmsh_2_Fenics_2DRVE(panto_test, material_dict)
 hom_model = hom.Fenics2DHomogenization(rve)
 
 # * Step 5 : Computing the homogenized consitutive tensors
-DictOfLocalizationsU, DictOfLocalizationsSigma, DictOfLocalizationsEpsilon, DictOfConstitutiveTensors = hom_model.homogenizationScheme('EG')
+*localization_dicts, constitutive_tensors = hom_model.homogenizationScheme("EG")
 
 # * Step 6 : Postprocessing
-print(DictOfConstitutiveTensors)
-print(DictOfConstitutiveTensors['E']['E'])
+print(constitutive_tensors)
+print(constitutive_tensors["E"]["E"])
 # *[[0.041  0.0156 0.    ]
 # * [0.0156 0.0688 0.    ]
 # * [0.     0.     0.0307]]
 
-print(DictOfConstitutiveTensors['EGbis']['EGbis'])
+print(constitutive_tensors["EGbis"]["EGbis"])
 # * [[ 0.2831  0.078   0.      0.      0.      0.0336]
 # *  [ 0.078   0.0664 -0.      0.     -0.      0.0282]
 # *  [ 0.     -0.      0.0756  0.0343  0.0243 -0.    ]
@@ -96,9 +85,11 @@ print(DictOfConstitutiveTensors['EGbis']['EGbis'])
 # *  [ 0.     -0.      0.0243  0.1113  0.1419  0.    ]
 # *  [ 0.0336  0.0282 -0.      0.      0.      0.0541]]
 
-
 plt.figure()
-fe.plot(fe.project(0.1*hom_model.localization['E']['U'][2],hom_model.V), mode='displacement')
-plt.savefig("loc_EU.pdf")
+fe.plot(
+    fe.project(0.1 * hom_model.localization["E"]["U"][2], hom_model.V),
+    mode="displacement",
+)
+plt.savefig("loc_E12_u.pdf")
 
 plt.show()
