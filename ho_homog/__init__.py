@@ -7,26 +7,28 @@
 import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+
 __version__ = "0.1"
 
 GEO_TOLERANCE = 1e-12
 
 from . import geometry, materials, periodicity
-from . import (full_scale_pb, homog2d, mesh_generate_2D, mesh_tools,
-               part, toolbox_FEniCS)
+from . import full_scale_pb, homog2d, mesh_generate_2D, mesh_tools, part, toolbox_FEniCS
 
 log_level = logging.DEBUG
-log_path = Path('~/ho_homog_log/activity.log').expanduser()
+log_path = Path("~/ho_homog_log/activity.log").expanduser()
 if not log_path.parent.exists():
     log_path.parent.mkdir(mode=0o777, parents=True)
 pckg_logger = logging.getLogger(__name__)
 pckg_logger.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(asctime)s :: %(levelname)s :: %(name)s :: %(message)s',"%Y-%m-%d %H:%M:%S")
+formatter = logging.Formatter(
+    "%(asctime)s :: %(levelname)s :: %(name)s :: %(message)s", "%Y-%m-%d %H:%M:%S"
+)
 
 
-def set_log_handlers(level:int=log_level, path=log_path):
+def set_log_handlers(level: int = log_level, path=log_path):
     """Should be run if log_path or log_level is changed."""
-    file_handler = RotatingFileHandler(str(log_path), 'a', 10000000, 10)
+    file_handler = RotatingFileHandler(str(log_path), "a", 10000000, 10)
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(formatter)
     pckg_logger.addHandler(file_handler)
@@ -45,7 +47,19 @@ def set_log_path(path):
 
 set_log_handlers(log_level, log_path)
 
-__all__ = ["geometry", "homog2d", "materials", "mesh_generate_2D",
-           "mesh_tools", "part", "full_scale_pb", "toolbox_FEniCS",
-           "set_log_path", "set_log_handlers", "log_level", "log_path",
-           "pckg_logger", "GEO_TOLERANCE"]
+__all__ = [
+    "geometry",
+    "homog2d",
+    "materials",
+    "mesh_generate_2D",
+    "mesh_tools",
+    "part",
+    "full_scale_pb",
+    "toolbox_FEniCS",
+    "toolbox_gmsh" "set_log_path",
+    "set_log_handlers",
+    "log_level",
+    "log_path",
+    "pckg_logger",
+    "GEO_TOLERANCE",
+]
