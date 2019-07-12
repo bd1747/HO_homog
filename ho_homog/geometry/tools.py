@@ -167,17 +167,45 @@ def round_corner(inp_pt, pt_amt, pt_avl, r, junction_raduis=False, plot=False):
     return geoList
 
 
-def offset(pt, pt_dir1, pt_dir2, t):
+def offset(pt, pt_dir1, pt_dir2, distance, method="vertex"):
+    """[summary]
+
+    Parameters
+    ----------
+    pt : Point
+        [description]
+    pt_dir1 : Point
+        [description]
+    pt_dir2 : Point
+        [description]
+    distance : float
+        translation distance for vertices or edges depending on the method selected.
+    method : str, optional
+        - "vertex" : new vertices are at a constant distance from original vertices.
+        - "edge" : new edges are at a constant distance from original edges.
+        Default value is "vertex"
+
+    Returns
+    -------
+    Point
+        New instance of Point with updated coordinates.
+    """
     # TODOC
     v1 = pt_dir1.coord - pt.coord
     v2 = pt_dir2.coord - pt.coord
-    alpha = angle_between(v1, v2, orient=False)
     v_biss = bisector(v1, v2)
-    if alpha != np.pi:
-        dpcmt = -t / abs(np.sin(alpha / 2.0))
+    if method == "edge":
+        alpha = angle_between(v1, v2, orient=False)
+        if alpha != np.pi:
+            dpcmt = -distance / abs(np.sin(alpha / 2.0))
+        else:
+            dpcmt = -distance
+    elif method == "vertex":
+        dpcmt = -distance #! Pourquoi il y a un signe - ????
     else:
-        dpcmt = -t
+        raise TypeError("method must be 'vertex' or 'edge'.")
     new_coord = pt.coord + dpcmt * v_biss
+    #TODO : remplacer par translation
     return Point(new_coord)
 
 

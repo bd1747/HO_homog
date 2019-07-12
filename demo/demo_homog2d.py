@@ -7,7 +7,7 @@ Created on 09/01/2019
 
 from ho_homog import materials as mat
 from ho_homog import part
-from ho_homog import mesh_generate_2D
+from ho_homog import mesh_generate
 import matplotlib.pyplot as plt
 from ho_homog import homog2d as hom
 import dolfin as fe

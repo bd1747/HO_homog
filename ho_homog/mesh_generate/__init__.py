@@ -319,281 +319,6 @@ class Gmsh2DRVE(object):
         gmsh.write(str(mesh_path))
         self.mesh_abs_path = mesh_path
 
-    @staticmethod
-    def pantograph(
-        a, b, k, junction_r, nb_cells=(1, 1), offset=(0.0, 0.0), soft_mat=False, name=""
-    ):
-        """
-        Create an instance of Gmsh2DRVE that represents a RVE of the pantograph microstructure.
-        The geometry that is specific to this microstructure is defined in this staticmethod. Then, the generic operations will be performed with the Gmsh2DRVE methods.
-
-        Parameters
-        ----------
-        a,b and k : floats
-            main lengths of the microstruture
-        junction_r : float
-            radius of the junctions inside the pantograph microstructure
-        nb_cells : tuple or 1D array
-            nb of cells in each direction of repetition
-        offset : tuple or 1D array
-            Relative position inside a cell of the point that will coincide with the origin of the global domain
-
-        Returns
-        -------
-        Instance of the Gmsh2DRVE class.
-        """
-
-        name = name if name else "pantograph"
-
-        offset = np.asarray(offset)
-        nb_cells = np.asarray(nb_cells)
-
-        logger.info("Start defining the pantograph geometry")
-
-        Lx = 4 * a
-        Ly = 6 * a + 2 * b
-        cell_vect = np.array(((Lx, 0.0), (0.0, Ly)))
-
-        e1 = np.array((a, 0.0, 0.0))
-        e2 = np.array((0.0, a, 0.0))
-        p = np.array((k, 0.0, 0.0))
-        b_ = b / a * e2
-        E1 = geo.Point(e1)
-        E2 = geo.Point(e2)
-        E1m = geo.Point(-1 * e1)
-        E2m = geo.Point(-1 * e2)
-        L = geo.Point(2 * (e1 + e2))
-        Lm = geo.Point(2 * (e1 - e2))
-        M = geo.Point(e1 + 1.5 * e2 + b_ / 2)
-        I = geo.Point(2 * (e1 + 1.5 * e2 + b_ / 2))
-
-        contours = list()
-        contours.append([E1, E2, E1m, E2m])
-        contours.append([E1, Lm, geo.Point(3 * e1), L])
-        contours.append(
-            [
-                E2,
-                L,
-                geo.translation(L, 0.5 * b_ - p),
-                geo.translation(L, b_),
-                geo.translation(E2, b_),
-                geo.translation(E2, 0.5 * b_ + p),
-            ]
-        )
-        pattern_ll = [geo.LineLoop(pt_list, explicit=False) for pt_list in contours]
-
-        pattern_ll += [geo.point_reflection(ll, M) for ll in pattern_ll]
-        sym_ll = [geo.plane_reflection(ll, I, e1) for ll in pattern_ll]
-        for ll in sym_ll:
-            ll.reverse()
-        pattern_ll += sym_ll
-        sym_ll = [geo.plane_reflection(ll, I, e2) for ll in pattern_ll]
-        for ll in sym_ll:
-            ll.reverse()
-        pattern_ll += sym_ll
-        pattern_ll = geo.remove_duplicates(pattern_ll)
-        logger.info("Done removing of the line-loops duplicates")
-
-        for ll in pattern_ll:
-            ll.round_corner_incircle(junction_r)
-        logger.info("Done rounding all corners of pattern line-loops")
-
-        constr_pts = [pt for ll in pattern_ll for pt in ll.vertices]
-        fine_pts = [
-            pt
-            for pt in constr_pts
-            if (pt.coord[0] % 1 < p[0] / 2.0 or pt.coord[0] % 1 > 1.0 - p[0] / 2.0)
-        ]
-        fine_pts = geo.remove_duplicates(fine_pts)
-        return Gmsh2DRVE(
-            pattern_ll, cell_vect, nb_cells, offset, fine_pts, soft_mat, name
-        )
-
-    @staticmethod
-    def auxetic_square(
-        L, a, t, nb_cells=(1, 1), offset=(0.0, 0.0), soft_mat=False, name=""
-    ):
-        """
-        Create an instance of Gmsh2DRVE that represents a RVE of the auxetic square microstructure.
-        The geometry that is specific to this microstructure is defined in this staticmethod. Then, the generic operations will be performed with the Gmsh2DRVE methods.
-
-        Parameters
-        ----------
-        L : float
-            Length of the sides of the square cell.
-        a : float
-            Length of the slits beetween squares.
-        t : float
-            Width of the slits beetween squares.
-        nb_cells : tuple or 1D array
-            nb of cells in each direction of repetition
-        offset : tuple or 1D array
-            Relative position inside a cell of the point that will coincide with the origin of the global domain
-
-        Returns
-        -------
-        Instance of the Gmsh2DRVE class.
-        """
-
-        name = name if name else "aux_square"
-        model.add(name)
-        # geo.reset()
-
-        offset = np.asarray(offset)
-        nb_cells = np.asarray(nb_cells)
-
-        logger.info("Start defining the auxetic_square geometry")
-        gen_vect = np.array(((L, 0.0), (0.0, L)))
-        b = (L - a) / 2.0
-        e1 = np.array((L, 0.0, 0.0))
-        e2 = np.array((0.0, L, 0.0))
-        I = geo.Point(1 / 2.0 * (e1 + e2))
-        M = geo.Point(1 / 4.0 * (e1 + e2))
-
-        e3 = np.array((0.0, 0.0, 1.0))
-
-        center_pts = [[(b, 0.0), (a + b, 0.0)], [(0.0, -a / 2.0), (0.0, a / 2.0)]]
-        center_pts = [[geo.Point(np.array(coord)) for coord in gp] for gp in center_pts]
-        center_lines = [geo.Line(*pts) for pts in center_pts]
-        center_lines += [geo.point_reflection(ln, M) for ln in center_lines]
-        center_lines += [geo.plane_reflection(ln, I, e1) for ln in center_lines]
-        center_lines += [geo.plane_reflection(ln, I, e2) for ln in center_lines]
-        center_lines = geo.remove_duplicates(center_lines)
-
-        for ln in center_lines:
-            ln.ortho_dir = np.cross(e3, ln.direction())
-        pattern_ll = list()
-        for ln in center_lines:
-            vertices = [
-                geo.translation(ln.def_pts[0], t / 2 * ln.ortho_dir),
-                geo.translation(ln.def_pts[1], t / 2 * ln.ortho_dir),
-                geo.translation(ln.def_pts[1], -t / 2 * ln.ortho_dir),
-                geo.translation(ln.def_pts[0], -t / 2 * ln.ortho_dir),
-            ]
-            pattern_ll.append(geo.LineLoop(vertices))
-        tmp_nb_bef = len(pattern_ll)
-        pattern_ll = geo.remove_duplicates(pattern_ll)
-
-        logger.debug(
-            f"Number of line-loops removed from pattern-ll : {tmp_nb_bef - len(pattern_ll)}."
-        )
-        logger.debug(
-            f"Final number of pattern line-loops for auxetic square : {len(pattern_ll)}"
-        )
-
-        for ll in pattern_ll:
-            ll.round_corner_explicit(t / 2)
-            filter_sides = (
-                list()
-            )  # * Pour ne pas essayer d'ajouter au model gmsh des lignes de longueur nulle. (Error : could not create line)
-            for crv in ll.sides:
-                if not crv.def_pts[0] == crv.def_pts[-1]:
-                    filter_sides.append(crv)
-            ll.sides = filter_sides
-
-        fine_pts = geo.remove_duplicates(flatten([ln.def_pts for ln in center_lines]))
-
-        return Gmsh2DRVE(
-            pattern_ll, gen_vect, nb_cells, offset, fine_pts, soft_mat, name
-        )
-
-    @staticmethod
-    def beam_pantograph(
-        a,
-        b,
-        w,
-        junction_r=0.0,
-        nb_cells=(1, 1),
-        offset=(0.0, 0.0),
-        soft_mat=False,
-        name="",
-    ):
-        """
-        Create an instance of Gmsh2DRVE that represents a RVE of the beam pantograph microstructure.
-        The geometry that is specific to this microstructure is defined in this staticmethod. Then, the generic operations will be performed with the Gmsh2DRVE methods.
-
-        Parameters
-        ----------
-        a, b : floats
-            main lengths of the microstruture
-        w : float
-            width of the constitutive beams
-        junction_r : float, optional
-            Radius of the corners/fillets that are created between concurrent borders of beams.
-            The default is 0., which implies that the angles will not be rounded.
-        nb_cells : tuple or 1D array, optional
-            nb of cells in each direction of repetition (the default is (1, 1).)
-        offset : tuple, optional
-            If (0., 0.) or False : No shift of the microstructure.
-            Else : The microstructure is shift with respect to the macroscopic domain.
-            offset is the relative position inside a cell of the point that will coincide with the origin of the global domain.
-        soft_mat : bool, optional
-            If True : the remaining surface inside the RVE is associated with a second material domain and a mesh is genereted to represent it.
-            Else, this space remains empty.
-        name : str, optional
-            The name of the RVE. It is use for the gmsh model and the mesh files.
-            If name is '' (default) or False, the name of the RVE is 'beam_pantograph'.
-
-        Returns
-        -------
-        Instance of the Gmsh2DRVE class.
-        """
-
-        name = name if name else "beam_pantograph"
-        offset = np.asarray(offset)
-        nb_cells = np.asarray(nb_cells)
-
-        logger.info("Start defining the beam pantograph geometry")
-        Lx = 4 * a
-        Ly = 6 * a + 2 * b
-        cell_vect = np.array(((Lx, 0.0), (0.0, Ly)))
-
-        e1 = np.array((a, 0.0, 0.0))
-        e2 = np.array((0.0, a, 0.0))
-        b_ = b / a * e2
-        E1 = geo.Point(e1)
-        E2 = geo.Point(e2)
-        E1m = geo.Point(-1 * e1)
-        E2m = geo.Point(-1 * e2)
-        L = geo.Point(2 * (e1 + e2))
-        Lm = geo.Point(2 * (e1 - e2))
-        M = geo.Point(e1 + 1.5 * e2 + b_ / 2)
-        I = geo.Point(2 * (e1 + 1.5 * e2 + b_ / 2))
-
-        contours = [
-            [E1, E2, E1m, E2m],
-            [E1, Lm, geo.Point(3 * e1), L],
-            [E1, L, E2],
-            [E2, L, geo.translation(L, b_), geo.translation(E2, b_)],
-        ]
-        pattern_ll = [geo.LineLoop(pt_list, explicit=False) for pt_list in contours]
-
-        pattern_ll += [geo.point_reflection(ll, M) for ll in pattern_ll]
-        sym_ll = [geo.plane_reflection(ll, I, e1) for ll in pattern_ll]
-        for ll in sym_ll:
-            ll.reverse()
-        pattern_ll += sym_ll
-        sym_ll = [geo.plane_reflection(ll, I, e2) for ll in pattern_ll]
-        for ll in sym_ll:
-            ll.reverse()
-        pattern_ll += sym_ll
-        pattern_ll = geo.remove_duplicates(pattern_ll)
-        constr_pts = [copy.deepcopy(pt) for ll in pattern_ll for pt in ll.vertices]
-        for ll in pattern_ll:
-            ll.offset(w)
-        if junction_r:
-            for ll in pattern_ll:
-                ll.round_corner_incircle(junction_r)
-
-        fine_pts = geo.remove_duplicates(constr_pts)
-
-        return Gmsh2DRVE(
-            pattern_ll, cell_vect, nb_cells, offset, fine_pts, soft_mat, name
-        )
-
-
-
-
 
 class Gmsh2DPart(object):
     def __init__(self, gen_vect, nb_cells, phy_surf, mesh_path: PurePath):
@@ -602,6 +327,9 @@ class Gmsh2DPart(object):
         self.phy_surf = phy_surf
         self.mesh_abs_path = mesh_path.resolve()
 
+
+from .pantograph import pantograph_RVE, pantograph_offset_RVE, beam_pantograph_RVE
+# from .other_2d_microstructures import auxetic_square_RVE
 
 def Gmsh2DPartFromRVE(cell: Gmsh2DRVE, nb_cells, part_name=None):
     """[summary]
@@ -729,3 +457,15 @@ def Gmsh2DPartFromRVE(cell: Gmsh2DRVE, nb_cells, part_name=None):
     gmsh.write(str(part_path.with_suffix(".brep")))
     gmsh.write(str(part_path))
     return Gmsh2DPart(part_vect, nb_cells, phy_surfaces, part_path)
+
+
+__all__ = [
+    "pantograph_RVE",
+    "pantograph_offset_RVE",
+    "beam_pantograph_RVE",
+    "auxetic_square_RVE",
+    "Gmsh2DRVE",
+    "Gmsh2DPart",
+    "Gmsh2DPartFromRVE",
+]
+
