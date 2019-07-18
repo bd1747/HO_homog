@@ -120,8 +120,10 @@ class Fenics2DHomogenization(object):
         elif self._solver["type"] == "LU":
             self.solver = fe.LUSolver(self.K, self._solver["method"])
             self.solver.parameters["symmetric"] = True
-        if not self._solver["preconditioner"] is None:
+        try:
             self.solver.parameters.preconditioner = self._solver["preconditioner"]
+        except KeyError:
+            pass
         # fe.info(self.solver.parameters, True)
 
         self.localization = dict()

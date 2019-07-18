@@ -68,7 +68,7 @@ gmsh.option.setNumber("Geometry.MatchMeshTolerance", 1e-12)
 
 a = 1
 b, k = a, a / 3
-r = a / 1e4
+r = a / 1e3
 gmsh.logger.start()
 rve_geo = mesh_generate_2D.Gmsh2DRVE.pantograph(a, b, k, r, name="panto_rve")
 process_gmsh_log(gmsh.logger.get())
@@ -86,15 +86,15 @@ gmsh.logger.stop()
 gmsh.model.mesh.renumberNodes()
 gmsh.model.mesh.renumberElements()
 gmsh.write(str(rve_geo.mesh_abs_path))
-rve_path, = msh_conversion(rve_geo.mesh_abs_path, ".xdmf")
+rve_path = msh_conversion(rve_geo.mesh_abs_path, ".xdmf")
 
 
 # * Step 3 : Build the mesh of the part from the mesh of the RVE
 gmsh.logger.start()
-part_geo = mesh_generate_2D.Gmsh2DPartFromRVE(rve_geo, (75, 1))
+part_geo = mesh_generate_2D.Gmsh2DPartFromRVE(rve_geo, (10, 1))
 process_gmsh_log(gmsh.logger.get())
 gmsh.logger.stop()
-part_path, = msh_conversion(part_geo.mesh_abs_path, ".xdmf")
+part_path = msh_conversion(part_geo.mesh_abs_path, ".xdmf")
 
 # * Step 4 : Defining the material properties
 E, nu = 1.0, 0.3
@@ -226,11 +226,11 @@ for key, scd_dict in hom_model.localization.items():
     localztn_expr[key] = dict()
     for scd_key, localztn_fields in scd_dict.items():
         updated_key2 = key_conversion[scd_key]
-        localztn_expr[key][
-            updated_key2
-        ] = list()  # 1 field per component of U, E, EG and EGG
+        localztn_expr[key][updated_key2] = list()
+        # 1 field per component of U, E, EG and EGG
         for i, field in enumerate(localztn_fields):
-            new_fields = list()  # 1 field per component of U, Sigma and Epsilon
+            new_fields = list()
+            # 1 field per component of U, Sigma and Epsilon
             for component in field.split():
                 per_field = periodicity.PeriodicExpr(
                     component, rve_geo.gen_vect, degree=3
