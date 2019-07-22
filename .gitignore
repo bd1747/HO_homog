@@ -5,6 +5,4 @@
 *.xml
 *.xdmf
 *.h5
-*.egg-info
-*.egg-info/
-ho_homog.egg-info/top_level.txt
+demo/loc_E12_u.pdf

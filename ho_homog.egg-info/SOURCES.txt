@@ -3,7 +3,6 @@ setup.cfg
 setup.py
 ho_homog/__init__.py
 ho_homog/full_scale_pb.py
-ho_homog/geometry.py
 ho_homog/homog2d.py
 ho_homog/materials.py
 ho_homog/mesh_generate_2D.py
