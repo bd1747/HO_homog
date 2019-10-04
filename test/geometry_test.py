@@ -6,7 +6,7 @@ Created on Mon Oct 15 11:00:18 2018
 """
 
 import os
-import ho_homog.geometry as geo
+from .context import ho_homog
 import math
 import numpy as np
 import matplotlib.pyplot as plt
@@ -15,6 +15,8 @@ import logging
 from logging.handlers import RotatingFileHandler
 
 import gmsh
+
+geo = ho_homog.geometry
 
 # nice shortcuts
 model = gmsh.model
@@ -500,7 +502,6 @@ def test_ll_modif():
     gmsh.write("%s.msh" % name)
     os.system("gmsh %s.brep &" % name)
     os.system("gmsh %s.msh &" % name)
-
 
 
 def test_gather_line():
