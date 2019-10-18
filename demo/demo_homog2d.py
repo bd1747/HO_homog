@@ -7,7 +7,7 @@ Created on 09/01/2019
 
 from ho_homog import materials as mat
 from ho_homog import part
-from ho_homog import mesh_generate_2D
+from ho_homog import mesh_generate
 import matplotlib.pyplot as plt
 from ho_homog import homog2d as hom
 import dolfin as fe
@@ -33,7 +33,7 @@ fe.set_log_level(20)
 a = 1
 b, k = a, a / 3
 r = a / 1e3
-panto_test = mesh_generate_2D.Gmsh2DRVE.pantograph(
+panto_test = mesh_generate.pantograph.pantograph_RVE(
     a, b, k, r, nb_cells=(1, 1), soft_mat=True, name="panto_with_soft"
 )
 panto_test.main_mesh_refinement((3 * r, a / 2), (r / 6, a / 6), True)

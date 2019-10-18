@@ -29,6 +29,18 @@ factory = model.occ
 logger = logging.getLogger(__name__)  # http://sametmax.com/ecrire-des-logs-en-python/
 
 
+
+
+__all__ = [
+    "pantograph",
+    "duplicate_pattern",
+    "offset_pattern",
+    "Gmsh2DRVE",
+    "Gmsh2DPart",
+    "Gmsh2DPartFromRVE",
+]
+
+
 def duplicate_pattern(cell_ll, nb_cells, gen_vect):
     """
     Propager la cellule de base dans selon les directions de l'espace.
@@ -205,7 +217,6 @@ class Gmsh2DRVE(object):
             gmsh.write(str(name.with_suffix(".brep")))
         else:
             gmsh.write(f"{name}.brep")
-
         macro_bndry = macro_ll.sides
         if soft_mat:
             boundary = geo.AbstractSurface.get_surfs_boundary(rve_s + soft_s)
@@ -536,3 +547,5 @@ def Gmsh2DPartFromRVE(cell: Gmsh2DRVE, nb_cells, part_name=None):
     gmsh.write(str(part_path.with_suffix(".brep")))
     gmsh.write(str(part_path))
     return Gmsh2DPart(part_vect, nb_cells, phy_surfaces, part_path)
+
+from . import pantograph

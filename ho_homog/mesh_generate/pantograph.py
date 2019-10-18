@@ -8,6 +8,8 @@ import numpy as np
 import ho_homog.geometry as geo
 from . import Gmsh2DRVE, logger
 
+# ? doc about imports : https://realpython.com/absolute-vs-relative-python-imports/#syntax-of-import-statements #noqa
+
 model = gmsh.model
 factory = model.occ
 
@@ -274,3 +276,77 @@ def beam_pantograph_RVE(
 
     fine_pts = geo.remove_duplicates(constr_pts)
     return Gmsh2DRVE(pattern_ll, cell_vect, nb_cells, offset, fine_pts, soft_mat, name)
+
+
+def pantograph_E11only_RVE(
+    a,
+    thickness,
+    fillet_r=0.0,
+    nb_cells=(1, 1),
+    offset=(0.0, 0.0),
+    soft_mat=False,
+    name="",
+):
+    """
+    Generate a RVE object for the simplified pantograph microstructure.
+    Only one floppy mode : E11
+    Junctions are obtained by creating offset curves from the microstructure contour.
+    + fillets -> avoid stress concentration
+
+    Parameters
+    ----------
+    a: floats
+        main dimension of the microstruture
+    thickness : float
+        distance of translation prescribed for the vertices of the contour
+    fillet_r : float
+        radius of the fillets for the contour
+    nb_cells : tuple or 1D array
+        nb of cells in each direction of repetition
+    offset : tuple or 1D array
+        Relative position inside a cell of the point that will coincide with the origin of the global domain
+
+    Returns
+    -------
+    Instance of the Gmsh2DRVE class.
+    """
+    name = name if name else "pantograph"
+    offset = np.asarray(offset)
+    nb_cells = np.asarray(nb_cells)
+    logger.info("Start defining the pantograph geometry")
+    Lx = 4 * a
+    Ly = 4 * a
+    cell_vect = np.array(((Lx, 0.0), (0.0, Ly)))
+    e1 = np.array((a, 0.0, 0.0))
+    e2 = np.array((0.0, a, 0.0))
+
+    pt_O = geo.Point((0.0, 0.0, 0.0))
+    L = geo.Point(2 * (e1 + e2))
+
+    square = [
+        geo.translation(L, e1),
+        geo.translation(L, e2),
+        geo.translation(L, -1 * e1),
+        geo.translation(L, -1 * e2),
+    ]
+    rhombus_v = [pt_O, geo.Point(e1 + 2 * e2), geo.Point(4 * e2), geo.Point(-e1 + 2 * e2)]
+    rhombus_h = [pt_O, geo.Point(-e2 + 2 * e1), geo.Point(4 * e1), geo.Point(e2 + 2 * e1)]
+    square = geo.LineLoop(square, explicit=False)
+    rhombus_v = geo.LineLoop(rhombus_v, explicit=False)
+    rhombus_h = geo.LineLoop(rhombus_h, explicit=False)
+    pattern = [square, rhombus_v, rhombus_h]
+    sym_rhombus = [geo.plane_reflection(rhombus_v, L, e1), geo.plane_reflection(rhombus_h, L, e2)]
+    for ll in sym_rhombus:
+        ll.reverse()
+    pattern += sym_rhombus
+    pattern = geo.remove_duplicates(pattern)
+    logger.info("Done removing of the line-loops duplicates")
+    constr_pts = [copy.deepcopy(pt) for ll in pattern for pt in iter((ll.vertices))]
+    for ll in pattern:
+        ll.offset(thickness)
+    if fillet_r:
+        for ll in pattern:
+            ll.round_corner_explicit(fillet_r)
+    logger.info("Done rounding all corners of pattern line-loops")
+    fine_pts = geo.remove_duplicates(constr_pts)
+    return Gmsh2DRVE(pattern, cell_vect, nb_cells, offset, fine_pts, soft_mat, name)

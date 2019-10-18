@@ -5,7 +5,6 @@ ho_homog/__init__.py
 ho_homog/full_scale_pb.py
 ho_homog/homog2d.py
 ho_homog/materials.py
-ho_homog/mesh_generate_2D.py
 ho_homog/mesh_tools.py
 ho_homog/part.py
 ho_homog/periodicity.py
@@ -19,3 +18,4 @@ ho_homog.egg-info/requires.txt
 ho_homog.egg-info/top_level.txt
 test/test_cpp_expression.py
 test/test_mesh_generate_2D.py
+test/test_mesh_generate_pantograph.py
