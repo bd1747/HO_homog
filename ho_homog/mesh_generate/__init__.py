@@ -421,6 +421,9 @@ class Gmsh2DPart(object):
         self.mesh_abs_path = mesh_path.resolve()
 
 
+from .pantograph import pantograph_RVE, pantograph_offset_RVE, beam_pantograph_RVE
+# from .other_2d_microstructures import auxetic_square_RVE
+
 def Gmsh2DPartFromRVE(cell: Gmsh2DRVE, nb_cells, part_name=None):
     """[summary]
 
@@ -549,3 +552,14 @@ def Gmsh2DPartFromRVE(cell: Gmsh2DRVE, nb_cells, part_name=None):
     return Gmsh2DPart(part_vect, nb_cells, phy_surfaces, part_path)
 
 from . import pantograph
+
+__all__ = [
+    "pantograph_RVE",
+    "pantograph_offset_RVE",
+    "beam_pantograph_RVE",
+    "auxetic_square_RVE",
+    "Gmsh2DRVE",
+    "Gmsh2DPart",
+    "Gmsh2DPartFromRVE",
+]
+

@@ -120,7 +120,7 @@ class LineLoop(object):
             elmt.def_pts.reverse()
         self.vertices.reverse()
 
-    def offset(self, t):
+    def offset(self, t, method="vertex"):
         """ Opération d'offset appliquée sur tout les sommets de la LineLoop.
 
         Cette opération doit donc être faite assez tôt,
@@ -132,7 +132,7 @@ class LineLoop(object):
         self.info_offset = True
         for i in range(len(self.vertices)):
             new_vrtces[i - 1] = offset(
-                self.vertices[i - 1], self.vertices[i - 2], self.vertices[i], t
+                self.vertices[i - 1], self.vertices[i - 2], self.vertices[i], t, method=method
             )
         self.offset_dpcmt = [
             np.linalg.norm(new.coord - prev.coord)
