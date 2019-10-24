@@ -4,6 +4,7 @@ setup.py
 ho_homog/__init__.py
 ho_homog/full_scale_pb.py
 ho_homog/homog2d.py
+ho_homog/homog_beam.py
 ho_homog/materials.py
 ho_homog/mesh_tools.py
 ho_homog/part.py

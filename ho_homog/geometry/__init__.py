@@ -77,6 +77,21 @@ from .tools import (
 )
 from .transformations import plane_reflection, point_reflection, rotation, translation
 
+DEFAULT_GMSH_OPTIONS = {
+    "General.Terminal": 1,
+    "General.Verbosity": 5,
+    "Geometry.AutoCoherence": 0,
+    "Mesh.ColorCarousel": 2,
+    # * 0=by element type, 1=by elementary entity, 2=by physical entity,3=by partition
+    "Mesh.MeshOnlyVisible": 0,
+    # TODO : Should be in the init file of the mesh_tools module.
+    "Mesh.CharacteristicLengthExtendFromBoundary": 0,
+    "Mesh.SaveAll": 0,
+    "Mesh.Binary": 0,
+    "Mesh.MshFileVersion": 2.2,
+    "Mesh.Algorithm": 5,
+}
+
 
 def init_geo_tools():
     """
@@ -84,20 +99,8 @@ def init_geo_tools():
     In addition, some options are set to custom values.
     """
     gmsh.initialize()  # ? Utiliser l'argument sys.argv ? cf script boolean.py
-    set_gmsh_option("General.Terminal", 1)
-    set_gmsh_option("General.Verbosity", 5)
-    set_gmsh_option("Geometry.AutoCoherence", 0)
-    set_gmsh_option("Mesh.ColorCarousel", 2)
-    # * 0=by element type, 1=by elementary entity, 2=by physical entity, 3=by partition
-    set_gmsh_option("Mesh.MeshOnlyVisible", 0)
-    # TODO : Should be in the init file of the mesh_tools module.
-    set_gmsh_option("Mesh.CharacteristicLengthExtendFromBoundary", 0)
-    set_gmsh_option("Mesh.SaveAll", 0)
-    set_gmsh_option("Mesh.Binary", 0)
-    set_gmsh_option("Mesh.MshFileVersion", 2.2)
-    set_gmsh_option("Mesh.Algorithm", 5)
-    # * 2D mesh algorithm (1=MeshAdapt, 2=Automatic,...)
-    # info about gmsh module
+    for option, val in DEFAULT_GMSH_OPTIONS.items():
+        set_gmsh_option(option, val)
     logger.info(f"gmsh module path : {Path(gmsh.__file__).resolve()}")
     logger.info("Gmsh SDK version : %s", gmsh.option.getString("General.Version"))
 
