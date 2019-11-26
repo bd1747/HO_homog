@@ -363,6 +363,13 @@ def set_periodicity_pairs(slaves, masters, translation_v=np.array(())):
     Il n'est pas nécessaire de donner le vecteur translation explicitement,
     on se sert des points des éléments de slaves et master pour le définir
     """
+    if (not slaves) or (not masters):
+        logger.warning(
+            "No slave or master geometrical entities are given for the definition of a periodicity constraint."
+        )
+        logger.warning("This periodicity constraint will be ignored.")
+        return False
+
     all_entities = slaves + masters
     if all(isinstance(e, geo.Curve) for e in all_entities):
         geo_dim = 1
@@ -378,21 +385,23 @@ def set_periodicity_pairs(slaves, masters, translation_v=np.array(())):
     for e in all_entities:
         if not e.tag:
             e.add_gmsh()
+
     if translation_v.any():
         vect = translation_v
+    elif geo_dim == 1:
+        vect = slaves[0].def_pts[0].coord - masters[0].def_pts[0].coord
     else:
-        if geo_dim == 1:
-            vect = slaves[0].def_pts[0].coord - masters[0].def_pts[0].coord
-        else:
-            raise ValueError(
-                "For 2D entities the translation vector must be explicitely given."
-            )
+        raise ValueError(
+            "For 2D entities the translation vector must be explicitely given."
+        )
+
     model.mesh.setPeriodic(
         geo_dim,
         [s.tag for s in slaves],
         [m.tag for m in masters],
         translation2matrix(vect),
     )
+    return True
 
 
 def sort_function_factory(dir_v):
@@ -435,6 +444,4 @@ def order_curves(curves, dir_v, orientation=False):
                     f"Nouvel ordre des definition points : {[p.coord for p in c.def_pts]}"
                 )
     return None
-
-
 
