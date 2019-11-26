@@ -379,9 +379,4 @@ def pantograph_E11only_RVE(
             ll.round_corner_explicit(fillet_r)
     logger.info("Done rounding all corners of pattern line-loops")
     fine_pts = geo.remove_duplicates(constr_pts)
-    import matplotlib.pyplot as plt
-
-    for ll in pattern:
-        ll.plot2D()
-    plt.show()
     return Gmsh2DRVE(pattern, cell_vect, nb_cells, offset, fine_pts, soft_mat, name)
