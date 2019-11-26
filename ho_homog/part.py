@@ -13,6 +13,7 @@ import dolfin as fe
 import ho_homog.materials as mat
 from subprocess import run
 from pathlib import Path
+from ho_homog.toolbox_gmsh import msh_conversion
 
 plt.ioff()
 
@@ -98,21 +99,39 @@ class FenicsPart(object):
         if not isinstance(mesh_path, Path):
             mesh_path = Path(mesh_path)
         name = mesh_path.stem
-        if mesh_path.suffix == "xml":
+        suffix = mesh_path.suffix
+
+        if suffix not in fetools.SUPPORTED_MESH_SUFFIX:
+            # ! TOCOMMIT : UTILISATION DE L'OUTIL DE CONVERSION
+            mesh_file_paths = msh_conversion(
+                mesh_path, format_=".xml", subdomains=subdomains_import
+            )
+            try:
+                mesh_path = mesh_file_paths[0]
+            except IndexError as error:
+                mesh_path = mesh_file_paths
+                logger.warning(error)
+
+        # Each supported mesh format -> one if structure
+        if suffix == ".xml":
             mesh = fe.Mesh(str(mesh_path))
-        elif mesh_path.suffix == ".xdmf":
-            mesh = fe.Mesh()
-            with fe.XDMFFile(str(mesh_path)) as file_in:
-                file_in.read(mesh)
-        else:
-            cmd = f"dolfin-convert {mesh_path} {mesh_path.with_suffix('.xml')}"
-            run(cmd, shell=True, check=True)
-            mesh_path = mesh_path.with_suffix(".xml")
-            mesh = fe.Mesh(str(mesh_path))
+
+        if suffix == ".xdmf":
+            if subdomains_import:
+                mesh, subdomains, facets = fetools.xdmf_mesh(mesh_path, True)
+                logger.info(
+                    f"Import of a mesh from {mesh_path} file, with subdomains data"
+                )
+            else:
+                mesh = fetools.xdmf_mesh(mesh_path, False)
+                logger.info(
+                    f"Import of a mesh from {mesh_path} file, without subdomains data"
+                )
+
         if subdomains_import:
             # ! Faire adaptation pour xdmf
-            subdo_path = mesh_path.with_name(name + "_physical_region.xml")
-            facet_path = mesh_path.with_name(name + "_facet_region.xml")
+            subdo_path = mesh_path.with_name(f"{name}_physical_region{suffix}")
+            facet_path = mesh_path.with_name(f"{name}_facet_region{suffix}")
             if subdo_path.exists():
                 subdomains = fe.MeshFunction("size_t", mesh, str(subdo_path))
                 subdo_val = fetools.get_MeshFunction_val(subdomains)

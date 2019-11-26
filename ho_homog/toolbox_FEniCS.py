@@ -34,6 +34,9 @@ DOLFIN_LU_METHODS = {
 }
 
 
+SUPPORTED_MESH_SUFFIX = (".xml", ".xdmf")
+
+
 def get_MeshFunction_val(msh_fctn):
     """
     Get information about the set of values that a given MeshFunction outputs.

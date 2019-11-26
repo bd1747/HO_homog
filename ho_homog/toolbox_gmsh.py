@@ -43,8 +43,57 @@ def process_gmsh_log(gmsh_log: list, detect_error=True):
         raise AssertionError("Gmsh logging messages signal errors.")
 
 
+def conversion_to_xdmf(i_path, o_path, cell_reg, facet_reg, dim, subdomains=False):
+    """Convert a ".msh" mesh generated with Gmsh to a xdmf mesh file.
+
+    Parameters
+    ----------
+    i_path : Path
+    o_path : Path
+        Desired path for the converted mesh
+    cell_reg : Path
+        Desired path of the extra file for cell regions if subdomains are retained.
+    facet_reg : Path
+        Desired path of the extra file for facet regions if subdomains are retained.
+    dim: int
+        Geometrical dimension of the mesh (2D or 3D).
+    subdomains : bool, optional
+        If True, extra files are created to store information about subdomains.
+        (default: False)
+    """
+    m = meshio.read(str(i_path))
+    if dim == 2:
+        m.points = m.points[:, :2]
+        geo_only = meshio.Mesh(points=m.points, cells={"triangle": m.cells["triangle"]})
+        cell = "triangle"
+        face = "line"
+    elif dim == 3:
+        raise NotImplementedError("3D meshes are not supported yet.")
+    else:
+        ValueError
+    meshio.write(str(o_path), geo_only)
+    if subdomains:
+        cell_funct = meshio.Mesh(
+            points=m.points,
+            cells={cell: m.cells[cell]},
+            cell_data={cell: {"cell_data": m.cell_data[cell]["gmsh:physical"]}},
+        )
+        meshio.write(str(cell_reg), cell_funct)
+        facet_funct = meshio.Mesh(
+            points=m.points,
+            cells={face: m.cells[face]},
+            cell_data={face: {"facet_data": m.cell_data[face]["gmsh:physical"]}},
+        )
+        meshio.write(str(facet_reg), facet_funct)
+    return True
+
+
 def msh_conversion(
-    mesh, format_: str = ".xdmf", output_dir=None, subdomains: bool = False, dim: int = 2
+    mesh,
+    format_: str = ".xdmf",
+    output_dir=None,
+    subdomains: bool = False,
+    dim: int = 2,
 ):
     """
     Convert a ".msh" mesh generated with Gmsh to a format suitable for FEniCS.
@@ -104,33 +153,9 @@ def msh_conversion(
         cmd = f"dolfin-convert {input_path} {mesh_path}"
         run(cmd, shell=True, check=True)
     elif format_ == ".xdmf":
-        mesh = meshio.read(str(input_path))
-
-        if dim == 2:
-            mesh.points = mesh.points[:, :2]
-            geo_only = meshio.Mesh(
-                points=mesh.points, cells={"triangle": mesh.cells["triangle"]}
-            )
-            cell = "triangle"
-            face = "line"
-        elif dim == 3:
-            raise NotImplementedError("3D meshes are not supported yet.")
-        else:
-            ValueError
-        meshio.write(str(mesh_path), geo_only)
-        if subdomains:
-            cell_function = meshio.Mesh(
-                points=mesh.points,
-                cells={cell: mesh.cells[cell]},
-                cell_data={cell: {"cell_data": mesh.cell_data[cell]["gmsh:physical"]}},
-            )
-            meshio.write(str(physical_region), cell_function)
-            facet_function = meshio.Mesh(
-                points=mesh.points,
-                cells={face: mesh.cells[face]},
-                cell_data={face: {"facet_data": mesh.cell_data[face]["gmsh:physical"]}},
-            )
-            meshio.write(str(facet_region), facet_function)
+        conversion_to_xdmf(
+            input_path, mesh_path, physical_region, facet_region, dim, subdomains
+        )
     if subdomains:
         return (
             mesh_path,
