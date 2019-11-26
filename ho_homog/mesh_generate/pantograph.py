@@ -103,7 +103,15 @@ def pantograph_RVE(
 
 
 def pantograph_offset_RVE(
-    a, b, k, thickness, fillet_r=0., nb_cells=(1, 1), offset=(0.0, 0.0), soft_mat=False, name=""
+    a,
+    b,
+    k,
+    thickness,
+    fillet_r=0.0,
+    nb_cells=(1, 1),
+    offset=(0.0, 0.0),
+    soft_mat=False,
+    name="",
 ):
     """
     Generate a RVE object for the pantograph microstructure.
@@ -313,7 +321,7 @@ def pantograph_E11only_RVE(
     nb_cells = np.asarray(nb_cells)
     logger.info("Start defining the pantograph geometry")
     Lx = 4 * a
-    Ly = 4 * a
+    Ly = 4 * a + 2 * thickness
     cell_vect = np.array(((Lx, 0.0), (0.0, Ly)))
     e1 = np.array((a, 0.0, 0.0))
     e2 = np.array((0.0, a, 0.0))
@@ -327,24 +335,53 @@ def pantograph_E11only_RVE(
         geo.translation(L, -1 * e1),
         geo.translation(L, -1 * e2),
     ]
-    rhombus_v = [pt_O, geo.Point(e1 + 2 * e2), geo.Point(4 * e2), geo.Point(-e1 + 2 * e2)]
-    rhombus_h = [pt_O, geo.Point(-e2 + 2 * e1), geo.Point(4 * e1), geo.Point(e2 + 2 * e1)]
+    rhombus_v = [
+        pt_O,
+        geo.Point(e1 + 2 * e2),
+        geo.Point(4 * e2),
+        geo.Point(-e1 + 2 * e2),
+    ]
+    cut_shape_h = [
+        pt_O,
+        geo.Point(0.25 * (-2 * e1 + e2)),
+        geo.Point(0.25 * (-4 * e1 + e2)),
+        geo.Point(0.25 * (-4 * e1 - e2)),
+        # geo.Point(-2 * e1 - e2),
+        # geo.Point(6 * e1 - e2),
+        geo.Point(4 * e1 + 0.25 * (4 * e1 - e2)),
+        geo.Point(4 * e1 + 0.25 * (4 * e1 + e2)),
+        geo.Point(4 * e1 + 0.25 * (2 * e1 + e2)),
+        # geo.Point(6 * e1 + e2),
+        geo.Point(4 * e1),
+        geo.Point(e2 + 2 * e1),
+    ]
     square = geo.LineLoop(square, explicit=False)
     rhombus_v = geo.LineLoop(rhombus_v, explicit=False)
-    rhombus_h = geo.LineLoop(rhombus_h, explicit=False)
-    pattern = [square, rhombus_v, rhombus_h]
-    sym_rhombus = [geo.plane_reflection(rhombus_v, L, e1), geo.plane_reflection(rhombus_h, L, e2)]
+    cut_shape_h = geo.LineLoop(cut_shape_h, explicit=False)
+    pattern = [square, rhombus_v, cut_shape_h]
+    sym_rhombus = [
+        geo.plane_reflection(rhombus_v, L, e1),
+        geo.plane_reflection(cut_shape_h, L, e2),
+    ]
     for ll in sym_rhombus:
         ll.reverse()
     pattern += sym_rhombus
     pattern = geo.remove_duplicates(pattern)
+    for ll in pattern:
+        geo.translation(ll, np.array((0.0, thickness, 0.0)))
     logger.info("Done removing of the line-loops duplicates")
     constr_pts = [copy.deepcopy(pt) for ll in pattern for pt in iter((ll.vertices))]
     for ll in pattern:
         ll.offset(thickness)
+
     if fillet_r:
         for ll in pattern:
             ll.round_corner_explicit(fillet_r)
     logger.info("Done rounding all corners of pattern line-loops")
     fine_pts = geo.remove_duplicates(constr_pts)
+    import matplotlib.pyplot as plt
+
+    for ll in pattern:
+        ll.plot2D()
+    plt.show()
     return Gmsh2DRVE(pattern, cell_vect, nb_cells, offset, fine_pts, soft_mat, name)

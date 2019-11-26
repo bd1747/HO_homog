@@ -24,7 +24,7 @@ class PhysicalGroup(object):
 
     all_groups = dict()
 
-    def __init__(self, entities, geo_dim, name=None):
+    def __init__(self, entities, geo_dim, name="", tag=0):
         """
         Gather multiple instances of one of the geometrical Python classes
         (Point, Curve, PlaneSurface) to form a single object in the gmsh model.
@@ -42,6 +42,8 @@ class PhysicalGroup(object):
             Geometrical dimension of the entities that are gathered.
         name : string, optional
             name of the group.
+        tag : int
+            Impose a tag.
 
         """
         try:
@@ -53,6 +55,8 @@ class PhysicalGroup(object):
         self.dim = geo_dim
         self.name = name
         self.tag = None
+        if tag:
+            self._tag = tag
         try:
             PhysicalGroup.all_groups[self.dim].append(self)
         except KeyError:
@@ -68,7 +72,11 @@ class PhysicalGroup(object):
                 item.add_gmsh()
             tags.append(item.tag)
         factory.synchronize()
-        self.tag = model.addPhysicalGroup(self.dim, tags)
+        try:
+            self.tag = model.addPhysicalGroup(self.dim, tags, self._tag)
+        except AttributeError:
+            self.tag = model.addPhysicalGroup(self.dim, tags)
+
         # ! TEMPORAIRE, un appel à synchronize devrait pouvoir être enlevé.
         logger.info(f"Physical group {self.tag} of dim {self.dim} added to gmsh")
         phy_before = model.getPhysicalGroups()
@@ -86,6 +94,13 @@ class PhysicalGroup(object):
         )
         if self.name:
             model.setPhysicalName(self.dim, self.tag, self.name)
+
+    def remove_gmsh(self):
+        """
+        Remove this physical group of the current model
+        """
+        model.removePhysicalGroups([(self.dim, self.tag)])
+        self.tag = None
 
     def add_to_group(self, entities):
         """
@@ -132,6 +147,8 @@ class PhysicalGroup(object):
         Make only entities that belong to at least one physical group visible,
         or make all geometrical entities visibles.
 
+        Only physical groups that are active in the gmsh model are taken into account.
+
         Parameters
         ----------
         val : bool
@@ -143,7 +160,8 @@ class PhysicalGroup(object):
             dimtags = list()
             for gps in cls.all_groups.values():
                 for gp in gps:
-                    dimtags += [(gp.dim, ent.tag) for ent in gp.entities]
+                    if gp.tag:
+                        dimtags += [(gp.dim, ent.tag) for ent in gp.entities]
             model.setVisibility(dimtags, 1, recursive=True)
         else:
             model.setVisibility(model.getEntities(), 1)

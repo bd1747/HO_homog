@@ -429,9 +429,25 @@ def Gmsh2DPartFromRVE(cell: Gmsh2DRVE, nb_cells, part_name=None):
         all_surfaces = cell_surfaces_by_gp[i] + list(
             flatten(repeated_surfaces_by_gp[i])
         )
-        phy_surfaces.append(geo.PhysicalGroup(all_surfaces, 2))
+        tag = cell.phy_surf[i].tag + 1000
+        name = cell.phy_surf[i].name
+        phy_surfaces.append(geo.PhysicalGroup(all_surfaces, 2, name, tag))
+    # gmsh.fltk.run()
+    for gp in cell.phy_surf:
+        gp.remove_gmsh()
+    factory.synchronize()
     for gp in phy_surfaces:
         gp.add_gmsh()
+    # gmsh.fltk.run()
+    # ! Pour le moment, il semble impossible de réutiliser le tag d'un physical group
+    # ! qui a été supprimé.
+    # ! Voir : \Experimental\Test_traction_oct19\pb_complet\run_3\MWE_reuse_tag.py
+    # ! Autre solution :
+    # ! - Compléter les physical group existants ?
+    # !      Impossible car groups déjà ajoutés au model
+    # ! Utiliser un autre tag, avec une règle pour relier les 2.
+    # !     Solution retenue. Règle choisie : le tag pour la part = 1000 + tag pour la cell
+
     # TODO : All mesh generation
     geo.PhysicalGroup.set_group_mesh(True)
     model.mesh.generate(1)
@@ -470,6 +486,7 @@ __all__ = [
     "pantograph_RVE",
     "pantograph_offset_RVE",
     "beam_pantograph_RVE",
+    "pantograph_E11only_RVE",
     "auxetic_square_RVE",
     "Gmsh2DRVE",
     "Gmsh2DPart",

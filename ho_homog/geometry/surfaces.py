@@ -132,7 +132,11 @@ class LineLoop(object):
         self.info_offset = True
         for i in range(len(self.vertices)):
             new_vrtces[i - 1] = offset(
-                self.vertices[i - 1], self.vertices[i - 2], self.vertices[i], t, method=method
+                self.vertices[i - 1],
+                self.vertices[i - 2],
+                self.vertices[i],
+                t,
+                method=method,
             )
         self.offset_dpcmt = [
             np.linalg.norm(new.coord - prev.coord)
@@ -415,7 +419,7 @@ def surface_bool_intersect(body, tool):
             ops_output.append(outpt)
         else:  # Tool entirely outside of body or entirely inside.
             t_copy_dimtag = factory.copy([(2, t.tag)])
-            factory.synchronize()  # * Peut être supprimé
+            factory.synchronize()  # ! Peut être supprimé ?
             outpt = factory.intersect(
                 [(2, body.tag)], t_copy_dimtag, removeObject=False, removeTool=True
             )
