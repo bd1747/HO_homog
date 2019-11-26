@@ -16,12 +16,15 @@ from . import Gmsh2DRVE, logger
 model = gmsh.model
 factory = model.occ
 
+
 def auxetic_square_RVE(
     L, a, t, nb_cells=(1, 1), offset=(0.0, 0.0), soft_mat=False, name=""
 ):
     """
-    Create an instance of Gmsh2DRVE that represents a RVE of the auxetic square microstructure.
-    The geometry that is specific to this microstructure is defined in this staticmethod. Then, the generic operations will be performed with the Gmsh2DRVE methods.
+    Create an instance of Gmsh2DRVE that represents a RVE of
+    the auxetic square microstructure.
+
+    The generic operations will be performed with the Gmsh2DRVE methods.
 
     Parameters
     ----------
@@ -34,7 +37,8 @@ def auxetic_square_RVE(
     nb_cells : tuple or 1D array
         nb of cells in each direction of repetition
     offset : tuple or 1D array
-        Relative position inside a cell of the point that will coincide with the origin of the global domain
+        Relative position inside a cell of the point that
+        will coincide with the origin of the global domain.
 
     Returns
     -------
@@ -53,7 +57,7 @@ def auxetic_square_RVE(
     b = (L - a) / 2.0
     e1 = np.array((L, 0.0, 0.0))
     e2 = np.array((0.0, L, 0.0))
-    I = geo.Point(1 / 2.0 * (e1 + e2))
+    C = geo.Point(1 / 2.0 * (e1 + e2))
     M = geo.Point(1 / 4.0 * (e1 + e2))
 
     e3 = np.array((0.0, 0.0, 1.0))
@@ -62,8 +66,8 @@ def auxetic_square_RVE(
     center_pts = [[geo.Point(np.array(coord)) for coord in gp] for gp in center_pts]
     center_lines = [geo.Line(*pts) for pts in center_pts]
     center_lines += [geo.point_reflection(ln, M) for ln in center_lines]
-    center_lines += [geo.plane_reflection(ln, I, e1) for ln in center_lines]
-    center_lines += [geo.plane_reflection(ln, I, e2) for ln in center_lines]
+    center_lines += [geo.plane_reflection(ln, C, e1) for ln in center_lines]
+    center_lines += [geo.plane_reflection(ln, C, e2) for ln in center_lines]
     center_lines = geo.remove_duplicates(center_lines)
 
     for ln in center_lines:
@@ -89,9 +93,9 @@ def auxetic_square_RVE(
 
     for ll in pattern_ll:
         ll.round_corner_explicit(t / 2)
-        filter_sides = (
-            list()
-        )  # * Pour ne pas essayer d'ajouter au model gmsh des lignes de longueur nulle. (Error : could not create line)
+        filter_sides = list()
+        # * Pour ne pas essayer d'ajouter au model gmsh des lignes de longueur nulle.
+        # * (Error : could not create line)
         for crv in ll.sides:
             if not crv.def_pts[0] == crv.def_pts[-1]:
                 filter_sides.append(crv)
@@ -99,6 +103,4 @@ def auxetic_square_RVE(
 
     fine_pts = geo.remove_duplicates(flatten([ln.def_pts for ln in center_lines]))
 
-    return Gmsh2DRVE(
-        pattern_ll, gen_vect, nb_cells, offset, fine_pts, soft_mat, name
-    )
+    return Gmsh2DRVE(pattern_ll, gen_vect, nb_cells, offset, fine_pts, soft_mat, name)
