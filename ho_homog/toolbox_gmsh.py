@@ -11,6 +11,7 @@ import logging
 from pathlib import Path
 import meshio
 from subprocess import run
+import gmsh
 
 gmsh_logger = logging.getLogger("ho_homog.gmsh")
 

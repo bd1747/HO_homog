@@ -367,9 +367,11 @@ def pantograph_E11only_RVE(
         ll.reverse()
     pattern += sym_rhombus
     pattern = geo.remove_duplicates(pattern)
+    translated_pattern = list()
     for ll in pattern:
-        geo.translation(ll, np.array((0.0, thickness, 0.0)))
+        translated_pattern.append(geo.translation(ll, np.array((0.0, thickness, 0.0))))
     logger.info("Done removing of the line-loops duplicates")
+    pattern = translated_pattern
     constr_pts = [copy.deepcopy(pt) for ll in pattern for pt in iter((ll.vertices))]
     for ll in pattern:
         ll.offset(thickness)
