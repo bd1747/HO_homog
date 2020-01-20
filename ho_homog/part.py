@@ -110,6 +110,7 @@ class FenicsPart(object):
             except IndexError as error:
                 mesh_path = mesh_file_paths
                 logger.warning(error)
+            suffix = mesh_path.suffix
 
         # Each supported mesh format -> one if structure
         subdomains, facets = None, None

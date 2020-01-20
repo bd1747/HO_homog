@@ -12,7 +12,7 @@ import gmsh
 
 import ho_homog.geometry as geo
 from ho_homog import GEO_TOLERANCE, pckg_logger
-from ho_homog.mesh_generate_2D import Gmsh2DRVE
+from ho_homog.mesh_generate import pantograph
 from ho_homog.full_scale_pb import FullScaleModel
 from ho_homog.materials import Material
 from ho_homog.part import FenicsPart
@@ -43,7 +43,7 @@ a = 1
 b, k = a, a / 3
 r = 0.05
 gmsh.logger.start()
-panto_geo = Gmsh2DRVE.pantograph(
+panto_geo = pantograph.pantograph_RVE(
     a, b, k, 0.1, nb_cells=(10, 1), soft_mat=True, name="panto_with_soft"
 )
 process_gmsh_log(gmsh.logger.get())
