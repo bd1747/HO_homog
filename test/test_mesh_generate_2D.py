@@ -35,19 +35,17 @@ def test_rve_2_part():
 
 
 def test_pantograph_offset():
-    geo.set_gmsh_option('Mesh.MshFileVersion', 4.1)
+    geo.set_gmsh_option("Mesh.MshFileVersion", 4.1)
     a = 1
-    b, k = a, a/3
+    b, k = a, a / 3
     t = 0.02
     panto_test = mesh2D.pantograph_offset_RVE(
-        a, b, k, t, nb_cells=(1, 1), soft_mat=False, name='panto_rve_1x1')
-    lc_ratio = 1/6
-    lc_min_max = (lc_ratio*t*a, lc_ratio*a)
-    panto_test.main_mesh_refinement((2*t*a, a), lc_min_max, False)
+        a, b, k, t, nb_cells=(1, 1), soft_mat=False, name="panto_rve_1x1"
+    )
+    lc_ratio = 1 / 6
+    lc_min_max = (lc_ratio * t * a, lc_ratio * a)
+    panto_test.main_mesh_refinement((2 * t * a, a), lc_min_max, False)
     panto_test.mesh_generate()
     gmsh.model.mesh.renumberNodes()
     gmsh.model.mesh.renumberElements()
     gmsh.write("panto_rve_offset.msh")
-
-
-test_pantograph_offset()
