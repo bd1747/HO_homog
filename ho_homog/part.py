@@ -102,7 +102,6 @@ class FenicsPart(object):
         suffix = mesh_path.suffix
 
         if suffix not in fetools.SUPPORTED_MESH_SUFFIX:
-            # ! TOCOMMIT : UTILISATION DE L'OUTIL DE CONVERSION
             mesh_file_paths = msh_conversion(
                 mesh_path, format_=".xml", subdomains=subdomains_import
             )
@@ -113,8 +112,31 @@ class FenicsPart(object):
                 logger.warning(error)
 
         # Each supported mesh format -> one if structure
+        subdomains, facets = None, None
         if suffix == ".xml":
             mesh = fe.Mesh(str(mesh_path))
+            if subdomains_import:
+                subdo_path = mesh_path.with_name(f"{name}_physical_region.xml")
+                facet_path = mesh_path.with_name(f"{name}_facet_region.xml")
+                if subdo_path.exists():
+                    subdomains = fe.MeshFunction("size_t", mesh, str(subdo_path))
+                    subdo_val = fetools.get_MeshFunction_val(subdomains)
+                    logger.info(f"{subdo_val[0]} physical regions imported.")
+                    logger.info(f"The values of their tags are : {subdo_val[1]}")
+                else:
+                    logger.info(
+                        f"For mesh file {mesh_path.name}, _physical_region.xml file is missing."
+                    )
+
+                if facet_path.exists():
+                    facets = fe.MeshFunction("size_t", mesh, str(facet_path))
+                    facets_val = fetools.get_MeshFunction_val(facets)
+                    logger.info(f"{facets_val[0]} facet regions imported.")
+                    logger.info(f"The values of their tags are : {facets_val[1]}")
+                else:
+                    logger.info(
+                        f"For mesh file {mesh_path.name}, _facet_region.xml file is missing."
+                    )
 
         if suffix == ".xdmf":
             if subdomains_import:
@@ -127,35 +149,6 @@ class FenicsPart(object):
                 logger.info(
                     f"Import of a mesh from {mesh_path} file, without subdomains data"
                 )
-
-        if subdomains_import:
-            # ! Faire adaptation pour xdmf
-            subdo_path = mesh_path.with_name(f"{name}_physical_region{suffix}")
-            facet_path = mesh_path.with_name(f"{name}_facet_region{suffix}")
-            if subdo_path.exists():
-                subdomains = fe.MeshFunction("size_t", mesh, str(subdo_path))
-                subdo_val = fetools.get_MeshFunction_val(subdomains)
-                logger.info(f"{subdo_val[0]} physical regions imported.")
-                logger.info(f"The values of their tags are : {subdo_val[1]}")
-            else:
-                logger.info(
-                    f"For mesh file {mesh_path.name}, _physical_region.xml file is missing."
-                )
-                subdomains = None
-            if facet_path.exists():
-                facets = fe.MeshFunction("size_t", mesh, str(facet_path))
-                facets_val = fetools.get_MeshFunction_val(facets)
-                logger.info(f"{facets_val[0]} facet regions imported.")
-                logger.info(f"The values of their tags are : {facets_val[1]}")
-            else:
-                logger.info(
-                    f"For mesh file {mesh_path.name}, _facet_region.xml file is missing."
-                )
-                facets = None
-        else:
-            subdomains = fe.MeshFunction("size_t", mesh, mesh.topology().dim())
-            subdomains.set_all(explicit_subdo_val)
-            facets = None
 
         if plots:
             plt.figure()
