@@ -162,32 +162,43 @@ def function_errornorm(u, v, norm_type="L2", enable_diff_fspace=False):
     return fe.norm(difference, norm_type)
 
 
-def local_project(v, fspace, solver_method: str = "", metadata: dict = {}):
+def local_project(v, fspace, solver_method: str = "", **kwargs):
     """
     Info : https://comet-fenics.readthedocs.io/en/latest/tips_and_tricks.html#efficient-projection-on-dg-or-quadrature-spaces #noqa
 
     Parameters
     ----------
     v : [type]
-        [description]
+        input field
     fspace : [type]
         [description]
     solver_method : str, optional
-        "LU" or "Cholesky" factorization
+        "LU" or "Cholesky" factorization. LU method used by default.
+
+    keyword arguments
+    ----------
     metadata : dict, optional
         This can be used to deﬁne diﬀerent quadrature degrees for diﬀerent
         terms in a form, and to override other form compiler speciﬁc options
         separately for diﬀerent terms. By default {}
         See UFL user manual for more information
+        ** WARNING** : May be over ignored if dx argument is also used. (Non étudié)
+    dx : Measure
+        Impose the dx measure for the projection.
+        This is for example useful to do some kind of interpolation on DG functionspaces.
 
     Returns
     -------
     Function
     """
+    metadata = kwargs.get("metadata", {})
+    dX = kwargs.get("dx", fe.dx(metadata=metadata))
+
     dv = fe.TrialFunction(fspace)
     v_ = fe.TestFunction(fspace)
-    a_proj = fe.inner(dv, v_) * fe.dx(metadata=metadata)
-    b_proj = fe.inner(v, v_) * fe.dx(metadata=metadata)
+    a_proj = fe.inner(dv, v_) * dX
+    b_proj = fe.inner(v, v_) * dX
+
     if solver_method == "LU":
         solver = fe.LocalSolver(
             a_proj, b_proj, solver_type=fe.cpp.fem.LocalSolver.SolverType.LU
@@ -305,3 +316,4 @@ def xdmf_mesh(mesh_file, import_subdomains=False, facet_file="", physical_file="
         subdomains = fe.cpp.mesh.MeshFunctionSizet(mesh, cell_vc)
 
     return mesh, subdomains, facet_regions
+
