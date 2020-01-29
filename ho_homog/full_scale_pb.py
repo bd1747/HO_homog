@@ -265,7 +265,8 @@ class FullScaleModel(object):
                 L_terms += contrib_list
             L = sum(L_terms)
         else:
-            L = 0.0
+            zero = fe.Constant(np.zeros(shape=self.v.ufl_shape))
+            L = fe.dot(zero, self.v) * self.measures[self.part.dim]
 
         logger.info("Assembling system...")
         K, res = fe.assemble_system(self.a, L, self.Dirichlet_bc)
