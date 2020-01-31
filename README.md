@@ -72,6 +72,7 @@ The fenicstools toolbox can be useful for field reconstructions when the RVE mes
 
 This python package can be install with pip :
 ```bash
+pip install cppimport
 pip install git+https://github.com/mikaem/fenicstools.git --prefix=/.../lib/python3.6[or other version]/site-packages/
 ```
 
