@@ -59,6 +59,22 @@ pip3 install git+https://baptiste.durand@gitlab.enpc.fr/baptiste.durand/HO_homog
  pip3 install . --no-cache-dir
 ```
 
+#### Recommended tools
+For designing microstructures and generating meshes with HO_homog features, gmsh and its API must be installed.\ 
+The gmsh SDK that containt gmsh and the python API can be downloaded from the [official gmsh website](http://gmsh.info/). The files should then be put into the right directories by hand.The files must then be put into the right directories by hand.
+\ Alternatively, gmsh SDK can be directly install *in a pythonic way* using the unofficial Gmsh SDK installer : [gmsh-sdk](https://pypi.org/project/gmsh-sdk/) :
+```bash
+pip install --upgrade gmsh-sdk
+```
+
+The fenicstools toolbox can be useful for field reconstructions when the RVE mesh and the full_scale mesh do not match.
+> With the function interpolate_nonmatching_mesh_any it is possible to interpolate from a Function of any space on one mesh to a Function of any space on a different mesh. 
+
+This python package can be install with pip :
+```bash
+pip install git+https://github.com/mikaem/fenicstools.git --prefix=/.../lib/python3.6[or other version]/site-packages/
+```
+
 <!--
 ## Getting Started
 
