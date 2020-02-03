@@ -25,11 +25,16 @@ SOLVER_METHOD = "mumps"
 np.set_printoptions(precision=4, linewidth=150)
 np.set_printoptions(suppress=True)
 
+
+# TODO : Log levels of UFL and FFC should be manage outside ho_homog package
 logging.getLogger("UFL").setLevel(logging.DEBUG)
 logging.getLogger("FFC").setLevel(logging.DEBUG)
 # https://fenicsproject.org/qa/3669/how-can-i-diable-log-and-debug-messages-from-ffc/
 logger = logging.getLogger(__name__)
 
+
+# ! TODO : For each field (displacement, stress, strain),
+# ! TODO : definition of a method to get localization fields.
 
 class FenicsHomogenizationBeam(object):
     """ Homogenization of periodic beam in plane strain/stress

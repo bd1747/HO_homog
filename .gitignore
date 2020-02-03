@@ -6,3 +6,4 @@
 *.xdmf
 *.h5
 demo/loc_E12_u.pdf
+*.pyc.*
