@@ -98,30 +98,47 @@ def facet_plot2d(
     return plots
 
 
-def function_from_xdmf(function_space, function_name, xdmf_path):
+def function_from_xdmf(function_space, function_name="", xdmf_path=""):
     """Read a finite element function from a xdmf file with checkpoint format.
+        Multiple functions can also be read at once.
 
     Parameters
     ----------
     function_space : dolfin.FunctionSpace
         Function space appropriate for the previously saved function.
         The mesh must be identical to the one used for the saved function.
-    function_name : str
-        The name of the saved function.
-    xdmf_path : pathlib.Path
+    function_name : str or list of str
+        The name(s) of the saved function.
+    xdmf_path : pathlib.Path or str
         Path of the xdmf file. It can be a Path object or a string.
         Extension must be '.xmdf'
 
+    If multiple functions are requested: #TODO : test
+    the first argument must be a list of tuples (FunctionSpace, function name)
+    the second argument must be empty.
+    Ex: function_from_xdmf([(V,"u"),(W,"eps")], xdmf_path=checkpoint_path)
+
     Returns
     -------
-    dolfin.Function
-        New function that is identical to the previously saved function.
+    dolfin.Function, list of dolfin.Function
+        New function(s) that is(are) identical to the previously saved function(s).
     """
-    f = fe.Function(function_space)
-    file_in = fe.XDMFFile(str(xdmf_path))
-    file_in.read_checkpoint(f, function_name)
-    file_in.close()
-    return f
+    if isinstance(function_space, list):
+        all_f = list()
+        with fe.XDMFFile(str(xdmf_path)) as f_in:
+            for fspace, fname in function_space:
+                f = fe.Function(fspace)
+                f_in.read_checkpoint(f, fname)
+                f.rename(fname, "")
+                all_f.append(f)
+        return all_f
+    else:
+        f = fe.Function(function_space)
+        f_in = fe.XDMFFile(str(xdmf_path))
+        f_in.read_checkpoint(f, function_name)
+        f_in.close()
+        f.rename(function_name, "")
+        return f
 
 
 def function_errornorm(u, v, norm_type="L2", enable_diff_fspace=False):
@@ -316,4 +333,3 @@ def xdmf_mesh(mesh_file, import_subdomains=False, facet_file="", physical_file="
         subdomains = fe.cpp.mesh.MeshFunctionSizet(mesh, cell_vc)
 
     return mesh, subdomains, facet_regions
-
