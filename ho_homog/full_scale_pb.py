@@ -365,7 +365,6 @@ def reconstruction(
 
 
     """
-
     # TODO : récupérer topo_dim à partir des tenseurs de localisation, ou mieux, à partir des espaces fonctionnels
     # TODO : choisir comment on fixe la len des listes correspondantes aux composantes de u et de epsilon.
 
@@ -474,6 +473,8 @@ def reconstruction(
             values[:] = new_val
             vec.set_local(values)
             vec.apply("insert")
+        # TODO : Regarder si le passage par np array faire perdre du temps, et auquel cas si l'on peut s'en passer.
+        # TODO : avec axpy par exemple.
             # https://fenicsproject.org/docs/dolfin/2016.2.0/cpp/programmers-reference/la/GenericVector.html #noqa
 
         # * Components -> vector field

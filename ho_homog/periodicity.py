@@ -64,6 +64,7 @@ class PeriodicDomain(fe.SubDomain):
         part_vectors : np.array
             shape 2×2. Dimensions of the domain.
             Some of them will be used as periodicity vectors.
+            #TODO : Ajouter précision  : Vecteurs de périodicité en colonne
         per_choice : str
             Can contain X, Y (in the future : Z)
         dim : int, optional

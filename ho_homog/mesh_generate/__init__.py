@@ -447,10 +447,6 @@ def Gmsh2DPartFromRVE(cell: Gmsh2DRVE, nb_cells, part_name=None):
     factory.synchronize()
     for gp in phy_surfaces:
         gp.add_gmsh()
-    all_gp = model.getPhysicalGroups()
-    dimtags_part = [(gp.dim, gp.tag) for gp in phy_surfaces]
-    remove_gp = [dt for dt in all_gp if not dt in dimtags_part]
-    model.removePhysicalGroups(remove_gp)
     # ! Pour le moment, il semble impossible de réutiliser le tag d'un physical group
     # ! qui a été supprimé.
     # ! Voir : \Experimental\Test_traction_oct19\pb_complet\run_3\MWE_reuse_tag.py

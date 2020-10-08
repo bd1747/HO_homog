@@ -320,6 +320,7 @@ class Fenics2DRVE(FenicsPart):
             facets = None
 
         if plots:
+            # TODO : une seule méthode plot, appelée à chaque fois
             plt.figure()
             fe.plot(mesh)
             if subdomains is not None:
@@ -341,42 +342,43 @@ class Fenics2DRVE(FenicsPart):
 
 if __name__ == "__main__":
     pass
-    # geo.init_geo_tools()
+# TODO : Nettoyer
+# geo.init_geo_tools()
 
-    # a = 1
-    # b, k = a, a/3
-    # panto_test = Gmsh2DRVE.pantograph(a, b, k, 0.1, nb_cells=(2, 3), soft_mat=False, name='panto_test')
-    # panto_test.main_mesh_refinement((0.1,0.5),(0.03,0.3),False)
-    # panto_test.mesh_generate()
-    # os.system(f"gmsh {panto_test.name}.msh &")
+# a = 1
+# b, k = a, a/3
+# panto_test = Gmsh2DRVE.pantograph(a, b, k, 0.1, nb_cells=(2, 3), soft_mat=False, name='panto_test')
+# panto_test.main_mesh_refinement((0.1,0.5),(0.03,0.3),False)
+# panto_test.mesh_generate()
+# os.system(f"gmsh {panto_test.name}.msh &")
 
-    # a = 1
-    # b, k = a, a/3
-    # panto_test_offset = Gmsh2DRVE.pantograph(a, b, k, 0.1, nb_cells=(2,3), offset=(0.25,0.25), soft_mat=False, name='panto_test_offset')
-    # panto_test_offset.main_mesh_refinement((0.1,0.5),(0.03,0.3),False)
-    # panto_test_offset.mesh_generate()
-    # os.system(f"gmsh {panto_test_offset.name}.msh &")
+# a = 1
+# b, k = a, a/3
+# panto_test_offset = Gmsh2DRVE.pantograph(a, b, k, 0.1, nb_cells=(2,3), offset=(0.25,0.25), soft_mat=False, name='panto_test_offset')
+# panto_test_offset.main_mesh_refinement((0.1,0.5),(0.03,0.3),False)
+# panto_test_offset.mesh_generate()
+# os.system(f"gmsh {panto_test_offset.name}.msh &")
 
-    # L, t = 1, 0.05
-    # a = L-3*t
-    # aux_sqr_test = Gmsh2DRVE.auxetic_square(a, L, t, nb_cells=(4,3), soft_mat=False, name='aux_square_test')
-    # os.system(f"gmsh {aux_sqr_test.name}.brep &")
-    # aux_sqr_test.main_mesh_refinement((0.1,0.3), (0.01,0.05), False)
-    # aux_sqr_test.mesh_generate()
-    # os.system(f"gmsh {aux_sqr_test.name}.msh &")
+# L, t = 1, 0.05
+# a = L-3*t
+# aux_sqr_test = Gmsh2DRVE.auxetic_square(a, L, t, nb_cells=(4,3), soft_mat=False, name='aux_square_test')
+# os.system(f"gmsh {aux_sqr_test.name}.brep &")
+# aux_sqr_test.main_mesh_refinement((0.1,0.3), (0.01,0.05), False)
+# aux_sqr_test.mesh_generate()
+# os.system(f"gmsh {aux_sqr_test.name}.msh &")
 
-    # a = 1
-    # b = a
-    # w = a/50
-    # r = 4*w
-    # beam_panto_test = Gmsh2DRVE.beam_pantograph(a, b, w, r, nb_cells=(1, 1), offset=(0., 0.), soft_mat=False, name='beam_panto_test')
-    # os.system(f"gmsh {beam_panto_test.name}.brep &")
-    # beam_panto_test.main_mesh_refinement((5*w, a/2),(w/5, w), True)
-    # beam_panto_test.mesh_generate()
-    # os.system(f"gmsh {beam_panto_test.name}.msh &")
+# a = 1
+# b = a
+# w = a/50
+# r = 4*w
+# beam_panto_test = Gmsh2DRVE.beam_pantograph(a, b, w, r, nb_cells=(1, 1), offset=(0., 0.), soft_mat=False, name='beam_panto_test')
+# os.system(f"gmsh {beam_panto_test.name}.brep &")
+# beam_panto_test.main_mesh_refinement((5*w, a/2),(w/5, w), True)
+# beam_panto_test.mesh_generate()
+# os.system(f"gmsh {beam_panto_test.name}.msh &")
 
-    # gmsh.option.setNumber('Mesh.SurfaceFaces',1) #Display faces of surface mesh?
-    # gmsh.fltk.run()
+# gmsh.option.setNumber('Mesh.SurfaceFaces',1) #Display faces of surface mesh?
+# gmsh.fltk.run()
 
 # msh.set_background_mesh(field)
 
