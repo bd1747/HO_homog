@@ -60,11 +60,11 @@ pip3 install git+https://baptiste.durand@gitlab.enpc.fr/baptiste.durand/HO_homog
 ```
 
 #### Recommended tools
-For designing microstructures and generating meshes with HO_homog features, gmsh and its API must be installed.\ 
-The gmsh SDK that containt gmsh and the python API can be downloaded from the [official gmsh website](http://gmsh.info/). The files should then be put into the right directories by hand.The files must then be put into the right directories by hand.
-\ Alternatively, gmsh SDK can be directly install *in a pythonic way* using the unofficial Gmsh SDK installer : [gmsh-sdk](https://pypi.org/project/gmsh-sdk/) :
+For designing microstructures and generating meshes with HO_homog features, gmsh and its SDK (Software Development Kit) must be installed.\ 
+The gmsh SDK that containt gmsh and the python API can be downloaded from the [official gmsh website](http://gmsh.info/). The files should then be put into the right directories by hand. In this case, make sure that the `gmsh-4.6.0-Linux64-sdk/lib` sub-folder is reachable by python (e.g. move this subfolder to a suitable directory by hand).\ 
+Alternatively, both gmsh and its SDK can be downloaded and installed with pip (recommended solution) :
 ```bash
-pip install --upgrade gmsh-sdk
+pip install --upgrade gmsh
 ```
 
 The fenicstools toolbox can be useful for field reconstructions when the RVE mesh and the full_scale mesh do not match.
