@@ -10,10 +10,6 @@ from pathlib import Path
 
 __version__ = "0.1"
 
-GEO_TOLERANCE = 1e-12
-
-from . import geometry, materials, periodicity
-from . import full_scale_pb, homog2d, mesh_generate, mesh_tools, part, toolbox_FEniCS
 
 log_level = logging.DEBUG
 log_path = Path("~/ho_homog_log/activity.log").expanduser()
@@ -24,6 +20,32 @@ pckg_logger.setLevel(logging.DEBUG)
 formatter = logging.Formatter(
     "%(asctime)s :: %(levelname)s :: %(name)s :: %(message)s", "%Y-%m-%d %H:%M:%S"
 )
+
+
+GEO_TOLERANCE = 1e-12
+
+try:
+    from . import geometry, mesh_tools, mesh_generate
+except ImportError:
+    pckg_logger.warning("Import of geometry and mesh generating submodules fails")
+
+try:
+    from . import materials
+except ImportError:
+    pckg_logger.warning("Import of material submodule fails")
+
+try:
+    from . import periodicity
+except ImportError:
+    pckg_logger.warning("Import of periodicity submodule fails")
+
+
+try:
+    from . import full_scale_pb, homog2d, part, toolbox_FEniCS
+except ImportError:
+    pckg_logger.warning("One of the following submodule imports fails : full_scale_pb, homog2d, part, toolbox_FEniCS")
+
+
 
 
 def set_log_handlers(level: int = log_level, path=log_path):
