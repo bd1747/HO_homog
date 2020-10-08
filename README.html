@@ -924,14 +924,14 @@ sudo apt-get install --no-install-recommends fenics
 <h3 id="installing">Installing</h3>
 <p>The <strong>HO_homog</strong> Python package can be installed with <code>pip</code>.</p>
 <ul>
-<li>Install it from the gitlab repository directly (preferred way):</li>
+<li>Install it directly from the gitlab repository :</li>
 </ul>
 <pre><code class="language-bash"><div>pip3 install git+https://baptiste.durand@gitlab.enpc.fr/baptiste.durand/HO_homog.git<span class="hljs-comment">#egg=ho_homog</span>
 </div></code></pre>
 <ul>
-<li>Or <a href="https://gitlab.enpc.fr/baptiste.durand/HO_homog/repository/archive.tar?ref=master">download</a> the HO_homog repository files. Then, move to the HO_homog directory and use <code>pip</code> :</li>
+<li>Or (recommended) <a href="https://gitlab.enpc.fr/baptiste.durand/HO_homog/repository/archive.tar?ref=master">download</a> / clone the HO_homog repository, then move to the HO_homog directory and use <code>pip</code> :</li>
 </ul>
-<pre><code class="language-bash"><div> pip3 install . --editable
+<pre><code class="language-bash"><div>pip install --editable .
 </div></code></pre>
 <h4 id="recommended-tools">Recommended tools</h4>
 <p>For designing microstructures and generating meshes with HO_homog features, gmsh and its SDK (Software Development Kit) must be installed.\

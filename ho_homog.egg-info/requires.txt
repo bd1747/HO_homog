@@ -1,4 +1,0 @@
-gmsh-sdk
-matplotlib
-more_itertools
-numpy
