@@ -221,15 +221,24 @@ class Gmsh2DRVE(object):
         else:
             try:
                 s = one(rve_s)
-                boundary = geo.AbstractSurface.get_surfs_boundary(s)
+                boundary = geo.AbstractSurface.get_surfs_boundary(s,recursive=False)
             except ValueError:
-                boundary = geo.AbstractSurface.get_surfs_boundary(rve_s)
-        factory.synchronize()
-        micro_bndry = [geo.macro_line_fragments(boundary, M_ln) for M_ln in macro_bndry]
-        macro_dir = [
-            macro_bndry[i].def_pts[-1].coord - macro_bndry[i].def_pts[0].coord
-            for i in range(len(macro_bndry) // 2)
-        ]
+                boundary = geo.AbstractSurface.get_surfs_boundary(rve_s,recursive=False)
+        for b in boundary:
+            b.get_boundary(get_coords=True)
+        # factory.synchronize()
+        micro_bndry = list()
+        for macro_line in macro_bndry:
+            fragments = geo.macro_line_fragments(boundary, macro_line)
+            for c in fragments:
+                c.gmsh_type = model.getType(1, c.tag)
+            lines_only = [c for c in fragments if c.gmsh_type == "Line"]
+            micro_bndry.append(lines_only)
+        macro_dir = list()
+        for i in range(len(macro_bndry) // 2):
+            macro_line = macro_bndry[i]
+            direction = macro_line.def_pts[-1].coord - macro_line.def_pts[0].coord
+            macro_dir.append(direction)
         for i, crvs in enumerate(micro_bndry):
             msh.order_curves(crvs, macro_dir[i % 2], orientation=True)
         msh.set_periodicity_pairs(micro_bndry[0], micro_bndry[2])
