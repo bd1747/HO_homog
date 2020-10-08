@@ -144,6 +144,9 @@ class Fenics2DHomogenization(object):
 
         if model == "E" or model == "EG" or model == "EGG":
             DictOfLocalizationsU["E"] = self.LocalizationE()["U"]
+            #TODO Renommer les champs enregistrés : 
+            #  for E_case, field in zip(E_NAMES, DictOfLocalizationsU["E"]):
+            #   .rename(f"loc_{EG_case}_u", "")
             DictOfLocalizationsSigma["E"] = self.LocalizationE()["Sigma"]
             DictOfLocalizationsEpsilon["E"] = self.LocalizationE()["Epsilon"]
 
