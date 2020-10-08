@@ -12,6 +12,18 @@ __version__ = "0.1"
 
 GEO_TOLERANCE = 1e-12
 
+
+log_level = logging.DEBUG
+log_path = Path("~/ho_homog_log/activity.log").expanduser()
+if not log_path.parent.exists():
+    log_path.parent.mkdir(mode=0o777, parents=True)
+pckg_logger = logging.getLogger(__name__)
+pckg_logger.setLevel(logging.DEBUG)
+formatter = logging.Formatter(
+    "%(asctime)s :: %(levelname)s :: %(name)s :: %(message)s", "%Y-%m-%d %H:%M:%S"
+)
+
+
 try:
     from . import geometry, mesh_tools, mesh_generate
 except ImportError:
@@ -33,15 +45,6 @@ try:
 except ImportError:
     pckg_logger.warning("One of the following submodule imports fails : full_scale_pb, homog2d, part, toolbox_FEniCS")
 
-log_level = logging.DEBUG
-log_path = Path("~/ho_homog_log/activity.log").expanduser()
-if not log_path.parent.exists():
-    log_path.parent.mkdir(mode=0o777, parents=True)
-pckg_logger = logging.getLogger(__name__)
-pckg_logger.setLevel(logging.DEBUG)
-formatter = logging.Formatter(
-    "%(asctime)s :: %(levelname)s :: %(name)s :: %(message)s", "%Y-%m-%d %H:%M:%S"
-)
 
 
 try:
