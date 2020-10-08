@@ -55,8 +55,7 @@ class PhysicalGroup(object):
         self.dim = geo_dim
         self.name = name
         self.tag = None
-        if tag:
-            self._tag = tag
+        self.input_tag = tag if tag else None
         try:
             PhysicalGroup.all_groups[self.dim].append(self)
         except KeyError:
@@ -72,9 +71,13 @@ class PhysicalGroup(object):
                 item.add_gmsh()
             tags.append(item.tag)
         factory.synchronize()
-        try:
-            self.tag = model.addPhysicalGroup(self.dim, tags, self._tag)
-        except AttributeError:
+        if self.input_tag:
+            try:
+                self.tag = model.addPhysicalGroup(self.dim, tags, self.input_tag)
+            except ValueError:
+                logger.warning(f"Tag {self.input_tag} already used for Physical groups")
+                self.tag = model.addPhysicalGroup(self.dim, tags)
+        else:
             self.tag = model.addPhysicalGroup(self.dim, tags)
 
         # ! TEMPORAIRE, un appel à synchronize devrait pouvoir être enlevé.
