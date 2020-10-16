@@ -9,7 +9,13 @@ Collection of tools designed to help users working with gmsh python API.
 
 import logging
 from pathlib import Path
-import meshio
+from . import pckg_logger
+
+try:
+    import meshio
+except ImportError:
+    pckg_logger.warning("Import of meshio fails.")
+
 from subprocess import run
 import gmsh
 
@@ -61,31 +67,57 @@ def conversion_to_xdmf(i_path, o_path, cell_reg, facet_reg, dim, subdomains=Fals
     subdomains : bool, optional
         If True, extra files are created to store information about subdomains.
         (default: False)
+
+    Source
+    ------
+    https://fenicsproject.discourse.group/t/transitioning-from-mesh-xml-to-mesh-xdmf-from-dolfin-convert-to-meshio/412/79?u=bd1747 #noqa
+
     """
-    m = meshio.read(str(i_path))
+    m = meshio.read(i_path)
     if dim == 2:
         m.points = m.points[:, :2]
-        geo_only = meshio.Mesh(points=m.points, cells={"triangle": m.cells["triangle"]})
-        cell = "triangle"
-        face = "line"
+        triangles_cells = list()
+        for cell in m.cells:
+            if cell.type == "triangle":
+                triangles_cells.append(("triangle", cell.data))
+        geo_only = meshio.Mesh(points=m.points, cells=triangles_cells)
+        cell_key = "triangle"
+        face_key = "line"
+
     elif dim == 3:
         raise NotImplementedError("3D meshes are not supported yet.")
+        # * INFO :
     else:
         ValueError
-    meshio.write(str(o_path), geo_only)
+
+    meshio.write(o_path, geo_only)
+
     if subdomains:
+        # TODO : à tester !
+        cell_data, facet_data = list(), list()
+        for key, data in m.cell_data_dict["gmsh:physical"].items():
+            if key == cell_key:
+                cell_data.append(data)
+            elif key == face_key:
+                facet_data.append(data)
+
+        cell_mesh, facet_mesh = list(), list()
+        for cell in m.cells:
+            if cell.type == cell_key:
+                cell_mesh.append((cell_key, cell.data))
+            if cell.type == face_key:
+                facet_mesh.append((face_key, cell.data))
+
         cell_funct = meshio.Mesh(
-            points=m.points,
-            cells={cell: m.cells[cell]},
-            cell_data={cell: {"cell_data": m.cell_data[cell]["gmsh:physical"]}},
+            points=m.points, cells=cell_mesh, cell_data={"cell_data": cell_data},
         )
-        meshio.write(str(cell_reg), cell_funct)
         facet_funct = meshio.Mesh(
-            points=m.points,
-            cells={face: m.cells[face]},
-            cell_data={face: {"facet_data": m.cell_data[face]["gmsh:physical"]}},
+            points=m.points, cells=facet_mesh, cell_data={"facet_data": facet_data},
         )
-        meshio.write(str(facet_reg), facet_funct)
+        # TODO : Regarder, si on se sert des sous-domaines de gmsh, si on peut mettre les cell data et les facet data dans le même fichier
+        # TODO : c.à.d cell_data = {"cell_data": cell_data, "facet_data":facet_data}
+        meshio.write(cell_reg, cell_funct)
+        meshio.write(facet_reg, facet_funct)
     return True
 
 

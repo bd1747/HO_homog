@@ -41,34 +41,17 @@ except ImportError:
 
 
 try:
-    from . import full_scale_pb, homog2d, part, toolbox_FEniCS
+    from . import toolbox_gmsh
 except ImportError:
-    pckg_logger.warning("One of the following submodule imports fails : full_scale_pb, homog2d, part, toolbox_FEniCS")
-
-
-
-try:
-    from . import geometry, mesh_tools, mesh_generate
-except ImportError:
-    pckg_logger.warning("Import of geometry and mesh generating submodules fails")
-
-try:
-    from . import materials
-except ImportError:
-    pckg_logger.warning("Import of material submodule fails")
-
-try:
-    from . import periodicity
-except ImportError:
-    pckg_logger.warning("Import of periodicity submodule fails")
+    pckg_logger.warning("Import of toolbox_gmsh submodule fails")
 
 
 try:
     from . import full_scale_pb, homog2d, part, toolbox_FEniCS
 except ImportError:
-    pckg_logger.warning("One of the following submodule imports fails : full_scale_pb, homog2d, part, toolbox_FEniCS")
-
-
+    pckg_logger.warning(
+        "One of the following submodule imports fails : full_scale_pb, homog2d, part, toolbox_FEniCS"
+    )
 
 
 def set_log_handlers(level: int = log_level, path=log_path):
