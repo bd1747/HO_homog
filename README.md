@@ -4,7 +4,11 @@ One Paragraph of project description goes here -->
 
 # HO_homog
 
-**TODO** : *One Paragraph of project description goes here*
+The python library HO-homog is designed for:
+* Implementation of higher order homogenization scheme based on asymptotic expansion (the equivalent medium can be a generalized continuum); 
+* Geometry modelling and mesh generation for periodic microstructures with high control of the mesh refinement;
+* Application of these homogenization scheme to the designed microstructures;
+* Comparison of the homogenization results with Direct Numerical Simulations (DNS).
 
 ## Getting Started
 
