@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)  # http://sametmax.com/ecrire-des-logs-en-p
 
 
 __all__ = [
+    "kagome",
     "pantograph",
     "duplicate_pattern",
     "offset_pattern",
@@ -229,26 +230,15 @@ class Gmsh2DRVE(object):
         else:
             try:
                 s = one(rve_s)
-                boundary = geo.AbstractSurface.get_surfs_boundary(s, recursive=False)
+                boundary = geo.AbstractSurface.get_surfs_boundary(s)
             except ValueError:
-                boundary = geo.AbstractSurface.get_surfs_boundary(
-                    rve_s, recursive=False
-                )
-        for b in boundary:
-            b.get_boundary(get_coords=True)
-        # factory.synchronize()
-        micro_bndry = list()
-        for macro_line in macro_bndry:
-            fragments = geo.macro_line_fragments(boundary, macro_line)
-            for c in fragments:
-                c.gmsh_type = model.getType(1, c.tag)
-            lines_only = [c for c in fragments if c.gmsh_type == "Line"]
-            micro_bndry.append(lines_only)
-        macro_dir = list()
-        for i in range(len(macro_bndry) // 2):
-            macro_line = macro_bndry[i]
-            direction = macro_line.def_pts[-1].coord - macro_line.def_pts[0].coord
-            macro_dir.append(direction)
+                boundary = geo.AbstractSurface.get_surfs_boundary(rve_s)
+        factory.synchronize()
+        micro_bndry = [geo.macro_line_fragments(boundary, M_ln) for M_ln in macro_bndry]
+        macro_dir = [
+            macro_bndry[i].def_pts[-1].coord - macro_bndry[i].def_pts[0].coord
+            for i in range(len(macro_bndry) // 2)
+        ]
         for i, crvs in enumerate(micro_bndry):
             msh.order_curves(crvs, macro_dir[i % 2], orientation=True)
         msh.set_periodicity_pairs(micro_bndry[0], micro_bndry[2])
@@ -351,6 +341,8 @@ class Gmsh2DPart(object):
 
 
 from .pantograph import pantograph_RVE, pantograph_offset_RVE, beam_pantograph_RVE
+from .kagome import kagome_RVE
+from .kagome import kagome_sym_RVE
 
 # from .other_2d_microstructures import auxetic_square_RVE
 
@@ -456,6 +448,10 @@ def Gmsh2DPartFromRVE(cell: Gmsh2DRVE, nb_cells, part_name=None):
     factory.synchronize()
     for gp in phy_surfaces:
         gp.add_gmsh()
+    all_gp = model.getPhysicalGroups()
+    dimtags_part = [(gp.dim, gp.tag) for gp in phy_surfaces]
+    remove_gp = [dt for dt in all_gp if not dt in dimtags_part]
+    model.removePhysicalGroups(remove_gp)
     # ! Pour le moment, il semble impossible de réutiliser le tag d'un physical group
     # ! qui a été supprimé.
     # ! Voir : \Experimental\Test_traction_oct19\pb_complet\run_3\MWE_reuse_tag.py
@@ -497,10 +493,13 @@ def Gmsh2DPartFromRVE(cell: Gmsh2DRVE, nb_cells, part_name=None):
     return Gmsh2DPart(part_vect, nb_cells, phy_surfaces, part_path)
 
 
+from . import kagome
 from . import pantograph
 
 __all__ = [
     "pantograph_RVE",
+    "kagome_RVE",
+    "kagome_sym_RVE",
     "pantograph_offset_RVE",
     "beam_pantograph_RVE",
     "pantograph_E11only_RVE",
