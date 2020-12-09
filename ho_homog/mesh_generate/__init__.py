@@ -30,8 +30,8 @@ logger = logging.getLogger(__name__)  # http://sametmax.com/ecrire-des-logs-en-p
 
 
 __all__ = [
-    "kagome",
     "pantograph",
+    "kagome",
     "duplicate_pattern",
     "offset_pattern",
     "Gmsh2DRVE",
@@ -341,8 +341,8 @@ class Gmsh2DPart(object):
 
 
 from .pantograph import pantograph_RVE, pantograph_offset_RVE, beam_pantograph_RVE
-from .kagome import kagome_RVE
-from .kagome import kagome_sym_RVE
+from .kagome import kagome_RVE, kagome_sym_RVE
+
 
 # from .other_2d_microstructures import auxetic_square_RVE
 

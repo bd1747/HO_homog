@@ -31,9 +31,27 @@ xdmf_parameters = dict(
 
 
 
-def kagome_RVE(alpha,name,r):
+def kagome_RVE(alpha,r,name=""):
+    """[summary]
+
+    Parameters
+    ----------
+    alpha : float
+        Paramètre d'ouverture, intervalle [0, 0.5]
+        0: configuration refermé
+        0.5: configuration complétement ouverte
+    name : str
+        
+    r : float
+        junction thinness, rayon de jonction / côté d'un triangle
+
+    La cellule est de taille constante,
+    par contre les triangles ont une taille qui dépend de l'angle d'ouverture.
+    """
     
     logger.info("Start defining the geometry")
+
+    name = name if name else "kagome"
 
     a = 1.0  # taille du réseau de triangle
     #alpha = 0.5# degré d'ouverture compris entre 0 et 0.5
