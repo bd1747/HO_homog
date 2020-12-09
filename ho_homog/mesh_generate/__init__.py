@@ -107,7 +107,9 @@ class Gmsh2DRVE(object):
     ):
         """
         Contrat : Créer un maillage pour des RVE 2D, plans, comportant au plus 2 matériaux constitutifs et pouvant contenir plusieurs cellules.
-        #! La cellule est un parallélogramme.
+
+        cell_vect : Vecteurs de périodicité en colonne, définit également le parallélogramme qui contient la cellule.
+        #! La cellule doit être un parallélogramme.
 
         Parameters
         ----------
@@ -146,9 +148,14 @@ class Gmsh2DRVE(object):
             duplicate_pattern(pattern_ll, nb_pattern, cell_vect)
 
         rve_vect = cell_vect * nb_cells[:, np.newaxis]
-        O = np.zeros((3,))
-        macro_vtx = [O, rve_vect[0], rve_vect[0] + rve_vect[1], rve_vect[1]]
-        macro_ll = geo.LineLoop([geo.Point(c) for c in macro_vtx])
+        pt_o = np.zeros((3,))
+        macro_vtcs = [
+            pt_o,
+            rve_vect[:, 0],
+            rve_vect[:, 0] + rve_vect[:, 1],
+            rve_vect[:, 1],
+        ]
+        macro_ll = geo.LineLoop([geo.Point(c) for c in macro_vtcs])
         macro_s = geo.PlaneSurface(macro_ll)
 
         if attractors:
@@ -221,9 +228,11 @@ class Gmsh2DRVE(object):
         else:
             try:
                 s = one(rve_s)
-                boundary = geo.AbstractSurface.get_surfs_boundary(s,recursive=False)
+                boundary = geo.AbstractSurface.get_surfs_boundary(s, recursive=False)
             except ValueError:
-                boundary = geo.AbstractSurface.get_surfs_boundary(rve_s,recursive=False)
+                boundary = geo.AbstractSurface.get_surfs_boundary(
+                    rve_s, recursive=False
+                )
         for b in boundary:
             b.get_boundary(get_coords=True)
         # factory.synchronize()
