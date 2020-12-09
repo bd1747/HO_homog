@@ -230,9 +230,11 @@ class Gmsh2DRVE(object):
         else:
             try:
                 s = one(rve_s)
-                boundary = geo.AbstractSurface.get_surfs_boundary(s,recursive=False)
+                boundary = geo.AbstractSurface.get_surfs_boundary(s, recursive=False)
             except ValueError:
-                boundary = geo.AbstractSurface.get_surfs_boundary(rve_s,recursive=False)
+                boundary = geo.AbstractSurface.get_surfs_boundary(
+                    rve_s, recursive=False
+                )
         for b in boundary:
             b.get_boundary(get_coords=True)
         # factory.synchronize()
