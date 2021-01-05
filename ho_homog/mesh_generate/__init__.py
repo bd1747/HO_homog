@@ -51,6 +51,7 @@ def duplicate_pattern(cell_ll, nb_cells, gen_vect):
         Number of cells in each direction.
     gen_vect : array
         The generating vectors that are related to the given microstruture.
+        Vecteurs de périodicité, en colonnes
 
     Returns
     -------
@@ -68,7 +69,7 @@ def duplicate_pattern(cell_ll, nb_cells, gen_vect):
             new_contours = list()
             for i in range(1, int(nb_cells[k])):
                 new_contours += [
-                    geo.translation(ll, i * gen_vect_3D[k]) for ll in repeated_ll
+                    geo.translation(ll, i * gen_vect_3D[:, k]) for ll in repeated_ll
                 ]
             repeated_ll += new_contours
     repeated_ll = geo.remove_duplicates(repeated_ll)
@@ -147,7 +148,7 @@ class Gmsh2DRVE(object):
         if not np.equal(nb_pattern, 1).all():
             duplicate_pattern(pattern_ll, nb_pattern, cell_vect)
 
-        rve_vect = cell_vect * nb_cells[:, np.newaxis]
+        rve_vect = cell_vect * np.asarray(nb_cells)
         pt_o = np.zeros((3,))
         macro_vtcs = [
             pt_o,
@@ -390,7 +391,7 @@ def Gmsh2DPartFromRVE(cell: Gmsh2DRVE, nb_cells, part_name=None):
     # TODO : Activer le model gmsh correspondant au RVE
     model.setCurrent(name)
     # TODO : Créer un domaine macro
-    part_vect = cell_vect * np.asarray(nb_cells)[:, np.newaxis]
+    part_vect = cell_vect * np.asarray(nb_cells)
     macro_vertices = [
         np.zeros((3,)),
         part_vect[0],
