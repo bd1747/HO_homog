@@ -14,8 +14,23 @@ from ho_homog.toolbox_FEniCS import (
 
 SOLVER_METHOD = "mumps"
 
-np.set_printoptions(precision=4, linewidth=150)
-np.set_printoptions(suppress=True)
+U_NAMES = ("U1", "U2")
+E_NAMES = ("E11", "E22", "E12")
+EG_NAMES = ("EG111", "EG221", "EG121", "EG112", "EG222", "EG122")
+EGG_NAMES = tuple(
+    [n.replace("EG", "EGG") + "1" for n in EG_NAMES]
+    + [n.replace("EG", "EGG") + "2" for n in EG_NAMES]
+)
+
+NAMES_MACRO_FIELDS = dict(
+    U=U_NAMES,
+    E=E_NAMES,
+    EG=EG_NAMES,
+    EGG=EGG_NAMES,
+    EGbis=tuple([n.replace("EG", "EGbis") for n in EG_NAMES]),
+    EGGbis=tuple([n.replace("EGG", "EGGbis") for n in EGG_NAMES]),
+)
+
 
 logging.getLogger("UFL").setLevel(logging.DEBUG)
 logging.getLogger("FFC").setLevel(logging.DEBUG)
@@ -24,8 +39,7 @@ logger = logging.getLogger(__name__)
 
 
 class Fenics2DHomogenization(object):
-    """ Homogenization of 2D orthotropic periodic laminates in plane strain. The direction of lamination is 3 and the invariant direction is 1
-    """
+    """ #TODOC """
 
     def __init__(self, fenics_2d_rve, **kwargs):
         """[summary]
@@ -144,11 +158,13 @@ class Fenics2DHomogenization(object):
 
         if model == "E" or model == "EG" or model == "EGG":
             DictOfLocalizationsU["E"] = self.LocalizationE()["U"]
-            #TODO Renommer les champs enregistrés : 
-            #  for E_case, field in zip(E_NAMES, DictOfLocalizationsU["E"]):
-            #   .rename(f"loc_{EG_case}_u", "")
+
             DictOfLocalizationsSigma["E"] = self.LocalizationE()["Sigma"]
             DictOfLocalizationsEpsilon["E"] = self.LocalizationE()["Epsilon"]
+
+            # TODO Renommer les champs enregistrés :
+            #  for E_case, field in zip(E_NAMES, DictOfLocalizationsU["E"]):
+            #   .rename(f"loc_{EG_case}_u", "")
 
         if model == "EG":
             DictOfLocalizationsU["EGbis"] = self.LocalizationEG()["U"]
@@ -164,26 +180,45 @@ class Fenics2DHomogenization(object):
             DictOfLocalizationsSigma["EGGbis"] = self.LocalizationEGGbis()["Sigma"]
             DictOfLocalizationsEpsilon["EGGbis"] = self.LocalizationEGGbis()["Epsilon"]
 
-        Keys = list(DictOfLocalizationsSigma.keys())
+        # Prepare structure of DictOfConstitutiveTensors dictionary
+        keys = list(DictOfLocalizationsSigma.keys())
+        for k1 in keys:
+            DictOfConstitutiveTensors[k1] = {}
+            for k2 in keys:
+                DictOfConstitutiveTensors[k1][k2] = None
 
-        for Key1 in Keys:
-            DictOfConstitutiveTensors[Key1] = {}
-            for Key2 in Keys:
-                DictOfConstitutiveTensors[Key1][Key2] = 0.0
-
-        nk = len(Keys)
+        nk = len(keys)
         for i in range(nk):
-            Key1 = Keys[i]
+            k1 = keys[i]
             for j in range(i, nk):
-                Key2 = Keys[j]
-                C = self.CrossEnergy(
-                    Key1,
-                    Key2,
-                    DictOfLocalizationsSigma[Key1],
-                    DictOfLocalizationsEpsilon[Key2],
-                )
-                DictOfConstitutiveTensors[Key1][Key2] = C
-                DictOfConstitutiveTensors[Key2][Key1] = C.T
+                k2 = keys[j]
+                sig_fields_k1_cases = DictOfLocalizationsSigma[k1]
+                eps_fields_k2_cases = DictOfLocalizationsEpsilon[k2]
+                C = self.CrossEnergy(k1, k2, sig_fields_k1_cases, eps_fields_k2_cases)
+                DictOfConstitutiveTensors[k1][k2] = C
+                DictOfConstitutiveTensors[k2][k1] = C.T
+
+        # Rename localization fields :
+        for k in DictOfLocalizationsU.keys():
+            for n, loc_f in zip(NAMES_MACRO_FIELDS[k], DictOfLocalizationsU[k]):
+                loc_f.rename(f"loc_{n}_u", "")
+
+        for k in DictOfLocalizationsSigma.keys():
+            names = NAMES_MACRO_FIELDS[k]
+            for i in range(len(DictOfLocalizationsSigma[k])):
+                n = names[i]
+                loc_f = DictOfLocalizationsSigma[k][i]
+                try:
+                    loc_f.rename(f"loc_{n}_sig", "")
+                except AttributeError:
+                    DictOfLocalizationsSigma[k][i] = local_project(loc_f, self.W)
+                    DictOfLocalizationsSigma[k][i].rename(f"loc_{n}_sig", "")
+                loc_f = DictOfLocalizationsEpsilon[k][i]
+                try:
+                    loc_f.rename(f"loc_{n}_eps", "")
+                except AttributeError:
+                    DictOfLocalizationsEpsilon[k][i] = local_project(loc_f, self.W)
+                    DictOfLocalizationsEpsilon[k][i].rename(f"loc_{n}_eps", "")
 
         return (
             DictOfLocalizationsU,
