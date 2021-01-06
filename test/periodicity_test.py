@@ -111,3 +111,54 @@ def test_pbc_from_vectors_parallelogram():
         logger.debug(f"Point : {point}, map pt : {y}, expected : {map_pt}")
         assert y == approx(map_pt)
     # * OK, test réussi
+
+
+def test_pbc_from_vectors_bottom_left_corner():
+    per_vect = np.array([[4.0, 2.0], [0.0, 4.0]])
+    bl_corner = np.array((1.0, 2.0))
+    pbc = periodicity.PeriodicDomain.pbc_dual_base(per_vect, "XY", bl_corner=bl_corner)
+    test_points = [
+        (0, 0),
+        (2, 0),
+        (4, 0),
+        (1, 2),
+        (5, 2),
+        (2, 4),
+        (4, 4),
+        (6, 4),
+    ]
+    test_points = [np.array(coord, np.float64) for coord in test_points]
+    test_points = [p + bl_corner for p in test_points]  # translation of the domain
+    inside_results = [
+        True,
+        True,
+        False,
+        True,
+        False,
+        False,
+        False,
+        False,
+    ]
+    for point, result in zip(test_points, inside_results):
+        logger.debug(f"Point : {point}, master : {pbc.inside(point, True)}")
+        assert pbc.inside(point, on_boundary=True) == result
+
+    map_results = [
+        (59994, 39996),
+        (59994, 39996),
+        (0, 0),
+        (59994, 39996),
+        (1, 2),
+        (0, 0),
+        (2, 0),
+        (0, 0),
+    ]
+    map_results = [np.array(coord, np.float64) for coord in map_results]
+    for i in (2, 4, 5, 6, 7):
+        map_results[i] += bl_corner
+    y = np.zeros(2)
+    for point, map_pt in zip(test_points, map_results):
+        pbc.map(point, y)
+        logger.debug(f"Point : {point}, map pt : {y}, expected : {map_pt}")
+        assert y == approx(map_pt)
+    # * OK, test réussi

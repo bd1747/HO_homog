@@ -54,7 +54,13 @@ class PeriodicDomain(fe.SubDomain):
                 y[i] = self.infinity[i]
 
     @staticmethod
-    def pbc_dual_base(part_vectors, per_choice: str, dim=2, tol=GEO_TOLERANCE):
+    def pbc_dual_base(
+        part_vectors,
+        per_choice: str,
+        bl_corner=np.array((0.0, 0.0)),
+        dim=2,
+        tol=GEO_TOLERANCE,
+    ):
         """Create periodic boundary only from an array
         that indicate the dimensions of the part.
         Appropriate for parallelepipedic domain.
@@ -64,13 +70,17 @@ class PeriodicDomain(fe.SubDomain):
         part_vectors : np.array
             shape 2×2. Dimensions of the domain.
             Some of them will be used as periodicity vectors.
-            #TODO : Ajouter précision  : Vecteurs de périodicité en colonne
+            Each column of the array correspond to a periodicity vector.
+            part_vectors[:,0] -> periodicity vector for the 1st (X) direction
+            part_vectors[:,1] -> periodicity vector for the 2d (Y) direction
         per_choice : str
             Can contain X, Y (in the future : Z)
         dim : int, optional
             Dimension of the modeling space. (the default is 2)
         tol : float, optional
             geometrical tolerance for membership tests.
+        bl_corner : np.array
+            shape 2. Coordinates of the bottom-left corner of the domain.
 
         Returns
         -------
@@ -81,15 +91,19 @@ class PeriodicDomain(fe.SubDomain):
         for i in range(np.size(part_vectors, 1)):
             basis.append(fe.as_vector(part_vectors[:, i]))
             dualbasis.append(fe.as_vector(dual_vect[:, i]))
+        bl_corner = np.asarray(bl_corner)
+        assert len(bl_corner.shape) == 1 and bl_corner.shape[0] == dim
         master_tests, slave_tests, per_vectors = list(), list(), list()
         if "x" in per_choice.lower():
 
             def left(x):
-                return fe.near(x.dot(dualbasis[0]), 0.0, tol)
+                # type x : numpy.ndarray
+                # shape x : (2,)
+                return fe.near((x - bl_corner).dot(dualbasis[0]), 0.0, tol)
                 # dot product return a <'ufl.constantvalue.FloatValue'>
 
             def right(x):
-                return fe.near((x - basis[0]).dot(dualbasis[0]), 0.0, tol)
+                return fe.near((x - bl_corner - basis[0]).dot(dualbasis[0]), 0.0, tol)
 
             master_tests.append(left)
             slave_tests.append(right)
@@ -97,10 +111,10 @@ class PeriodicDomain(fe.SubDomain):
         if "y" in per_choice.lower():
 
             def bottom(x):
-                return fe.near(x.dot(dualbasis[1]), 0.0, tol)
+                return fe.near((x - bl_corner).dot(dualbasis[1]), 0.0, tol)
 
             def top(x):
-                return fe.near((x - basis[1]).dot(dualbasis[1]), 0.0, tol)
+                return fe.near((x - bl_corner - basis[1]).dot(dualbasis[1]), 0.0, tol)
 
             master_tests.append(bottom)
             slave_tests.append(top)
@@ -235,7 +249,9 @@ class PeriodicExpr(fe.UserExpression):
         self.base_function = base_function
         self.per_vectors = np.asarray(per_vectors)
         assert self.per_vectors.shape == (2, 2), "Invalid shape. Only 2D supported"
-        diag_test = np.allclose(self.per_vectors[[0, 1], [1, 0]], [0.0, 0.0], atol=1e-12)
+        diag_test = np.allclose(
+            self.per_vectors[[0, 1], [1, 0]], [0.0, 0.0], atol=1e-12
+        )
         assert diag_test, "Periodicity vectors must be align with global basis."
         # TODO : généralisation à des vecteurs de périodicité non alignés avec le repère.
 
