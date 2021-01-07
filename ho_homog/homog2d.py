@@ -62,8 +62,16 @@ class Fenics2DHomogenization(object):
         """
         self.rve = fenics_2d_rve
         self.topo_dim = topo_dim = fenics_2d_rve.mesh_dim
+        try:
+            bottom_left_corner = fenics_2d_rve.bottom_left_corner
+        except AttributeError:
+            logger.warning(
+                "For the definition of the periodicity boundary conditions,"
+                "the bottom left corner of the RVE is assumed to be on (0.,0.)"
+            )
+            bottom_left_corner = np.zeros(shape=(topo_dim,))
         self.pbc = periodicity.PeriodicDomain.pbc_dual_base(
-            fenics_2d_rve.gen_vect, "XY", topo_dim
+            fenics_2d_rve.gen_vect, "XY", bottom_left_corner, topo_dim
         )
 
         solver = kwargs.pop("solver", {})

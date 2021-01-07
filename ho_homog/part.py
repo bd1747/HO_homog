@@ -20,13 +20,19 @@ plt.ioff()
 logger = logging.getLogger(__name__)  # http://sametmax.com/ecrire-des-logs-en-python/
 
 
-class FenicsPart(object):
+class FenicsPart:
     """
     Contrat : Créer un couple maillage + matériaux pour des géométries 2D, planes.
     """
 
     def __init__(
-        self, mesh, materials, subdomains, global_dimensions=None, facet_regions=None
+        self,
+        mesh,
+        materials,
+        subdomains,
+        global_dimensions=None,
+        facet_regions=None,
+        **kwargs,
     ):
         """
         Parameters
@@ -50,6 +56,8 @@ class FenicsPart(object):
             raise TypeError(
                 "materials parameter must be an instance of Material or a dictionnary that contains Material instances."
             )
+        if "bottom_left_corner" in kwargs.keys():
+            self.bottom_left_corner = np.asarray(kwargs["bottom_left_corner"])
 
     def mat_area(self):
         try:
@@ -59,12 +67,11 @@ class FenicsPart(object):
             return self._mat_area
 
     def global_area(self):
-        if not self.global_dimensions is None:
+        if self.global_dimensions is not None:
             return np.linalg.det(self.global_dimensions)
         else:
-            raise AttributeError(
-                f"global_size information is lacking for FenicsPart {self}."
-            )
+            msg = f"global_size information is lacking for FenicsPart {self}."
+            raise AttributeError(msg)
 
     @staticmethod
     def file_2_FenicsPart(
@@ -74,6 +81,7 @@ class FenicsPart(object):
         subdomains_import=False,
         plots=True,
         explicit_subdo_val=0,
+        **kwargs,
     ):
         """Generate an instance of FenicsPart from a .xml or .msh file that contains the mesh.
 
@@ -177,7 +185,13 @@ class Fenics2DRVE(FenicsPart):
     """
 
     def __init__(
-        self, mesh, generating_vectors, material_dict, subdomains, facet_regions
+        self,
+        mesh,
+        generating_vectors,
+        material_dict,
+        subdomains,
+        facet_regions,
+        **kwargs,
     ):
         """
         Parameters
@@ -201,6 +215,8 @@ class Fenics2DRVE(FenicsPart):
             self.C_per = mat.mat_per_subdomains(
                 self.subdomains, self.materials, self.mesh_dim
             )
+        if "bottom_left_corner" in kwargs.keys():
+            self.bottom_left_corner = np.asarray(kwargs["bottom_left_corner"])
 
     def epsilon(self, u):
         return mat.epsilon(u)
@@ -254,10 +270,19 @@ class Fenics2DRVE(FenicsPart):
         logger.info(f"Import of the mesh : DONE")
 
         generating_vectors = gmsh_2D_RVE.gen_vect
-        return Fenics2DRVE(mesh, generating_vectors, material_dict, subdomains, facets)
+        kwargs = dict()
+        try:
+            kwargs["bottom_left_corner"] = gmsh_2D_RVE.bottom_left_corner
+        except AttributeError:
+            pass
+        return Fenics2DRVE(
+            mesh, generating_vectors, material_dict, subdomains, facets, **kwargs
+        )
 
     @staticmethod
-    def file_2_Fenics_2DRVE(mesh_path, generating_vectors, material_dict, plots=True):
+    def file_2_Fenics_2DRVE(
+        mesh_path, generating_vectors, material_dict, plots=True, **kwargs
+    ):
         """Generate an instance of Fenics2DRVE from a .xml, .msh or .xdmf
         file that contains the mesh.
 
@@ -337,7 +362,9 @@ class Fenics2DRVE(FenicsPart):
             plt.draw()
         logger.info(f"Import of the mesh : DONE")
 
-        return Fenics2DRVE(mesh, generating_vectors, material_dict, subdomains, facets)
+        return Fenics2DRVE(
+            mesh, generating_vectors, material_dict, subdomains, facets, **kwargs
+        )
 
 
 if __name__ == "__main__":
