@@ -88,7 +88,7 @@ def conversion_to_xdmf(i_path, o_path, cell_reg, facet_reg, dim, subdomains=Fals
         raise NotImplementedError("3D meshes are not supported yet.")
         # * INFO :
     else:
-        ValueError
+        raise ValueError
 
     meshio.write(o_path, geo_only)
 

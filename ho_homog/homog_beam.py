@@ -58,7 +58,7 @@ class FenicsHomogenizationBeam(object):
 
         """
         self.rve = fenics_2d_rve
-        self.topo_dim = topo_dim = fenics_2d_rve.mesh_dim
+        self.topo_dim = topo_dim = fenics_2d_rve.dim
         self.pbc = periodicity.PeriodicDomain.pbc_dual_base(
             fenics_2d_rve.gen_vect, "X", topo_dim
         ) # * Périodicité selon X seulement

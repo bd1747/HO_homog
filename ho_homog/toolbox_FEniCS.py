@@ -37,7 +37,7 @@ DOLFIN_LU_METHODS = {
 SUPPORTED_MESH_SUFFIX = (".xml", ".xdmf")
 
 
-def get_MeshFunction_val(msh_fctn):
+def get_mesh_function_value(msh_fctn):
     """
     Get information about the set of values that a given MeshFunction outputs.
 
@@ -56,7 +56,7 @@ def get_MeshFunction_val(msh_fctn):
 
     val = np.unique(msh_fctn.array())
     nb = len(val)
-    return (nb, val)
+    return nb, val
 
 
 def facet_plot2d(
@@ -116,13 +116,21 @@ def function_from_xdmf(function_space, function_name="", xdmf_path=""):
     If multiple functions are requested: #TODO : test
     the first argument must be a list of tuples (FunctionSpace, function name)
     the second argument must be empty.
-    Ex: function_from_xdmf([(V,"u"),(W,"eps")], xdmf_path=checkpoint_path)
 
     Returns
     -------
     dolfin.Function, list of dolfin.Function
         New function(s) that is(are) identical to the previously saved function(s).
+
+    Example
+    --------
+    >>> import dolfin as fe
+    >>> mesh = xdmf_mesh("mesh.xdmf")
+    >>> V = fe.VectorFunctionSpace(mesh, "CG", 2)
+    >>> W = fe.VectorFunctionSpace(mesh, "DG", 1)
+    >>> function_from_xdmf([(V,"u"),(W,"eps")], xdmf_path="checkpoint.xdmf")
     """
+
     if isinstance(function_space, list):
         all_f = list()
         with fe.XDMFFile(str(xdmf_path)) as f_in:
@@ -181,8 +189,6 @@ def function_errornorm(u, v, norm_type="L2", enable_diff_fspace=False):
 
 def local_project(v, fspace, solver_method: str = "", **kwargs):
     """
-    Info : https://comet-fenics.readthedocs.io/en/latest/tips_and_tricks.html#efficient-projection-on-dg-or-quadrature-spaces #noqa
-
     Parameters
     ----------
     v : [type]
@@ -207,14 +213,20 @@ def local_project(v, fspace, solver_method: str = "", **kwargs):
     Returns
     -------
     Function
+
+    Notes
+    -----
+    Source for this code:
+    https://comet-fenics.readthedocs.io/en/latest/tips_and_tricks.html#efficient-projection-on-dg-or-quadrature-spaces
+
     """
     metadata = kwargs.get("metadata", {})
-    dX = kwargs.get("dx", fe.dx(metadata=metadata))
+    dx = kwargs.get("dx", fe.dx(metadata=metadata))
 
     dv = fe.TrialFunction(fspace)
     v_ = fe.TestFunction(fspace)
-    a_proj = fe.inner(dv, v_) * dX
-    b_proj = fe.inner(v, v_) * dX
+    a_proj = fe.inner(dv, v_) * dx
+    b_proj = fe.inner(v, v_) * dx
 
     if solver_method == "LU":
         solver = fe.LocalSolver(
@@ -249,47 +261,21 @@ def _wrap_in_list(obj, name, types=type):
         lst = [obj]
     for obj in lst:
         if not isinstance(obj, types):
-            raise TypeError(
-                "expected a (list of) %s as '%s' argument" % (str(types), name)
-            )
+            raise TypeError(f"expected a (list of) {types} as {name} argument")
     return lst
 
 
-def xdmf_mesh(mesh_file, import_subdomains=False, facet_file="", physical_file=""):
+def xdmf_mesh(mesh_file):
     """Create a FeniCS mesh from a mesh file with xdmf format.
 
     Parameters
     ----------
     mesh_file : str or Path
         Path of the file mesh (xdmf file)
-    import_subdomains : bool, optional
-        True if information about subdomains have to be imported.
-        The paths of the auxiliary files that contains information about subdomains
-        can be indicated with facet_file and physical_file.
-        The paths used by default are :
-            - "<mesh path>_facet_region.xdmf" and
-            - "<mesh path>_physical_region.xdmf" (for subdomains)
-    facet_file : str or Path, optional
-        Path to the mesh auxiliary file that contains subdomains data.
-        Defaults to "" i.e. the default path will be used.
-    physical_file : str or Path, optional
-        Path to the mesh auxiliary file that contains facet regions data.
-        Defaults to "" i.e. the default path will be used.
 
     Returns
     -------
-    Mesh / tuple
-        If subdomains are not requested :
-            - The Mesh instance
-        If subdomains are requested :
-            - The Mesh instance,
-            - The MeshFunction for subdomains if it exists else None,
-            - The MeshFunction for facets if it exists else None,
-
-    Source
-    ------
-    Gist meshtagging_mvc.py, June 2018, Michal Habera
-    https://gist.github.com/michalhabera/bbe8a17f788192e53fd758a67cbf3bed
+    dolfin.Mesh
     """
     if not isinstance(mesh_file, PurePath):
         mesh_file = Path(mesh_file)
@@ -298,38 +284,115 @@ def xdmf_mesh(mesh_file, import_subdomains=False, facet_file="", physical_file="
     mesh = fe.Mesh()
     with fe.XDMFFile(str(mesh_file)) as f_in:
         f_in.read(mesh)
+    return mesh
 
-    if not import_subdomains:
-        return mesh
+
+_warning_message_ = "The {} file is missing for the mesh {}."
+
+
+def import_subdomain_data_xml(mesh, mesh_file):
+    """ Import data from the _physical_region.xml and _facet_region.xml files
+    that result from the mesh conversion to .xml with dolfin-convert
+
+    Parameters
+    ----------
+    mesh: dolfin.Mesh
+        mesh already imported from the `.xml` file (mesh_path)
+    mesh_file : pathlib.Path
+        Path to the mesh file (.xml).
+        The files that contain the data about the subdomains and the facet regions
+        are assumed to be in the same folder, with the names:
+        `[mesh_name]_physical_region.xml` and `[mesh_name]_facet_region.xml`.
+    """
+    name = mesh_file.stem
+    subdo_path = mesh_file.with_name(name + "_physical_region.xml")
+    facet_path = mesh_file.with_name(name + "_facet_region.xml")
+
+    if subdo_path.exists():
+        subdomains = fe.MeshFunction("size_t", mesh, subdo_path.as_posix())
+        subdo_val = get_mesh_function_value(subdomains)
+        logger.info(f"{subdo_val[0]} physical regions imported. Tags : {subdo_val[1]}")
+    else:
+
+        logger.warning(_warning_message_.format("_physical_region.xml", mesh_file.name))
+
+        subdomains = None
+
+    if facet_path.exists():
+        facets = fe.MeshFunction("size_t", mesh, facet_path.as_posix())
+        facets_val = get_mesh_function_value(facets)
+        logger.info(f"{facets_val[0]} facet regions imported. Tags : {facets_val[1]}")
+    else:
+        logger.warning(_warning_message_.format("_facet_region.xml", mesh_file.name))
+
+        facets = None
+    return subdomains, facets
+
+
+def import_subdomain_data_xdmf(mesh, mesh_file, facet_file="", physical_file=""):
+
+    """Import information about subdomains from .xdmf files from
+    obtained with the mesh conversion .msh -> .xdmf with meshio.
+
+    The paths of the auxiliary files that contains information about subdomains
+    can be indicated with facet_file and physical_file.
+    The paths used by default are :
+        - "<mesh path>_facet_region.xdmf" and
+        - "<mesh path>_physical_region.xdmf" (for subdomains)
+
+
+    Parameters
+    ----------
+    mesh: dolfin.Mesh
+        mesh already imported from the `.xdmf` file (mesh_path)
+    mesh_file : pathlib.Path
+        Path to the mesh file (.xdmf).
+    facet_file : str or Path, optional
+        Path to the mesh auxiliary file that contains subdomains data.
+        Defaults to "" i.e. the default path will be used.
+    physical_file : str or Path, optional
+        Path to the mesh auxiliary file that contains facet regions data.
+        Defaults to "" i.e. the default path will be used.
+    Returns
+    -------
+    Tuple (length: 2)
+        - The MeshFunction for subdomains if it exists else None;
+        - The MeshFunction for facets if it exists else None.
+
+    Source
+    ------
+    Gist meshtagging_mvc.py, June 2018, Michal Habera
+    https://gist.github.com/michalhabera/bbe8a17f788192e53fd758a67cbf3bed
+
+    """
 
     dim = mesh.geometric_dimension()
 
-    if not facet_file:
-        facet_file = mesh_file.with_name(f"{mesh_file.stem}_facet_region.xdmf")
-    else:
-        facet_file = Path(facet_file)
-        if not facet_file.suffix == ".xdmf":
-            raise TypeError("Wrong suffix for the path to facet regions.")
     if not physical_file:
         physical_file = mesh_file.with_name(f"{mesh_file.stem}_physical_region.xdmf")
-    else:
-        physical_file = Path(physical_file)
-        if not physical_file.suffix == ".xdmf":
-            raise TypeError("Wrong suffix for the path to subdomains.")
+    if not facet_file:
+        facet_file = mesh_file.with_name(f"{mesh_file.stem}_facet_region.xdmf")
+    physical_file, facet_file = Path(physical_file), Path(facet_file)
+    for p, n in zip((physical_file, facet_file), ("subdomains", "facet regions")):
+        if not p.suffix == ".xdmf":
+            raise TypeError(f"Wrong suffix for the path to {n}.")
 
-    if not facet_file.exists():
-        facet_regions = None
-    else:
-        facet_vc = fe.MeshValueCollection("size_t", mesh, dim - 1)
-        with fe.XDMFFile(str(facet_file)) as f_in:
-            f_in.read(facet_vc, "facet_data")
-        facet_regions = fe.cpp.mesh.MeshFunctionSizet(mesh, facet_vc)
-    if not physical_file.exists():
-        subdomains = None
-    else:
-        cell_vc = fe.MeshValueCollection("size_t", mesh, dim - 1)
+    subdomains, facets = None, None
+    if physical_file.exists():
+        cell_vc = fe.MeshValueCollection("size_t", mesh, dim)
         with fe.XDMFFile(str(physical_file)) as f_in:
             f_in.read(cell_vc, "cell_data")
         subdomains = fe.cpp.mesh.MeshFunctionSizet(mesh, cell_vc)
+    else:
+        logger.warning(
+            _warning_message_.format("_physical_region.xdmf", mesh_file.name)
+        )
 
-    return mesh, subdomains, facet_regions
+    if facet_file.exists():
+        facet_vc = fe.MeshValueCollection("size_t", mesh, dim - 1)
+        with fe.XDMFFile(str(facet_file)) as f_in:
+            f_in.read(facet_vc, "facet_data")
+        facets = fe.cpp.mesh.MeshFunctionSizet(mesh, facet_vc)
+    else:
+        logger.warning(_warning_message_.format("_facet_region.xdmf", mesh_file.name))
+    return subdomains, facets

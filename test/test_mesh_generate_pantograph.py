@@ -8,20 +8,17 @@ import logging
 
 import gmsh
 
-from context import ho_homog
+import ho_homog
 
 geo = ho_homog.geometry
 mesh_gen = ho_homog.mesh_generate
 
 geo.init_geo_tools()
 geo.set_gmsh_option("Mesh.MshFileVersion", 4.1)
-fltk = gmsh.fltk
 
 
 def test_E11only_offset_RVE():
     logger = logging.getLogger("test_E11only_offset_RVE")
-    fltk.initialize()
-    fltk.update()
     a = 1
     r = a / 2e2
     thickness = a / 1e2
@@ -34,7 +31,3 @@ def test_E11only_offset_RVE():
     gmsh.model.mesh.renumberNodes()
     gmsh.model.mesh.renumberElements()
     gmsh.write(str(panto_rve.mesh_abs_path))
-
-
-test_E11only_offset_RVE()
-fltk.run()

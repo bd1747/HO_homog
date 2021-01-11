@@ -1,0 +1,10 @@
+dolfin~=2019.1.0
+gmsh~=4.6.0.post3
+meshio~=4.3.1
+h5py~=3.1.0
+matplotlib~=3.3.3
+numpy~=1.19.4
+sympy~=1.1.1
+pytest~=6.2.1
+setuptools~=39.0.1
+

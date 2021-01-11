@@ -5,7 +5,7 @@ Created on 03/05/2019
 """
 
 import dolfin as fe
-import ho_homog.toolbox_FEniCS as tb
+from ho_homog import toolbox_FEniCS as tb
 from pytest import approx
 
 fe.set_log_level(30)

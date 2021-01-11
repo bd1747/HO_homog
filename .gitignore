@@ -9,3 +9,4 @@ demo/loc_E12_u.pdf
 *.pyc.*
 *.egg-info/
 ho_homog/.idea
+.idea/HO_homog.iml

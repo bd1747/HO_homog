@@ -5,18 +5,17 @@ Created on Mon Oct 15 11:00:18 2018
 @author: Baptiste
 """
 
-import os
-from .context import ho_homog
-import math
-import numpy as np
-import matplotlib.pyplot as plt
 import copy
 import logging
+import math
+import os
 from logging.handlers import RotatingFileHandler
 
 import gmsh
+import matplotlib.pyplot as plt
+import numpy as np
 
-geo = ho_homog.geometry
+import ho_homog.geometry as geo
 
 # nice shortcuts
 model = gmsh.model
@@ -435,46 +434,21 @@ def test_ll_modif():
     gmsh.model.add(name)
 
     t = math.tan(math.pi / 6)
-    vertcs_lists = []
-    vertcs_lists.append(
-        [
-            geo.Point(np.array(c), 0.05)
-            for c in [
-                (0, 0),
-                (2, 0),
-                (2 - SR2, 0 + SR2),
-                (2, 2),
-                (2 - 1, 2 + t),
-                (0, 2),
-            ]
-        ]
-    )  # angles : pi/4, pi/2 and 2*pi/3
-    vertcs_lists.append(
-        [
-            geo.Point(np.array(c), 0.05)
-            for c in [
-                (3, 0),
-                (5, 0),
-                (5 - SR2, 0 + SR2),
-                (5, 2),
-                (5 - 1, 2 + t),
-                (3, 2),
-            ]
-        ]
-    )
-    vertcs_lists.append(
-        [
-            geo.Point(np.array(c), 0.05)
-            for c in [
-                (6, 0),
-                (8, 0),
-                (8 - SR2, 0 + SR2),
-                (8, 2),
-                (8 - 1, 2 + t),
-                (6, 2),
-            ]
-        ]
-    )
+    vertcs_lists = [None, None, None]
+
+    vertcs_lists[0] = [
+        geo.Point(np.array(c), 0.05)
+        for c in [(0, 0), (2, 0), (2 - SR2, 0 + SR2), (2, 2), (2 - 1, 2 + t), (0, 2),]
+    ]  # angles : pi/4, pi/2 and 2*pi/3
+    vertcs_lists[1] = [
+        geo.Point(np.array(c), 0.05)
+        for c in [(3, 0), (5, 0), (5 - SR2, 0 + SR2), (5, 2), (5 - 1, 2 + t), (3, 2),]
+    ]
+    vertcs_lists[2] = [
+        geo.Point(np.array(c), 0.05)
+        for c in [(6, 0), (8, 0), (8 - SR2, 0 + SR2), (8, 2), (8 - 1, 2 + t), (6, 2),]
+    ]
+    vertcs_lists = [v_list_1, v_list_2, v_list_3]
 
     lls = [geo.LineLoop(vl, explicit=False) for vl in vertcs_lists]
     plt.figure()
@@ -567,8 +541,8 @@ def test_gather_line():
         gp_l = geo.PhysicalGroup(l_list, 1, n)
         gp_l.add_gmsh()
         gps.append(gp_l)
-        for l in l_list:
-            l.plot2D(col)
+        for ln in l_list:
+            ln.plot2D(col)
     factory.synchronize()
 
     gmsh.option.setNumber("Mesh.SaveAll", 1)
@@ -863,11 +837,6 @@ if __name__ == "__main__":
     # test_mesh_only_phy_groups()
 
     # * Bloc de fin
-    gmsh.fltk.run()
+    # gmsh.fltk.run()
     plt.show()
     # * Il faut fermer toutes les fenêtres avant de passer à la GUI gmsh. (pertinent en mode non interactive) #noqa
-    # gmsh.fltk.run()
-    # ! A revoir, ça génère des "kernel died" dans Spyder, pas idéal
-    # # gmsh.fltk.initialize()
-    # gmsh.finalize()
-    # plt.show()
