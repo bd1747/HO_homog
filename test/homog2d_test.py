@@ -36,7 +36,7 @@ def test_homog_EGG_pantograph_1x1(generate_mesh=False):
         geometry.init_geo_tools()
         geometry.set_gmsh_option("Mesh.MshFileVersion", 4.1)
         a = 1
-        b, k = a, a/3
+        b, k = a, a / 3
         r = 0.02
         panto_test = mesh_generate.pantograph.pantograph_RVE(
             a, b, k, r, nb_cells=(1, 1), soft_mat=False, name="panto_rve_1x1"
@@ -56,11 +56,10 @@ def test_homog_EGG_pantograph_1x1(generate_mesh=False):
         meshio.write("panto_rve_1x1.xdmf", geo_only)
         geometry.reset()
 
-    E, nu = 1., 0.3
-    material = materials.Material(E, nu, 'cp')
-    gen_vect = np.array([[4., 0.], [0., 8.]])
-    rve = part.Fenics2DRVE.file_2_Fenics_2DRVE(
-        "panto_rve_1x1.xdmf", gen_vect, material)
+    E, nu = 1.0, 0.3
+    material = materials.Material(E, nu, "cp")
+    gen_vect = np.array([[4.0, 0.0], [0.0, 8.0]])
+    rve = part.Fenics2DRVE.rve_from_file("panto_rve_1x1.xdmf", gen_vect, material)
 
     hom_model = homog2d.Fenics2DHomogenization(rve)
     *localzt_dicts, constit_tensors = hom_model.homogenizationScheme("EGG")
@@ -138,11 +137,10 @@ def test_homogeneous_pantograph(generate_mesh=False, save_results=False):
         meshio.write("homogeneous_panto.xdmf", geo_only)
         geometry.reset()
 
-    E, nu = 1., 0.3
-    material = materials.Material(E, nu, 'cp')
-    gen_vect = np.array([[4., 0.], [0., 8.]])
-    rve = part.Fenics2DRVE.file_2_Fenics_2DRVE(
-        "homogeneous_panto.xdmf", gen_vect, material)
+    E, nu = 1.0, 0.3
+    material = materials.Material(E, nu, "cp")
+    gen_vect = np.array([[4.0, 0.0], [0.0, 8.0]])
+    rve = part.Fenics2DRVE.rve_from_file("homogeneous_panto.xdmf", gen_vect, material)
     hom_model = homog2d.Fenics2DHomogenization(rve)
     *localzt_dicts, constit_tensors = hom_model.homogenizationScheme("EGG")
     Chom_ref = np.array(
