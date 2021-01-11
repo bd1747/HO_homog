@@ -451,7 +451,6 @@ def Gmsh2DPartFromRVE(cell: Gmsh2DRVE, nb_cells, part_name=None):
         tag = cell.phy_surf[i].tag + 1000
         name = cell.phy_surf[i].name
         phy_surfaces.append(geo.PhysicalGroup(all_surfaces, 2, name, tag))
-    # gmsh.fltk.run()
     for gp in cell.phy_surf:
         gp.remove_gmsh()
     factory.synchronize()

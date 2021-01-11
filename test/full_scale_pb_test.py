@@ -191,7 +191,7 @@ def test_reconstruction_with_constraint():
 
 
 def test_select_solver():
-    "The solver Mumps is selected."
+    """The solver Mumps is selected."""
     logger = logging.getLogger("test_reconstruction")
     nb_x = nb_y = 20
     L_x = 2

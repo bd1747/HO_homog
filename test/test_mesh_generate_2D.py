@@ -13,10 +13,7 @@ geo.init_geo_tools()
 
 
 def test_rve_2_part():
-    fltk = gmsh.fltk
     geo.set_gmsh_option("Mesh.MshFileVersion", 4.1)
-    fltk.initialize()
-    fltk.update()
     a = 1
     b, k = a, a / 3
     r = a / 1e2
