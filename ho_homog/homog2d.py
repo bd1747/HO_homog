@@ -61,7 +61,7 @@ class Fenics2DHomogenization(object):
 
         """
         self.rve = fenics_2d_rve
-        self.topo_dim = topo_dim = fenics_2d_rve.mesh_dim
+        self.topo_dim = topo_dim = fenics_2d_rve.dim
         try:
             bottom_left_corner = fenics_2d_rve.bottom_left_corner
         except AttributeError:
