@@ -6,7 +6,7 @@ Created on 08/04/2019
 
 import logging
 import dolfin as fe
-from context.ho_homog import full_scale_pb as homog_full
+from ho_homog import full_scale_pb as fsp
 from pathlib import Path
 from pytest import approx
 
@@ -71,7 +71,7 @@ def test_reconstruction_vectors():
             strain_fspace,
         ),
     }
-    reconstr_sol = homog_full.reconstruction(
+    reconstr_sol = fsp.reconstruction(
         localization_tensors, macro_fields, function_spaces, trunc_order=1
     )
     results_file_path = Path(__file__).with_name("test_reconstruction.xdmf")
@@ -164,7 +164,7 @@ def test_reconstruction_with_constraint():
         fe.Expression("0.5*x[0] + x[1] + 0.5*x[1] + 1.*x[0]", degree=2), scalar_fspace
     )
 
-    reconstr_sol = homog_full.reconstruction(
+    reconstr_sol = fsp.reconstruction(
         localization_tensors,
         macro_fields,
         function_spaces,
@@ -239,7 +239,7 @@ def test_select_solver():
         fe.Expression("0.5*x[0] + x[1] + 0.5*x[1] + 1.*x[0]", degree=2), scalar_fspace
     )
 
-    reconstr_sol = homog_full.reconstruction(
+    reconstr_sol = fsp.reconstruction(
         localization_tensors,
         macro_fields,
         function_spaces,

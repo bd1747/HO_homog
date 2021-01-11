@@ -5,14 +5,16 @@ Created on 09/01/2019
 
 """
 
-import numpy as np
-import gmsh
-import meshio
-from ho_homog import geometry, homog2d, materials, mesh_generate_2D, part
-from pytest import approx
 import logging
 import time
+
 import dolfin as fe
+import gmsh
+import meshio
+import numpy as np
+from pytest import approx
+
+from ho_homog import geometry, homog2d, materials, mesh_generate, part
 
 logger = logging.getLogger("Test_homog2d")
 logger.setLevel(logging.DEBUG)

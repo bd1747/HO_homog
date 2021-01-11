@@ -5,18 +5,17 @@ Created on Mon Oct 15 11:00:18 2018
 @author: Baptiste
 """
 
-import os
-from .context import ho_homog
-import math
-import numpy as np
-import matplotlib.pyplot as plt
 import copy
 import logging
+import math
+import os
 from logging.handlers import RotatingFileHandler
 
 import gmsh
+import matplotlib.pyplot as plt
+import numpy as np
 
-geo = ho_homog.geometry
+import ho_homog.geometry as geo
 
 # nice shortcuts
 model = gmsh.model

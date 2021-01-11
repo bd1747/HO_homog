@@ -8,8 +8,8 @@ Created on 22/10/2018
 import os
 
 import gmsh
-import geometry as geo
-import mesh_tools as msh
+from ho_homog import geometry as geo
+from ho_homog import mesh_tools as msh
 import numpy as np
 import random
 import matplotlib.pyplot as plt

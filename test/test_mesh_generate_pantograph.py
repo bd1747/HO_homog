@@ -8,7 +8,7 @@ import logging
 
 import gmsh
 
-from context import ho_homog
+import ho_homog
 
 geo = ho_homog.geometry
 mesh_gen = ho_homog.mesh_generate

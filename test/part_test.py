@@ -5,22 +5,20 @@ Created on 09/01/2019
 
 """
 import logging
-from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from subprocess import run
 
 import dolfin as fe
 import gmsh
-import numpy as np
-
-import ho_homog
 import mshr
+import numpy as np
 from pytest import approx
 
-geo = ho_homog.geometry
-part = ho_homog.part
-mesh_2D = ho_homog.mesh_generate_2D
-mat = ho_homog.materials
+from ho_homog import geometry as geo
+from ho_homog import materials as mat
+from ho_homog import mesh_generate as mg
+from ho_homog import mesh_tools
+from ho_homog import part
 
 model = gmsh.model
 factory = model.occ
@@ -40,13 +38,17 @@ if __name__ == "__main__":
     stream_handler.setFormatter(formatter)
     logger_root.addHandler(stream_handler)
 
-ho_homog.geometry.init_geo_tools()
+geo.init_geo_tools()
+geo.set_gmsh_option("General.Verbosity", 3)
 
-#? Test du constructeur gmsh_2_Fenics_2DRVE
-# a = 1
-# b, k = a, a/3
-# panto_test = prt.Gmsh2DRVE.pantograph(a, b, k, 0.1, nb_cells=(2, 3), soft_mat=False, name='panto_test')
-# panto_test.main_mesh_refinement((0.1,0.5),(0.03,0.3),False)
+# ? Test du constructeur gmsh_2_Fenics_2DRVE
+def test_rve_from_gmsh2drve():
+    a = 1
+    b, k = a, a / 3
+    panto_test = mg.pantograph.pantograph_RVE(
+        a, b, k, 0.1, nb_cells=(2, 3), soft_mat=False, name="panto_test"
+    )
+    panto_test.main_mesh_refinement((0.1, 0.5), (0.03, 0.3), False)
 
 # panto_test.mesh_generate()
 # run(f"gmsh {panto_test.name}.msh &",shell=True, check=True)
