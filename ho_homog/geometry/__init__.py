@@ -79,7 +79,7 @@ from .transformations import plane_reflection, point_reflection, rotation, trans
 
 DEFAULT_GMSH_OPTIONS = {
     "General.Terminal": 1,
-    "General.Verbosity": 5,
+    "General.Verbosity": 3,
     "Geometry.AutoCoherence": 0,
     "Mesh.ColorCarousel": 2,
     # * 0=by element type, 1=by elementary entity, 2=by physical entity,3=by partition
