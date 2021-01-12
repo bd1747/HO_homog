@@ -10,7 +10,7 @@ import logging
 import ho_homog.geometry as geo
 import gmsh
 import ho_homog.mesh_tools as msh
-
+from math import sin, cos, pi
 
 from . import Gmsh2DRVE, logger
 
@@ -90,14 +90,12 @@ def kagome_RVE(alpha, r, a=None, b=None, nb_cells=(1, 1), offset=(0.0, 0.0), nam
     pattern_ll = geo.remove_duplicates(pattern_ll)
     logger.info("Removing duplicate pattern line-loops: Done")
     logger.info(f"Number of pattern line-loops: {len(pattern_ll)}")
-    for ll in pattern_ll:
-        ll.round_corner_kagome(r * b, a, alpha)
+    pattern_ll = [round_corner_kagome(ll, r * b, a, alpha) for ll in pattern_ll]
     logger.info("Rounding all corners of pattern line-loops: Done")
     fine_pts = [pt for ll in pattern_ll for pt in ll.vertices]
     fine_pts = geo.remove_duplicates(fine_pts)
 
     return Gmsh2DRVE(pattern_ll, gen_vect, nb_cells, offset, fine_pts, False, name,)
-
 
 
 def kagome_triangle_size_2_cell_size(alpha, b):
@@ -127,3 +125,94 @@ def kagome_cell_size_2_triangle_size(alpha, a):
     t2 = (1 - alpha) * np.sqrt(3) * a / 2
     b = np.sqrt(t1 ** 2 + t2 ** 2)
     return b
+
+
+def round_corner_kagome(lineloop, r, a, alpha):
+    """ Opération d'arrondi des angles spécifique à la microstructure 'kagome',
+    appliquée à tous les sommets du polygone.
+
+    Parameters
+    ----------
+    lineloop : LineLoop
+        Contour à modifier
+    r: float
+        Rayon du cercle inscrit dans la jonction
+    a: float
+        taille de la cellule de base
+    alpha: float
+        paramètre d'ouverture de la microstructure
+    """
+
+    effect_r, phi_1, phi_2 = calcul_effective_r(alpha, r, a)
+    vertices = lineloop.vertices
+    # ! ESSAI
+    results_1d = list()
+    for i in range(len(vertices)):
+        cur_pt = vertices[i - 1]
+        d2 = effect_r / np.sin(phi_2)
+        d1 = effect_r / np.sin(phi_1)
+
+        dir_1 = vertices[i - 2].coord - cur_pt.coord
+        dir_2 = vertices[i].coord - cur_pt.coord
+        dir_1 = geo.unit_vect(dir_1)
+        dir_2 = geo.unit_vect(dir_2)
+
+        pt_amt = geo.translation(cur_pt, effect_r * dir_1)
+        pt_avl = geo.translation(cur_pt, effect_r * dir_2)
+
+        alpha = geo.angle_between(dir_1, dir_2, orient=True)
+        v_biss = geo.bisector(dir_1, dir_2)
+        if alpha < 0:
+            v_biss = -v_biss
+
+        if abs(abs(geo.angle_between(v_biss, dir_1)) - (np.pi / 2 - phi_2)) < 10e-14:
+            # si on est du côté où l'angle vaut theta
+            d = d2
+        elif abs(abs(geo.angle_between(v_biss, dir_1)) - (np.pi / 2 - phi_1)) < 10e-14:
+            d = d1
+        else:
+            raise ValueError("mauvaise gestion de d1 et d2")
+        center = geo.translation(cur_pt, d * v_biss)
+        round_arc = geo.Arc(pt_amt, center, pt_avl)
+        racc_amt = geo.Line(vertices[i - 2], pt_amt)
+        racc_avl = geo.Line(pt_avl, vertices[i])
+        curves_list = [racc_amt, round_arc, racc_avl]
+        results_1d.append(curves_list)
+    lineloop.sides = geo.surfaces.round_corner_2_sides(results_1d)
+    return lineloop
+
+
+def calcul_effective_r(alpha, r, a):
+    """
+    Méthode de construction des jonctions propre au kagomé.
+
+    Parameters
+    ----------
+    alpha: float
+        paramètre d'ouverture
+    r: float
+        rayon des jonctions
+    a: float
+        taille caractéristique de la cellule unitaire
+
+    Returns
+    -------
+    tuple
+        3 floats: Effective radius, phi_1, phi_2
+    """
+
+    b = kagome_cell_size_2_triangle_size(alpha, a)
+    theta = np.arcsin(np.sqrt(3) * alpha * a / (2 * b))
+
+    phi_2 = np.pi / 2 - theta
+    if alpha < 1 / 3:
+        phi_1 = np.pi / 6 - theta
+        effect_r = (2 * r * sin(phi_1) * sin(phi_2)) / (
+            sin(phi_2) * cos(phi_1) - sin(phi_1) * cos(phi_2) - sin(phi_2) + sin(phi_1)
+        )
+    else:
+        phi_1 = theta - pi / 6
+        effect_r = (2 * r * sin(phi_1) * sin(phi_2)) / (
+            -sin(phi_2) * cos(phi_1) - sin(phi_1) * cos(phi_2) + sin(phi_2) + sin(phi_1)
+        )
+    return effect_r, phi_1, phi_2

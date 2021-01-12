@@ -174,26 +174,6 @@ def round_corner(inp_pt, pt_amt, pt_avl, r, junction_raduis=False, plot=False):
 
     return geoList
 
-def calcul_R(alpha,r,a):
-    #méthode de construction des jonctions propres au kagomé
-    x_a = (1 - alpha) * a / 2 - alpha * a
-    y_a = (1 - alpha) * a * np.sqrt(3) / 2
-    b = np.sqrt(x_a ** 2 + y_a ** 2)
-    theta = np.arcsin(np.sqrt(3) * alpha * a / (2 * b))
-
-    # Cas kagomé "fermé"
-
-    phi_2 = np.pi / 2 - theta
-    if alpha < 1 / 3:
-        phi_1 = np.pi / 6 - theta
-        effect_R = 2 * r * np.sin(phi_1) * np.sin(phi_2) / (
-                np.sin(phi_2) * np.cos(phi_1) - np.sin(phi_1) * np.cos(phi_2) - np.sin(phi_2) + np.sin(
-            phi_1))
-    if alpha >= 1 / 3:
-        phi_1 = theta - np.pi / 6
-        effect_R = 2 * r * np.sin(phi_1) * np.sin(phi_2) / (
-                - np.sin(phi_2) * np.cos(phi_1) - np.sin(phi_1) * np.cos(phi_2) + np.sin(phi_2) + np.sin(phi_1))
-    return effect_R,phi_1,phi_2
 
 def fine_point_jonction(inp_pt, pt_amt, pt_avl, r,sharp_r):
     """

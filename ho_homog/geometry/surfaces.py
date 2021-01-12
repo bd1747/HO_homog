@@ -13,7 +13,7 @@ and instantiate them in a gmsh model.
 from .curves import Line, Arc
 from .point import Point
 from . import factory, np, logger, model
-from .tools import round_corner, offset, calcul_R, unit_vect, bisector, angle_between
+from .tools import round_corner, offset
 from .curves import Line, AbstractCurve
 
 
@@ -203,59 +203,6 @@ class LineLoop(object):
                     False,
                 )
             )
-        self.sides = round_corner_2_sides(result_1D)
-
-    def round_corner_kagome(self, r, a, alpha):
-        """ Opération d'arrondi des angles spécifique à la microstructure 'kagome',
-        appliquée à tous les sommets du polygone.
-
-        alpha = paramètre d'ouverture du kagomé
-        a :
-        b : taille des éléments triangulaires
-        theta : rotation du triangle à l'intérieur de la cellule de base
-
-        Parameters
-        ----------
-        r: float
-            Rayon du cercle inscrit dans la jonction
-        a: float
-            taille de la cellule de base
-        alpha: float
-            paramètre d'ouverture de la microstructure
-        """
-
-        effect_R, phi_1, phi_2 = calcul_R(alpha, r, a)
-
-        # ! ESSAI
-        result_1D = list()
-        for i in range(len(self.vertices)):
-            d2 = effect_R / np.sin(phi_2)
-            d1 = effect_R / np.sin(phi_1)
-
-            dir_1 = self.vertices[i - 2].coord - self.vertices[i - 1].coord
-            dir_2 = self.vertices[i].coord - self.vertices[i - 1].coord
-            dir_1 = unit_vect(dir_1)
-            dir_2 = unit_vect(dir_2)
-
-            A = Point(self.vertices[i - 1].coord + effect_R * dir_1)
-            C = Point(self.vertices[i - 1].coord + effect_R * dir_2)
-
-            alpha = angle_between(dir_1, dir_2, orient=True)
-            v_biss = bisector(dir_1, dir_2) if alpha >= 0 else - bisector(dir_1, dir_2)
-
-            if abs(abs(angle_between(v_biss, dir_1)) - (np.pi / 2 - phi_2)) < 10e-14:
-                # si on est du côté où l'angle vaut theta
-                d = d2
-            elif abs(abs(angle_between(v_biss, dir_1)) - (np.pi / 2 - phi_1)) < 10e-14:
-                d = d1
-            else:
-                raise ValueError("mauvaise gestion de d1 et d2")
-            B = Point(self.vertices[i - 1].coord + d * v_biss)
-            round_arc = Arc(A, B, C)
-            racc_amt = Line(self.vertices[i - 2], A)
-            racc_avl = Line(C, self.vertices[i])
-            curves_list = [racc_amt, round_arc, racc_avl]
-            result_1D.append(curves_list)
         self.sides = round_corner_2_sides(result_1D)
 
     def vertices_2_sides(self):

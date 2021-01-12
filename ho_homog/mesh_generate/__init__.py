@@ -352,7 +352,7 @@ class Gmsh2DPart(object):
 
 
 from .pantograph import pantograph_RVE, pantograph_offset_RVE, beam_pantograph_RVE
-from .kagome import kagome_RVE, kagome_sym_RVE
+from .kagome import kagome_RVE
 
 
 # from .other_2d_microstructures import auxetic_square_RVE
@@ -510,7 +510,6 @@ from . import pantograph
 __all__ = [
     "pantograph_RVE",
     "kagome_RVE",
-    "kagome_sym_RVE",
     "pantograph_offset_RVE",
     "beam_pantograph_RVE",
     "pantograph_E11only_RVE",
