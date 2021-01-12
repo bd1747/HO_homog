@@ -10,8 +10,6 @@ Object designed to represent geometrical entitites of dimension two
 and instantiate them in a gmsh model.
 """
 
-from .curves import Line, Arc
-from .point import Point
 from . import factory, np, logger, model
 from .tools import round_corner, offset
 from .curves import Line, AbstractCurve

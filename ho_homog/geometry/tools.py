@@ -118,15 +118,7 @@ def round_corner(inp_pt, pt_amt, pt_avl, r, junction_raduis=False, plot=False):
     if alpha < 0:
         # corriger le cas des angles \in ]-pi;0[ = ]pi;2pi[]. L'arrondi est toujours dans le secteur <180° #noqa
         v_biss = -v_biss
-        
-   # if abs(alpha-math.pi)<10E-4:
-       # pt_amt_milieu=Point((pt_amt.coord+inp_pt.coord)/2)
-       # pt_avl_milieu=Point((pt_avl.coord+inp_pt.coord)/2)
-       # racc_amt = Line(pt_amt_milieu, inp_pt)
-        #racc_avl = Line(inp_pt, pt_avl_milieu)
-       # geoList = [racc_amt, racc_avl]
-        #raise ValueError("angle quasi plat")
-        #return geoList
+
     if junction_raduis:
         if plot:
             R = copy.deepcopy(r)
