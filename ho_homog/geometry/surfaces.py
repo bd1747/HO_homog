@@ -13,7 +13,7 @@ and instantiate them in a gmsh model.
 from .curves import Line, Arc
 from .point import Point
 from . import factory, np, logger, model
-from .tools import round_corner, offset, calcul_R, unit_vect,bisector,angle_between
+from .tools import round_corner, offset, calcul_R, unit_vect, bisector, angle_between
 from .curves import Line, AbstractCurve
 
 
@@ -79,7 +79,8 @@ class LineLoop(object):
                         if test:
                             break
                     else:
-                        # Aucun break déclenché, i.e. si l'un des cote de la lineloop courante n'appartient pas à la LineLoop comparée #noqa
+                        # Aucun break déclenché,
+                        # i.e. si l'un des cote de la lineloop courante n'appartient pas à la LineLoop comparée
                         return False
                 else:
                     return True
@@ -204,75 +205,58 @@ class LineLoop(object):
             )
         self.sides = round_corner_2_sides(result_1D)
 
-    def round_corner_kagome(self, r,a,alpha):
-        """ Opération d'arrondi des angles spécifique au kagomé appliquée à tous les sommets du polygone.
-        r = rayon du cercle inscrit dans la jonction
+    def round_corner_kagome(self, r, a, alpha):
+        """ Opération d'arrondi des angles spécifique à la microstructure 'kagome',
+        appliquée à tous les sommets du polygone.
+
         alpha = paramètre d'ouverture du kagomé
-        a : taille de la cellule de base
+        a :
         b : taille des éléments triangulaires
         theta : rotation du triangle à l'intérieur de la cellule de base
-        """
-        fine_points=[]#points centres des jonctions
-        effect_R,phi_1,phi_2=calcul_R(alpha,r,a)
 
-            # ! ESSAI
+        Parameters
+        ----------
+        r: float
+            Rayon du cercle inscrit dans la jonction
+        a: float
+            taille de la cellule de base
+        alpha: float
+            paramètre d'ouverture de la microstructure
+        """
+
+        effect_R, phi_1, phi_2 = calcul_R(alpha, r, a)
+
+        # ! ESSAI
         result_1D = list()
         for i in range(len(self.vertices)):
-            #if phi_1 < 10E-5 or phi_2 < 10E-5:
-            #print("pas d_arrondi")
-           # print("R=",effect_R)
-            #print("phi_1=", phi_1)
-           # print("phi_2=", phi_2)
-               # pt_amt_milieu=Point((self.vertices[i-2].coord+self.vertices[i-1].coord)/2)
-                #pt_avl_milieu=Point((self.vertices[i].coord+self.vertices[i-1].coord)/2)
-                #racc_amt = Line(pt_amt_milieu,self.vertices[i-1])
-               # racc_avl = Line(self.vertices[i-1], pt_avl_milieu)
-               # geoList = [racc_amt, racc_avl]
-
             d2 = effect_R / np.sin(phi_2)
             d1 = effect_R / np.sin(phi_1)
 
-            dir_1=self.vertices[i - 2].coord-self.vertices[i-1].coord
-            dir_2=self.vertices[i].coord-self.vertices[i-1].coord
-            dir_1=unit_vect(dir_1)
+            dir_1 = self.vertices[i - 2].coord - self.vertices[i - 1].coord
+            dir_2 = self.vertices[i].coord - self.vertices[i - 1].coord
+            dir_1 = unit_vect(dir_1)
             dir_2 = unit_vect(dir_2)
-            #print("OA",dir_1)
-           # print("OC",dir_2)
 
-            A = Point(self.vertices[i-1].coord + effect_R * dir_1)
-            C = Point(self.vertices[i-1].coord + effect_R * dir_2)
-
+            A = Point(self.vertices[i - 1].coord + effect_R * dir_1)
+            C = Point(self.vertices[i - 1].coord + effect_R * dir_2)
 
             alpha = angle_between(dir_1, dir_2, orient=True)
-            v_biss = bisector(dir_1, dir_2)
-            if alpha < 0:
-                v_biss = -v_biss
-           # print("somme angulaire",np.pi/2-phi_1+np.pi/2-phi_2+np.pi/3)
-            #print("angle mesuré",angle_between(v_biss,dir_1))
-           # print("difference angle avec phi_2",abs(abs(angle_between(v_biss,dir_1)) -(np.pi / 2 - phi_2)))
-           # print("difference angle avec phi_1", abs(abs(angle_between(v_biss,dir_1)) -(np.pi / 2 - phi_1)))
-            if abs(abs(angle_between(v_biss,dir_1)) -(np.pi / 2 - phi_2))<10E-14:#si on est du côté où l'angle vaut theta
-                d=d2
-            elif abs(abs(angle_between(v_biss,dir_1)) -(np.pi / 2 - phi_1))<10E-14:
-                d=d1
+            v_biss = bisector(dir_1, dir_2) if alpha >= 0 else - bisector(dir_1, dir_2)
+
+            if abs(abs(angle_between(v_biss, dir_1)) - (np.pi / 2 - phi_2)) < 10e-14:
+                # si on est du côté où l'angle vaut theta
+                d = d2
+            elif abs(abs(angle_between(v_biss, dir_1)) - (np.pi / 2 - phi_1)) < 10e-14:
+                d = d1
             else:
                 raise ValueError("mauvaise gestion de d1 et d2")
-            B = Point(self.vertices[i-1].coord + d * v_biss)
-            #if d-r>0:
-               # fine_points.append(Point(d*v_biss))
+            B = Point(self.vertices[i - 1].coord + d * v_biss)
             round_arc = Arc(A, B, C)
             racc_amt = Line(self.vertices[i - 2], A)
             racc_avl = Line(C, self.vertices[i])
-            geoList = [racc_amt, round_arc, racc_avl]
-
-            #  dir_3 = np.array([- dir_1.coord[1] , dir_1.coord[0] , 0.0])
-           # dir_4 = np.array([dir_2.coord[1], - dir_2.coord[0], 0.0])
-          #  dir_3 = unit_vect(dir_3) #a priori inutile #direction AB
-           # dir_4 = unit_vect(dir_4)#direction CB
-
-            result_1D.append(geoList)
+            curves_list = [racc_amt, round_arc, racc_avl]
+            result_1D.append(curves_list)
         self.sides = round_corner_2_sides(result_1D)
-        #return fine_points
 
     def vertices_2_sides(self):
         """ Méthode permettant de générer les segments reliant les sommets.
@@ -388,7 +372,7 @@ class AbstractSurface(object):
                     surfs.add_gmsh()
                 dim_tags = (2, surfs.tag)
             else:
-                raise (TypeError)
+                raise TypeError
         boundary_ = model.getBoundary(
             dim_tags, combined=True, oriented=False, recursive=False
         )
