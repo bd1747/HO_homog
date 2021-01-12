@@ -118,7 +118,15 @@ def round_corner(inp_pt, pt_amt, pt_avl, r, junction_raduis=False, plot=False):
     if alpha < 0:
         # corriger le cas des angles \in ]-pi;0[ = ]pi;2pi[]. L'arrondi est toujours dans le secteur <180° #noqa
         v_biss = -v_biss
-
+        
+   # if abs(alpha-math.pi)<10E-4:
+       # pt_amt_milieu=Point((pt_amt.coord+inp_pt.coord)/2)
+       # pt_avl_milieu=Point((pt_avl.coord+inp_pt.coord)/2)
+       # racc_amt = Line(pt_amt_milieu, inp_pt)
+        #racc_avl = Line(inp_pt, pt_avl_milieu)
+       # geoList = [racc_amt, racc_avl]
+        #raise ValueError("angle quasi plat")
+        #return geoList
     if junction_raduis:
         if plot:
             R = copy.deepcopy(r)
@@ -166,6 +174,33 @@ def round_corner(inp_pt, pt_amt, pt_avl, r, junction_raduis=False, plot=False):
 
     return geoList
 
+
+def fine_point_jonction(inp_pt, pt_amt, pt_avl, r,sharp_r):
+    """
+    Retourne le point au centre d'une jonction défini par deux angles aigus "dans le même sens"
+
+    """
+    from .transformations import translation
+
+    # Direction en amont et en aval
+    v_amt = unit_vect(pt_amt.coord - inp_pt.coord)
+    v_avl = unit_vect(pt_avl.coord - inp_pt.coord)
+
+    alpha = angle_between(v_amt, v_avl, orient=True)
+    v_biss = bisector(v_amt, v_avl)
+    if alpha < 0:
+        # corriger le cas des angles \in ]-pi;0[ = ]pi;2pi[]. L'arrondi est toujours dans le secteur <180° #noqa
+        v_biss = -v_biss
+        
+   
+
+    # Calcul des distances centre - sommet de l'angle et sommet - point de raccordement
+    dist_center = float(r/2+sharp_r) / abs(math.sin(alpha / 2.0))
+
+
+    pt_ctr = translation(inp_pt, dist_center * v_biss)
+
+    return pt_ctr
 
 def offset(pt, pt_dir1, pt_dir2, distance, method="vertex"):
     """[summary]

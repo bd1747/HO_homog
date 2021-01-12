@@ -10,6 +10,8 @@ Object designed to represent geometrical entitites of dimension two
 and instantiate them in a gmsh model.
 """
 
+from .curves import Line, Arc
+from .point import Point
 from . import factory, np, logger, model
 from .tools import round_corner, offset
 from .curves import Line, AbstractCurve
@@ -77,7 +79,8 @@ class LineLoop(object):
                         if test:
                             break
                     else:
-                        # Aucun break déclenché, i.e. si l'un des cote de la lineloop courante n'appartient pas à la LineLoop comparée #noqa
+                        # Aucun break déclenché,
+                        # i.e. si l'un des cote de la lineloop courante n'appartient pas à la LineLoop comparée
                         return False
                 else:
                     return True
@@ -316,7 +319,7 @@ class AbstractSurface(object):
                     surfs.add_gmsh()
                 dim_tags = (2, surfs.tag)
             else:
-                raise (TypeError)
+                raise TypeError
         boundary_ = model.getBoundary(
             dim_tags, combined=True, oriented=False, recursive=False
         )

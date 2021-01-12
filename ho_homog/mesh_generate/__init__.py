@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)  # http://sametmax.com/ecrire-des-logs-en-p
 
 __all__ = [
     "pantograph",
+    "kagome",
     "duplicate_pattern",
     "offset_pattern",
     "Gmsh2DRVE",
@@ -351,6 +352,8 @@ class Gmsh2DPart(object):
 
 
 from .pantograph import pantograph_RVE, pantograph_offset_RVE, beam_pantograph_RVE
+from .kagome import kagome_RVE
+
 
 # from .other_2d_microstructures import auxetic_square_RVE
 
@@ -456,6 +459,10 @@ def Gmsh2DPartFromRVE(cell: Gmsh2DRVE, nb_cells, part_name=None):
     factory.synchronize()
     for gp in phy_surfaces:
         gp.add_gmsh()
+    all_gp = model.getPhysicalGroups()
+    dimtags_part = [(gp.dim, gp.tag) for gp in phy_surfaces]
+    remove_gp = [dt for dt in all_gp if not dt in dimtags_part]
+    model.removePhysicalGroups(remove_gp)
     # ! Pour le moment, il semble impossible de réutiliser le tag d'un physical group
     # ! qui a été supprimé.
     # ! Voir : \Experimental\Test_traction_oct19\pb_complet\run_3\MWE_reuse_tag.py
@@ -497,10 +504,12 @@ def Gmsh2DPartFromRVE(cell: Gmsh2DRVE, nb_cells, part_name=None):
     return Gmsh2DPart(part_vect, nb_cells, phy_surfaces, part_path)
 
 
+from . import kagome
 from . import pantograph
 
 __all__ = [
     "pantograph_RVE",
+    "kagome_RVE",
     "pantograph_offset_RVE",
     "beam_pantograph_RVE",
     "pantograph_E11only_RVE",
