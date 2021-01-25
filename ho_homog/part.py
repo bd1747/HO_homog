@@ -139,7 +139,7 @@ class FenicsPart:
             )
             try:
                 mesh_path = mesh_file_paths[0]
-            except IndexError as error:
+            except (IndexError,TypeError) as error:
                 mesh_path = mesh_file_paths
                 logger.warning(error)
             suffix = mesh_path.suffix

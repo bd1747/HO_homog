@@ -71,16 +71,20 @@ def conversion_to_xdmf(i_path, o_path, cell_reg, facet_reg, dim, subdomains=Fals
     Source
     ------
     https://fenicsproject.discourse.group/t/transitioning-from-mesh-xml-to-mesh-xdmf-from-dolfin-convert-to-meshio/412/79?u=bd1747 #noqa
+    https://fenicsproject.discourse.group/t/transitioning-from-mesh-xml-to-mesh-xdmf-from-dolfin-convert-to-meshio/412/123?u=bd1747 #noqa
 
     """
     m = meshio.read(i_path)
+    # points: 2Darray( point, xyz)
+    # cells: list( cellblocks( type='line'/'triangle', data=2Darray(element, points) ))
+    # cell_data: dict('gmsh:physical', 2Darray(geo_tag, ph_tag))
+    # field_data: dict('top'/'bottom'/PH_NAME, 1Darray (ph_tag, geo_type)
+
     if dim == 2:
         m.points = m.points[:, :2]
-        triangles_cells = list()
-        for cell in m.cells:
-            if cell.type == "triangle":
-                triangles_cells.append(("triangle", cell.data))
-        geo_only = meshio.Mesh(points=m.points, cells=triangles_cells)
+        geo_only = meshio.Mesh(
+            points=m.points, cells=[("triangle", m.cells_dict["triangle"])]
+        )
         cell_key = "triangle"
         face_key = "line"
 
