@@ -200,7 +200,7 @@ def rotation_basis(pt_coord, angle, direction, point=None):
     pt_coord : 1-D array-like
         3 coordinates of the point to which the rotation is applied.
     angle : float
-        Rotation angle
+        Rotation angle in radians
     direction : 1-D array
         Direction of the axis of rotation, 3 component vector
     point : 1-D array, optional

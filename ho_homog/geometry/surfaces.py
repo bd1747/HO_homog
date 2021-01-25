@@ -310,7 +310,7 @@ class AbstractSurface(object):
         def_crv = []
         surfs = _wrap_in_list(surfs, "surfs", (PlaneSurface, AbstractSurface))
         for s in surfs:
-            if not surfs.tag:
+            if not s.tag:
                 s.add_gmsh()
         dim_tags = [(2, s.tag) for s in surfs]
         boundary_ = model.getBoundary(
