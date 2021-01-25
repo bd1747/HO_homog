@@ -13,10 +13,11 @@ and instantiate them in a gmsh model.
 from . import factory, np, logger, model
 from .tools import round_corner, offset
 from .curves import Line, AbstractCurve
+from ..toolbox_FEniCS import _wrap_in_list
 
 
 def round_corner_2_sides(result_list):
-    """ Permet de traiter les résultats d'une opération round_corner
+    """Permet de traiter les résultats d'une opération round_corner
     appliquée en série sur un ensemble de sommets.
     Une polyligne composée de segments et d'arc est composée.
     """
@@ -55,15 +56,15 @@ class LineLoop(object):
 
     def __eq__(self, other):
         """
-         Opérateur de comparaison == surchargé pour les objets de la classe LineLoop
-         Si la LineLoop n'est définie que par ses sommets :
-            True ssi les listes de sommets sont égales, à un décalage d'indice près.
-         Si la LineLoop est aussi définie par des Line/Arc :
-            True ssi l'ensemble des éléments 1D qui composent la LineLoop est
-            identique à celui de la LineLoop comparée.
-         L'orientation est prise en compte.
+        Opérateur de comparaison == surchargé pour les objets de la classe LineLoop
+        Si la LineLoop n'est définie que par ses sommets :
+           True ssi les listes de sommets sont égales, à un décalage d'indice près.
+        Si la LineLoop est aussi définie par des Line/Arc :
+           True ssi l'ensemble des éléments 1D qui composent la LineLoop est
+           identique à celui de la LineLoop comparée.
+        L'orientation est prise en compte.
 
-         """
+        """
         if not isinstance(other, LineLoop):
             return False
         if self.sides or other.sides:
@@ -77,8 +78,8 @@ class LineLoop(object):
                         if test:
                             break
                     else:
-                        # Aucun break déclenché,
-                        # i.e. si l'un des cote de la lineloop courante n'appartient pas à la LineLoop comparée
+                        # Aucun break déclenché
+                        # i.e. L'un des cote de la lineloop self n'appartient pas à la LinLoop other. #noqa
                         return False
                 else:
                     return True
@@ -122,7 +123,7 @@ class LineLoop(object):
         self.vertices.reverse()
 
     def offset(self, t, method="vertex"):
-        """ Opération d'offset appliquée sur tout les sommets de la LineLoop.
+        """Opération d'offset appliquée sur tout les sommets de la LineLoop.
 
         Cette opération doit donc être faite assez tôt,
         avant que les Line/Arc composant la LineLoop soient créés.
@@ -171,7 +172,7 @@ class LineLoop(object):
         self.sides = round_corner_2_sides(result_1D)
 
     def round_corner_incircle(self, radii):
-        """ Opération d'arrondi des angles appliquée à tous les sommets du polygone.
+        """Opération d'arrondi des angles appliquée à tous les sommets du polygone.
         La méthode du cercle inscrit est utilisée.
         radii = liste de rayons à utiliser ou valeur (float) si rayon uniforme.
         Une liste de rayons de cercles inscrits peut être indiquée,
@@ -204,7 +205,7 @@ class LineLoop(object):
         self.sides = round_corner_2_sides(result_1D)
 
     def vertices_2_sides(self):
-        """ Méthode permettant de générer les segments reliant les sommets.
+        """Méthode permettant de générer les segments reliant les sommets.
         Si une opération round_corner est utilisé, cette opération est inutile."""
         if self.sides:
             logger.warning(
@@ -228,13 +229,14 @@ class PlaneSurface(object):
         self.ext_contour = ext_contour
         self.holes = holes
         self.tag = None
+        #TODO : define tag as a @property
         self.boundary = ext_contour.sides + [crv for h in holes for crv in h.sides]
         # Pour favoriser le duck typing ?
 
     def __eq__(self, other):
         """
-         Opérateur de comparaison == surchargé pour les objets de la classe Plane Surface
-         Orientation prise en compte. Considérer le cas de surfaces non orientées ????
+        Opérateur de comparaison == surchargé pour les objets de la classe Plane Surface
+        Orientation prise en compte. Considérer le cas de surfaces non orientées ????
         """
 
         if not isinstance(other, PlaneSurface):
@@ -255,9 +257,9 @@ class PlaneSurface(object):
     def add_gmsh(self):
         if self.tag:
             return self.tag
-        all_loops = (
-            [self.ext_contour] if not self.holes else [self.ext_contour] + self.holes
-        )
+        all_loops = [self.ext_contour]
+        if self.holes:
+            all_loops += self.holes
         for ll in all_loops:
             if not ll.tag:
                 ll.add_gmsh()
@@ -306,18 +308,11 @@ class AbstractSurface(object):
 
         """
         def_crv = []
-        try:
-            for s in surfs:
-                if not s.tag:
-                    s.add_gmsh()
-            dim_tags = [(2, s.tag) for s in surfs]
-        except TypeError:
-            if isinstance(surfs, (PlaneSurface, AbstractSurface)):
-                if not surfs.tag:
-                    surfs.add_gmsh()
-                dim_tags = (2, surfs.tag)
-            else:
-                raise TypeError
+        surfs = _wrap_in_list(surfs, "surfs", (PlaneSurface, AbstractSurface))
+        for s in surfs:
+            if not surfs.tag:
+                s.add_gmsh()
+        dim_tags = [(2, s.tag) for s in surfs]
         boundary_ = model.getBoundary(
             dim_tags, combined=True, oriented=False, recursive=False
         )
