@@ -72,6 +72,7 @@ def geo_transformation_factory(pt_coord_fctn):
                 "cannot be modified if this entity has already been added"
                 "to the gmsh geometry model."
             )
+            # TODO : Corriger. Plus exactement, une fois l'instance de Point, Line,... ajouté au modèle, on ne peut s'assurer que des opérations réalisées dans gmsh n'ont pas modifié ses coordonnées.
         if isinstance(geo_ent, Point):
             coord = pt_coord_fctn(geo_ent.coord, *args, **kwargs)
             new_ent = Point(coord)
