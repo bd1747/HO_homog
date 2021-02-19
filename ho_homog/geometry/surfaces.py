@@ -13,7 +13,7 @@ and instantiate them in a gmsh model.
 from . import factory, np, logger, model
 from .tools import round_corner, offset
 from .curves import Line, AbstractCurve
-from ..toolbox_FEniCS import _wrap_in_list
+from ..toolbox_misc import _wrap_in_list
 
 
 def round_corner_2_sides(result_list):

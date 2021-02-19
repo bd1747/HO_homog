@@ -244,27 +244,6 @@ def local_project(v, fspace, solver_method: str = "", **kwargs):
     return u
 
 
-def _wrap_in_list(obj, name, types=type):
-    """
-    Transform single object or a collection of objects into a list.
-
-    Source
-    ------
-    python/dolfin/fem/assembling.py, commit 4c72333
-    """
-
-    if obj is None:
-        lst = []
-    elif hasattr(obj, "__iter__"):
-        lst = list(obj)
-    else:
-        lst = [obj]
-    for obj in lst:
-        if not isinstance(obj, types):
-            raise TypeError(f"expected a (list of) {types} as {name} argument")
-    return lst
-
-
 def xdmf_mesh(mesh_file):
     """Create a FeniCS mesh from a mesh file with xdmf format.
 
