@@ -208,7 +208,7 @@ class AbstractCurve(Curve):
         """
         bndry_logger.debug(f"Abstract Curve -> get_boundary. self.tag : {self.tag}")
         def_pts = []
-        boundary = model.getBoundary((1, self.tag), False, False, False)
+        boundary = model.getBoundary([(1, self.tag)], False, False, False)
         bndry_logger.debug(
             f"Abstract Curve -> get_boundary. raw API return : {boundary}"
         )
