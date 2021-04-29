@@ -187,6 +187,9 @@ def function_errornorm(u, v, norm_type="L2", enable_diff_fspace=False):
     return fe.norm(difference, norm_type)
 
 
+_local_solvers = list()
+
+
 def local_project(v, fspace, solver_method: str = "", **kwargs):
     """
     Parameters
@@ -223,22 +226,34 @@ def local_project(v, fspace, solver_method: str = "", **kwargs):
     metadata = kwargs.get("metadata", {})
     dx = kwargs.get("dx", fe.dx(metadata=metadata))
 
+    reuse_solver = kwargs.get(
+        "reuse_solver", True
+    )  # Reuse a LocalSolver that already exists
+    id_function_space = (
+        fspace.id()
+    )  # The id is unique. https://fenicsproject.org/olddocs/dolfin/latest/cpp/d8/df0/classdolfin_1_1Variable.html#details
+
     dv = fe.TrialFunction(fspace)
     v_ = fe.TestFunction(fspace)
     a_proj = fe.inner(dv, v_) * dx
     b_proj = fe.inner(v, v_) * dx
 
     if solver_method == "LU":
-        solver = fe.LocalSolver(
-            a_proj, b_proj, solver_type=fe.cpp.fem.LocalSolver.SolverType.LU
-        )
+        solver_type = fe.cpp.fem.LocalSolver.SolverType.LU
+        solver = fe.LocalSolver(a_proj, b_proj, solver_type=solver_type)
     elif solver_method == "Cholesky":
-        solver = fe.LocalSolver(
-            a_proj, b_proj, solver_type=fe.cpp.fem.LocalSolver.SolverType.Cholesky
-        )
+        solver_type = fe.cpp.fem.LocalSolver.SolverType.Cholesky
+        solver = fe.LocalSolver(a_proj, b_proj, solver_type=solver_type)
     else:
         solver = fe.LocalSolver(a_proj, b_proj)
-    solver.factorize()
+
+    if not (reuse_solver and ((id_function_space, solver_method) in _local_solvers)):
+        solver.factorize()
+        # You can optionally call the factorize() method to pre-calculate the local left-hand side factorizations to speed up repeated applications of the LocalSolver with the same LHS
+        # This class can be used for post-processing solutions, e.g.computing stress fields for visualisation, far more cheaply that using global projections
+        # https://fenicsproject.org/olddocs/dolfin/latest/cpp/de/d86/classdolfin_1_1LocalSolver.html#details
+        _local_solvers.append((id_function_space, solver_method))
+
     u = fe.Function(fspace)
     solver.solve_local_rhs(u)
     return u
@@ -270,7 +285,7 @@ _warning_message_ = "The {} file is missing for the mesh {}."
 
 
 def import_subdomain_data_xml(mesh, mesh_file):
-    """ Import data from the _physical_region.xml and _facet_region.xml files
+    """Import data from the _physical_region.xml and _facet_region.xml files
     that result from the mesh conversion to .xml with dolfin-convert
 
     Parameters

@@ -89,8 +89,8 @@ class PeriodicDomain(fe.SubDomain):
         dual_vect = np.linalg.inv(part_vectors).T
         basis, dualbasis = list(), list()
         for i in range(np.size(part_vectors, 1)):
-            basis.append(fe.as_vector(part_vectors[:, i]))
-            dualbasis.append(fe.as_vector(dual_vect[:, i]))
+            basis.append(part_vectors[:, i])
+            dualbasis.append(dual_vect[:, i])
         bl_corner = np.asarray(bl_corner)
         assert len(bl_corner.shape) == 1 and bl_corner.shape[0] == dim
         master_tests, slave_tests, per_vectors = list(), list(), list()
@@ -149,7 +149,7 @@ class PeriodicDomain(fe.SubDomain):
             basis.append(fe.as_vector(part_vectors[:, i]))
         per_values = [val for couple in per_choice for val in couple]
         coordinates = dict()
-        mesh.init(1, 0)
+        mesh.init(1, 0) # Compute connectivity between given pair of dimensions.
         for val in per_values:
             points_for_val = list()
             facet_idces = facet_function.where_equal(val)
