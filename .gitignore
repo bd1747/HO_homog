@@ -10,3 +10,7 @@ demo/loc_E12_u.pdf
 *.egg-info/
 ho_homog/.idea
 *.iml
+demo/demo_homog2d_fine_mesh_soft.svg
+demo/demo_homog2d_fine_mesh_voids.svg
+demo/demo_homog2d_small_mesh_voids.svg
+.idea/
