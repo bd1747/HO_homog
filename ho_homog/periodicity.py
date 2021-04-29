@@ -190,7 +190,8 @@ per_scalar_fnct_cpp_code = """
 
     #include <dolfin/function/Expression.h>
     #include <dolfin/function/Function.h>
-
+    #include <vector>
+    #include <Eigen/Dense>
     class PeriodicExpr : public dolfin::Expression
     {
     public:
