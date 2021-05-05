@@ -207,35 +207,35 @@ def beam_pantograph_RVE(
     a, b, w, junction_r=0.0, nb_cells=(1, 1), offset=(0.0, 0.0), soft_mat=False, name=""
 ):
     """
-        Create an instance of Gmsh2DRVE that represents a RVE of the beam pantograph microstructure.
-        The geometry that is specific to this microstructure is defined in this staticmethod. Then, the generic operations will be performed with the Gmsh2DRVE methods.
+    Create an instance of Gmsh2DRVE that represents a RVE of the beam pantograph microstructure.
+    The geometry that is specific to this microstructure is defined in this staticmethod. Then, the generic operations will be performed with the Gmsh2DRVE methods.
 
-        Parameters
-        ----------
-        a, b : floats
-            main lengths of the microstruture
-        w : float
-            width of the constitutive beams
-        junction_r : float, optional
-            Radius of the corners/fillets that are created between concurrent borders of beams.
-            The default is 0., which implies that the angles will not be rounded.
-        nb_cells : tuple or 1D array, optional
-            nb of cells in each direction of repetition (the default is (1, 1).)
-        offset : tuple, optional
-            If (0., 0.) or False : No shift of the microstructure.
-            Else : The microstructure is shift with respect to the macroscopic domain.
-            offset is the relative position inside a cell of the point that will coincide with the origin of the global domain.
-        soft_mat : bool, optional
-            If True : the remaining surface inside the RVE is associated with a second material domain and a mesh is genereted to represent it.
-            Else, this space remains empty.
-        name : str, optional
-            The name of the RVE. It is use for the gmsh model and the mesh files.
-            If name is '' (default) or False, the name of the RVE is 'beam_pantograph'.
+    Parameters
+    ----------
+    a, b : floats
+        main lengths of the microstruture
+    w : float
+        width of the constitutive beams
+    junction_r : float, optional
+        Radius of the corners/fillets that are created between concurrent borders of beams.
+        The default is 0., which implies that the angles will not be rounded.
+    nb_cells : tuple or 1D array, optional
+        nb of cells in each direction of repetition (the default is (1, 1).)
+    offset : tuple, optional
+        If (0., 0.) or False : No shift of the microstructure.
+        Else : The microstructure is shift with respect to the macroscopic domain.
+        offset is the relative position inside a cell of the point that will coincide with the origin of the global domain.
+    soft_mat : bool, optional
+        If True : the remaining surface inside the RVE is associated with a second material domain and a mesh is genereted to represent it.
+        Else, this space remains empty.
+    name : str, optional
+        The name of the RVE. It is use for the gmsh model and the mesh files.
+        If name is '' (default) or False, the name of the RVE is 'beam_pantograph'.
 
-        Returns
-        -------
-        Instance of the Gmsh2DRVE class.
-        """
+    Returns
+    -------
+    Instance of the Gmsh2DRVE class.
+    """
 
     name = name if name else "beam_pantograph"
     offset = np.asarray(offset)
@@ -325,43 +325,35 @@ def pantograph_E11only_RVE(
     cell_vect = np.array(((Lx, 0.0), (0.0, Ly)))
     e1 = np.array((a, 0.0, 0.0))
     e2 = np.array((0.0, a, 0.0))
+    pt_L = 2 * (e1 + e2)
 
-    pt_O = geo.Point((0.0, 0.0, 0.0))
-    L = geo.Point(2 * (e1 + e2))
+    square = [e1, e2, -e1, -e2]
+    square = [p + pt_L for p in square]
+    square = [geo.Point(p) for p in square]
 
-    square = [
-        geo.translation(L, e1),
-        geo.translation(L, e2),
-        geo.translation(L, -1 * e1),
-        geo.translation(L, -1 * e2),
-    ]
-    rhombus_v = [
-        pt_O,
-        geo.Point(e1 + 2 * e2),
-        geo.Point(4 * e2),
-        geo.Point(-e1 + 2 * e2),
-    ]
+    rhombus_v = [np.array((0.0, 0.0)), e1 + 2 * e2, 4 * e2, -e1 + 2 * e2]
+    rhombus_v = [geo.Point(p) for p in rhombus_v]
+
     cut_shape_h = [
-        pt_O,
-        geo.Point(0.25 * (-2 * e1 + e2)),
-        geo.Point(0.25 * (-4 * e1 + e2)),
-        geo.Point(0.25 * (-4 * e1 - e2)),
-        # geo.Point(-2 * e1 - e2),
-        # geo.Point(6 * e1 - e2),
-        geo.Point(4 * e1 + 0.25 * (4 * e1 - e2)),
-        geo.Point(4 * e1 + 0.25 * (4 * e1 + e2)),
-        geo.Point(4 * e1 + 0.25 * (2 * e1 + e2)),
-        # geo.Point(6 * e1 + e2),
-        geo.Point(4 * e1),
-        geo.Point(e2 + 2 * e1),
+        np.array((0.0, 0.0)),
+        0.25 * (-2 * e1 + e2),
+        0.25 * (-4 * e1 + e2),
+        0.25 * (-4 * e1 - e2),
+        4 * e1 + 0.25 * (4 * e1 - e2),
+        4 * e1 + 0.25 * (4 * e1 + e2),
+        4 * e1 + 0.25 * (2 * e1 + e2),
+        4 * e1,
+        e2 + 2 * e1,
     ]
+    cut_shape_h = [geo.Point(p) for p in cut_shape_h]
+    
     square = geo.LineLoop(square, explicit=False)
     rhombus_v = geo.LineLoop(rhombus_v, explicit=False)
     cut_shape_h = geo.LineLoop(cut_shape_h, explicit=False)
     pattern = [square, rhombus_v, cut_shape_h]
     sym_rhombus = [
-        geo.plane_reflection(rhombus_v, L, e1),
-        geo.plane_reflection(cut_shape_h, L, e2),
+        geo.plane_reflection(rhombus_v, pt_L, e1),
+        geo.plane_reflection(cut_shape_h, pt_L, e2),
     ]
     for ll in sym_rhombus:
         ll.reverse()
