@@ -42,17 +42,26 @@ def kagome_RVE(alpha, r, a=None, b=None, nb_cells=(1, 1), offset=(0.0, 0.0), nam
         Paramètre d'ouverture, intervalle [0, 0.5]
         0: configuration refermé
         0.5: configuration complétement ouverte
+    a : float
+        longueur du côté bas de la cellule
+    b : float
+        longueur des côtés des triangles constitutifs
     name : str
 
     r : float
-        junction thinness, rayon de jonction / côté d'un triangle
+        junction thinness, = rayon du cercle inscrit / côté d'un triangle
 
     Returns
     -------
     Instance of the Gmsh2DRVE class.
 
-    La cellule est de taille constante,
-    par contre les triangles ont une taille qui dépend de l'angle d'ouverture.
+    Si a est imposée :
+    La cellule est de taille fixe,
+    par contre la longueur des côtés des triangles dépend de l'angle d'ouverture de la microstructure.
+    Si b est imposé :
+    C'est l'inverse.
+    Triangles de dimensions fixes, dimensions de la cellules dépendent de l'ouverture.
+
     """
 
     logger.info("Start defining the geometry")
@@ -160,9 +169,9 @@ def round_corner_kagome(lineloop, r, a, alpha):
         pt_amt = geo.translation(cur_pt, effect_r * dir_1)
         pt_avl = geo.translation(cur_pt, effect_r * dir_2)
 
-        alpha = geo.angle_between(dir_1, dir_2, orient=True)
+        angle_ = geo.angle_between(dir_1, dir_2, orient=True)
         v_biss = geo.bisector(dir_1, dir_2)
-        if alpha < 0:
+        if angle_ < 0:
             v_biss = -v_biss
 
         if abs(abs(geo.angle_between(v_biss, dir_1)) - (np.pi / 2 - phi_2)) < 10e-14:
