@@ -19,7 +19,7 @@ model = gmsh.model
 factory = model.occ
 
 
-def square_auxetics_RVE(
+def rotating_squares_RVE(
     theta, r, a=None, b=None, nb_cells=(1, 1), offset=(0.0, 0.0), name=""
 ):
     """[summary]
