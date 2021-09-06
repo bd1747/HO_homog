@@ -93,11 +93,7 @@ def pantograph_RVE(
     logger.info("Done rounding all corners of pattern line-loops")
 
     constr_pts = [pt for ll in pattern_ll for pt in ll.vertices]
-    fine_pts = [
-        pt
-        for pt in constr_pts
-        if (pt.coord[0] % 1 < p[0] / 2.0 or pt.coord[0] % 1 > 1.0 - p[0] / 2.0)
-    ]
+    fine_pts = [pt for pt in constr_pts if _filter_free_rhombus_vertex(pt, k)]
     fine_pts = geo.remove_duplicates(fine_pts)
     return Gmsh2DRVE(pattern_ll, cell_vect, nb_cells, offset, fine_pts, soft_mat, name)
 
@@ -158,19 +154,18 @@ def pantograph_offset_RVE(
     Lm = geo.Point(2 * (e1 - e2))
     M = geo.Point(e1 + 1.5 * e2 + b_ / 2)
     I = geo.Point(2 * (e1 + 1.5 * e2 + b_ / 2))
-    contours = list()
-    contours.append([E1, E2, E1m, E2m])
-    contours.append([E1, Lm, geo.Point(3 * e1), L])
-    contours.append(
-        [
-            E2,
-            L,
-            geo.translation(L, 0.5 * b_ - p),
-            geo.translation(L, b_),
-            geo.translation(E2, b_),
-            geo.translation(E2, 0.5 * b_ + p),
-        ]
-    )
+    contour_1 = [E1, E2, E1m, E2m]
+    contour_2 = [E1, Lm, geo.Point(3 * e1), L]
+    contour_3 = [
+        E2,
+        L,
+        geo.translation(L, 0.5 * b_ - p),
+        geo.translation(L, b_),
+        geo.translation(E2, b_),
+        geo.translation(E2, 0.5 * b_ + p),
+    ]
+    contours = [contour_1, contour_2, contour_3]
+
     pattern_ll = [geo.LineLoop(pt_list, explicit=False) for pt_list in contours]
     pattern_ll += [geo.point_reflection(ll, M) for ll in pattern_ll]
     sym_ll = [geo.plane_reflection(ll, I, e1) for ll in pattern_ll]
@@ -193,12 +188,7 @@ def pantograph_offset_RVE(
         for ll in pattern_ll:
             ll.round_corner_explicit(fillet_r)
         logger.info("Done rounding all corners of pattern line-loops")
-
-    fine_pts = [
-        pt
-        for pt in constr_pts
-        if (pt.coord[0] % 1 < p[0] / 2.0 or pt.coord[0] % 1 > 1.0 - p[0] / 2.0)
-    ]
+    fine_pts = [pt for pt in constr_pts if _filter_free_rhombus_vertex(pt, k)]
     fine_pts = geo.remove_duplicates(fine_pts)
     return Gmsh2DRVE(pattern_ll, cell_vect, nb_cells, offset, fine_pts, soft_mat, name)
 
@@ -346,7 +336,7 @@ def pantograph_E11only_RVE(
         e2 + 2 * e1,
     ]
     cut_shape_h = [geo.Point(p) for p in cut_shape_h]
-    
+
     square = geo.LineLoop(square, explicit=False)
     rhombus_v = geo.LineLoop(rhombus_v, explicit=False)
     cut_shape_h = geo.LineLoop(cut_shape_h, explicit=False)
@@ -374,3 +364,23 @@ def pantograph_E11only_RVE(
     logger.info("Done rounding all corners of pattern line-loops")
     fine_pts = geo.remove_duplicates(constr_pts)
     return Gmsh2DRVE(pattern, cell_vect, nb_cells, offset, fine_pts, soft_mat, name)
+
+
+# Tool function for rounding the corners
+def _filter_free_rhombus_vertex(pt, k):
+    """Tool function for rounding the corners in pantographic microstructure.
+    The corners of the rhombi that are not connected to a triangle are unchanged.
+
+    Parameters
+    ----------
+    pt : Point
+        Vertex of a line loop that define the unit-cell geometry.
+    k : float
+        Width of the rhombi
+
+    Returns
+    -------
+    Bool
+        False if the vertex belong to a rhombi and is not at a junction.
+    """
+    return pt.coord[0] % 1 < k / 2.0 or pt.coord[0] % 1 > 1.0 - k / 2.0
