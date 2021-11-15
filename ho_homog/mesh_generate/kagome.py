@@ -194,7 +194,8 @@ def round_corner_kagome(lineloop, r, a, alpha):
 def calcul_effective_r(alpha, r, a):
     """
     Méthode de construction des jonctions propre au kagomé.
-
+    # TODO : Prendre en compte cas particulier
+    # ! Le cas 30 degré est problèmatique !
     Parameters
     ----------
     alpha: float
@@ -225,3 +226,14 @@ def calcul_effective_r(alpha, r, a):
             -sin(phi_2) * cos(phi_1) - sin(phi_1) * cos(phi_2) + sin(phi_2) + sin(phi_1)
         )
     return effect_r, phi_1, phi_2
+
+def _theta_deg_to_alpha(theta):
+    """ Non implémenté de manière définitive
+    Formule : alpha = (2 sin(θ))/(sqrt(3 - 3 sin(θ)^2) + 3 sin(θ))
+    Utilisée avec succ pour la représation d'échantillons de microstructures.
+    """
+    # sin_ = np.sin(np.deg2rad(theta))
+    # alpha = (2 * sin_) / (np.sqrt(3 - 3 * sin_ ** 2) + 3 * sin_)
+    # return alpha
+    return None
+
