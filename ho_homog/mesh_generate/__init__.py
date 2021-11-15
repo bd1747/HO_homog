@@ -161,33 +161,31 @@ class Gmsh2DRVE(object):
         macro_s = geo.PlaneSurface(macro_ll)
 
         if attractors:
-            for entity in attractors:
-                if not isinstance(entity, geo.Point):
-                    raise TypeError(
-                        """Use of curves as attractors for the refinement of the mesh
-                    is not yet fully supported in our python library for gmsh."""
-                    )
+            if not all(isinstance(e, geo.Point) for e in attractors):
+                _err_msg = """Use of curves as attractors for the refinement of the mesh
+                is not yet fully supported in our python library for gmsh."""
+                raise TypeError(_err_msg)
+                # TODO : toujours d'actualité ?
             if offset.any():
                 attractors = offset_pattern(attractors, offset, cell_vect)
             if not np.equal(nb_pattern, 1).all():
                 duplicate_pattern(attractors, nb_pattern, cell_vect)
 
         logger.info("Start boolean operations on surfaces")
+        _msg_ok = "The main material domain of the RVE is connected (topological property)."  # noqa
+        _msg_no_surface = "The boolean operation for creating the main material domain of the RVE return 0 surfaces."
+        _msg_not_connected = "The main material domain of the RVE obtained by a boolean operation is disconnected (topological property)."
+
         phy_surf = list()
         pattern_s = [geo.PlaneSurface(ll) for ll in pattern_ll]
         rve_s = geo.surface_bool_cut(macro_s, pattern_s)
         if len(rve_s) == 1:
-            logger.info(
-                "The main material domain of the RVE is connected (topological property)."
-            )
+            logger.info(_msg_ok)
         elif len(rve_s) == 0:
-            logger.warning(
-                "The boolean operation for creating the main material domain of the RVE return 0 surfaces."
-            )
+            logger.warning(_msg_no_surface)
         else:
-            logger.warning(
-                "The main material domain of the RVE obtained by a boolean operation is disconnected (topological property)."
-            )
+            logger.warning(_msg_not_connected)
+
         rve_s_phy = geo.PhysicalGroup(rve_s, 2, "microstruct_domain")
         phy_surf.append(rve_s_phy)
         if soft_mat:
@@ -222,8 +220,10 @@ class Gmsh2DRVE(object):
         logger.info("Done generating the gmsh geometrical model")
         if isinstance(name, PurePath):
             gmsh.write(str(name.with_suffix(".brep")))
+            logger.info(f"Saving brep at {str(name.with_suffix('.brep'))}")
         else:
             gmsh.write(f"{name}.brep")
+            logger.info(f"Saving brep at {name}.brep")
         macro_bndry = macro_ll.sides
         if soft_mat:
             boundary = geo.AbstractSurface.get_surfs_boundary(rve_s + soft_s)
@@ -255,12 +255,8 @@ class Gmsh2DRVE(object):
         msh.set_periodicity_pairs(micro_bndry[0], micro_bndry[2])
         msh.set_periodicity_pairs(micro_bndry[1], micro_bndry[3])
         logger.info("Done defining a mesh periodicity constraint")
-        tags = [
-            "per_pair_1_slave",
-            "per_pair_2_slave",
-            "per_pair_1_mast",
-            "per_pair_2_mast",
-        ]
+
+        tags = [f"per_pair_{k}" for k in ("1_slave", "2_slave", "1_mast", "2_mast")]
         per_pair_phy = list()
         for crvs, tag in zip(micro_bndry, tags):
             per_pair_phy.append(geo.PhysicalGroup(crvs, 1, tag))

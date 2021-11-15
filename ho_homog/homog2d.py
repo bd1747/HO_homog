@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 
 class Fenics2DHomogenization(object):
-    """ #TODOC """
+    """#TODOC"""
 
     def __init__(self, fenics_2d_rve, **kwargs):
         """[summary]
@@ -577,6 +577,11 @@ class Fenics2DHomogenization(object):
                     )
                 )
             ]
+        # zero_ = fe.interpolate(fe.Constant(0.0), self.X)
+        # # Possibilité de mettre directement fe.Constant(0.0) ?
+        # prestrain_ = (U[i][0], zero_, U[i][1] / fe.sqrt(2))
+        # prestrain_ = fe.as_vector(prestrain_)
+        # Epsilon0.append(prestrain_)
 
         for i in range(len(U)):
             Epsilon0 = Epsilon0 + [
@@ -588,5 +593,9 @@ class Fenics2DHomogenization(object):
                     )
                 )
             ]
-
+        # zero_ = fe.interpolate(fe.Constant(0.0), self.X)
+        # # Possibilité de mettre directement fe.Constant(0.0) ?
+        # prestrain_ = (zero_, U[i][1], U[i][0] / fe.sqrt(2))
+        # prestrain_ = fe.as_vector(prestrain_)
+        # Epsilon0.append(prestrain_)
         return Epsilon0
