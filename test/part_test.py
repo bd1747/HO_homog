@@ -185,7 +185,7 @@ def test_mat_area():
     factory.synchronize()
     for dim_tag in model.getEntities(2):
         if not dim_tag[1] == surface.tag:
-            model.removeEntities(dim_tag, True)
+            model.removeEntities([dim_tag], True)
     charact_field = mesh_tools.MathEvalField("0.1")
     mesh_tools.set_background_mesh(charact_field)
     geo.set_gmsh_option("Mesh.SaveAll", 1)

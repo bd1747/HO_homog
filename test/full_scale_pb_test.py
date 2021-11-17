@@ -252,6 +252,7 @@ def test_select_solver():
     difference = fe.errornorm(exact_sol, reconstr_sol, "L2", mesh=mesh)
     error = difference / exact_norm
     logger.debug(f"Relative error = {error}")  # * ref: 3.2625e-15
+    # ! Problème ! Erreur lors du test !!! 17/11/2021
     assert error == approx(0.0, abs=1e-14)
 
 

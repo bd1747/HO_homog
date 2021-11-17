@@ -174,6 +174,11 @@ def function_errornorm(u, v, norm_type="L2", enable_diff_fspace=False):
     float
         Norm of the difference
     """
+    # TODO: Indiquer la différence avec la fonction errornorm de FEnics, si elle existe.
+    # TODO : Quelle est la différence avec fe.errornorm ?
+    # TODO : Dans Tutorial 1 FEniCS, il est dans le paragraphe sur errornorm que les 2 fonctions sont
+    # interpolées dans un espace fonctionnel de degré supérieur pour avoir une meilleure précision.
+    # Est-ce que je ne devrais pas faire ça ici, également ?
     if u.function_space() == v.function_space():
         difference = fe.Function(u.function_space())
         difference.assign(u)
